@@ -1,0 +1,1047 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Minizon API",
+        "description": "API REST de la plateforme **Minizon** — Application de transport et livraison.\n\n\r\n### Authentification\r\nToutes les routes protégées nécessitent un token **Bearer (Sanctum)**.\r\nObtenez-le via `POST /api/auth/verify-otp` ou `POST /api/auth/admin/login`.\r\n\r\n### Codes de réponse standards\r\n| Code | Signification |\r\n|------|---------------|\r\n| 200  | Succès |\r\n| 201  | Ressource créée |\r\n| 401  | Non authentifié |\r\n| 403  | Accès interdit |\r\n| 404  | Ressource introuvable |\r\n| 422  | Erreur de validation |\r\n| 500  | Erreur serveur |",
+        "contact": {
+            "name": "Équipe Minizon",
+            "email": "dev@minizon.com"
+        },
+        "license": {
+            "name": "Propriétaire — Minizon SAS",
+            "url": "https://minizon.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000",
+            "description": "🖥️ Serveur de développement local"
+        },
+        {
+            "url": "https://api.minizon.com",
+            "description": "🌐 Serveur de production"
+        }
+    ],
+    "paths": {
+        "/api/test": {
+            "get": {
+                "summary": "Route de test",
+                "operationId": "7c2e6b5602b42636e41cc7228a9d8765",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                }
+            }
+        },
+        "/api/auth/send-otp": {
+            "post": {
+                "tags": [
+                    "🔓 Authentification & KYC"
+                ],
+                "summary": "Demande d'OTP",
+                "description": "Génère un code de vérification à 6 chiffres et l'associe au numéro de téléphone. Le code expire après **2 minutes**.",
+                "operationId": "sendOtp",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "description": "Numéro de téléphone au format international E.164",
+                                        "type": "string",
+                                        "example": "+2290161165619"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Code OTP généré avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Code OTP généré avec succès."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "phone": {
+                                                    "type": "string",
+                                                    "example": "+2290161165619"
+                                                },
+                                                "otp_code": {
+                                                    "type": "string",
+                                                    "example": "584291"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Format de numéro invalide",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/verify-otp": {
+            "post": {
+                "tags": [
+                    "🔓 Authentification & KYC"
+                ],
+                "summary": "Validation de l'OTP",
+                "description": "Vérifie le code OTP. En cas de succès, un token Sanctum est délivré et le code est consommé (usage unique).",
+                "operationId": "verifyOtp",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone",
+                                    "otp_code"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+2290161165619"
+                                    },
+                                    "otp_code": {
+                                        "description": "Code à 6 chiffres",
+                                        "type": "string",
+                                        "example": "584291"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authentification réussie — token Sanctum délivré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Authentification réussie."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "1|laravel_sanctum_token..."
+                                                },
+                                                "profile_complete": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "is_verified": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Code OTP incorrect ou expiré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données incomplètes ou invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "tags": [
+                    "🔓 Authentification & KYC"
+                ],
+                "summary": "Inscription & Soumission KYC",
+                "description": "Enregistre l'identité civile de l'utilisateur et soumet le dossier KYC. Si le rôle est `driver`, les pièces du véhicule et les habilitations de transport sont **obligatoires**.",
+                "operationId": "register",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "user_uuid",
+                                    "role_name",
+                                    "first_name",
+                                    "last_name",
+                                    "gender",
+                                    "city",
+                                    "neighborhood",
+                                    "selfie_front",
+                                    "selfie_left",
+                                    "selfie_right",
+                                    "id_card_front",
+                                    "id_card_back"
+                                ],
+                                "properties": {
+                                    "user_uuid": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8"
+                                    },
+                                    "role_name": {
+                                        "type": "string",
+                                        "example": "passenger",
+                                        "enum": [
+                                            "passenger",
+                                            "driver"
+                                        ]
+                                    },
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "DOSSOU"
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "example": "M",
+                                        "enum": [
+                                            "M",
+                                            "F"
+                                        ]
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "jean.dossou@example.com",
+                                        "nullable": true
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Cotonou"
+                                    },
+                                    "neighborhood": {
+                                        "type": "string",
+                                        "example": "Fidjrossè"
+                                    },
+                                    "address_details": {
+                                        "type": "string",
+                                        "example": "Face pharmacie du centre",
+                                        "nullable": true
+                                    },
+                                    "selfie_front": {
+                                        "description": "Photo de face",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "selfie_left": {
+                                        "description": "Photo de profil gauche",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "selfie_right": {
+                                        "description": "Photo de profil droit",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "id_card_front": {
+                                        "description": "Recto CNI / passeport",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "id_card_back": {
+                                        "description": "Verso CNI",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "driving_license_number": {
+                                        "description": "[driver] Numéro permis",
+                                        "type": "string",
+                                        "example": "120452026"
+                                    },
+                                    "driving_license_photo": {
+                                        "description": "[driver] Photo permis",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "vehicle_type": {
+                                        "description": "[driver] Slug du type de véhicule",
+                                        "type": "string",
+                                        "example": "voiture"
+                                    },
+                                    "brand": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Toyota"
+                                    },
+                                    "model": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Camry"
+                                    },
+                                    "color": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Noir"
+                                    },
+                                    "license_plate": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "RB 1234 X"
+                                    },
+                                    "available_seats": {
+                                        "description": "[driver]",
+                                        "type": "integer",
+                                        "example": 3
+                                    },
+                                    "vehicle_photo": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "registration_doc": {
+                                        "description": "[driver] Carte grise",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "insurance_doc": {
+                                        "description": "[driver] Assurance",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "tvm_doc": {
+                                        "description": "[driver] TVM (optionnel)",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "technical_control_doc": {
+                                        "description": "[driver] Visite technique (optionnel)",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Dossier soumis — en attente de validation KYC"
+                    },
+                    "404": {
+                        "description": "UUID utilisateur introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation des champs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur serveur interne",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/admin/login": {
+            "post": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "Connexion Administrateur",
+                "description": "Authentification email / mot de passe réservée aux membres de l'équipe Back-Office. Retourne un token Sanctum avec scope `*`.",
+                "operationId": "adminLogin",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@minizon.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "minizon@229"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authentification administrative réussie"
+                    },
+                    "401": {
+                        "description": "Identifiants incorrects",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Privilèges administratifs requis",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "🔒 Session"
+                ],
+                "summary": "Déconnexion",
+                "description": "Révoque définitivement le token Sanctum de la session courante.",
+                "operationId": "logout",
+                "responses": {
+                    "200": {
+                        "description": "Session fermée — token révoqué"
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "🔒 Session"
+                ],
+                "summary": "Profil de l'utilisateur connecté",
+                "description": "Retourne les données complètes (profil, véhicule, rôle) de l'utilisateur authentifié.",
+                "operationId": "me",
+                "responses": {
+                    "200": {
+                        "description": "Profil récupéré avec succès"
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/users/{uuid}": {
+            "get": {
+                "tags": [
+                    "👤 Utilisateurs"
+                ],
+                "summary": "Consulter une fiche profil",
+                "description": "Retourne les informations complètes d'un utilisateur par son UUID.",
+                "operationId": "showUser",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de l'utilisateur",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fiche profil récupérée"
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "👤 Utilisateurs"
+                ],
+                "summary": "Mettre à jour un profil",
+                "description": "Met à jour les informations de profil. Un admin peut également modifier le numéro de téléphone et les pièces d'identité.",
+                "operationId": "updateUser",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "city",
+                                    "neighborhood"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "DOSSOU"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "nullable": true
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Cotonou"
+                                    },
+                                    "neighborhood": {
+                                        "type": "string",
+                                        "example": "Fidjrossè"
+                                    },
+                                    "address_details": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "brand": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "model": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "color": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "available_seats": {
+                                        "description": "[driver]",
+                                        "type": "integer",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profil mis à jour avec succès"
+                    },
+                    "403": {
+                        "description": "Action interdite",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur serveur interne",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "👤 Utilisateurs"
+                ],
+                "summary": "Supprimer un compte",
+                "description": "Supprime en **cascade** toutes les données liées au compte (profil, véhicule, tokens). Action irréversible.",
+                "operationId": "deleteUser",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Compte et données associées supprimés"
+                    },
+                    "404": {
+                        "description": "Compte introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur lors de la suppression",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/admin/users": {
+            "get": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Liste de tous les utilisateurs",
+                "description": "Extrait la liste ordonnée de tous les comptes enregistrés. Filtre optionnel par `role_id`.",
+                "operationId": "adminListUsers",
+                "parameters": [
+                    {
+                        "name": "role_id",
+                        "in": "query",
+                        "description": "Filtrer par ID de rôle",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste extraite avec succès"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/admin/users/{uuid}/validate-kyc": {
+            "post": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Approbation / Rejet KYC",
+                "description": "Enregistre le verdict de vérification d'identité. En cas d'approbation, le compte est marqué `is_verified = true` et le véhicule est activé.",
+                "operationId": "validateKyc",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "approved",
+                                        "enum": [
+                                            "approved",
+                                            "rejected"
+                                        ]
+                                    },
+                                    "score": {
+                                        "description": "Score de correspondance biométrique (0–100)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 95.5,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut KYC mis à jour"
+                    },
+                    "403": {
+                        "description": "Action réservée aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données de validation incorrectes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/admin/users/{uuid}/toggle-block": {
+            "post": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Suspendre / Lever la suspension",
+                "description": "Bascule le statut de blocage d'un compte. Si le compte est actif, il est suspendu pour 10 ans. Si déjà suspendu, la suspension est levée.",
+                "operationId": "toggleBlock",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statut de suspension mis à jour"
+                    },
+                    "403": {
+                        "description": "Action réservée aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ErrorResponse": {
+                "title": "Réponse d'erreur",
+                "description": "Structure standard retournée pour toutes les erreurs API.",
+                "properties": {
+                    "success": {
+                        "description": "Fichier de configuration globale Swagger UI — Minizon API.\r\n\r\nCe fichier ne contient aucune logique métier.\r\nIl déclare uniquement les métadonnées OpenAPI 3.0 :\r\n - @OA\\Info       : titre, version, description\r\n - @OA\\Server     : URL de base\r\n - @OA\\SecurityScheme : schéma Bearer (Sanctum)\r\n - @OA\\Schema     : modèles réutilisables (ErrorResponse, etc.)",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Message d'erreur explicite."
+                    },
+                    "body": {
+                        "description": "Détails additionnels (erreurs de validation, etc.)",
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "UserResource": {
+                "title": "Utilisateur complet",
+                "description": "Représentation complète d'un utilisateur avec profil, rôle et véhicule.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "uuid": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+2290161165619"
+                    },
+                    "is_verified": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "is_blocked": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "penalty_points": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "passenger",
+                        "enum": [
+                            "passenger",
+                            "driver",
+                            "admin"
+                        ]
+                    },
+                    "profile": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "vehicle": {
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Token Sanctum — format : `Bearer {token}`",
+                "bearerFormat": "Sanctum",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "🔓 Authentification & KYC",
+            "description": "🔓 Authentification & KYC"
+        },
+        {
+            "name": "👑 Administration",
+            "description": "👑 Administration"
+        },
+        {
+            "name": "🔒 Session",
+            "description": "🔒 Session"
+        },
+        {
+            "name": "👤 Utilisateurs",
+            "description": "👤 Utilisateurs"
+        }
+    ]
+}
