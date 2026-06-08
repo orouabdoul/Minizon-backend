@@ -1,54 +1,34 @@
 <?php
 
+/**
+ * ============================================================
+ *  ROUTES — FLOTTE & VÉHICULES
+ *  Fichier : routes/api/vehicles.php
+ * ============================================================
+ *
+ *  Préfixe global : /api  (défini dans bootstrap/app.php)
+ *  Toutes les routes de ce fichier requièrent un token Sanctum.
+ */
+
 use App\Http\Controllers\Vehicle\VehicleController;
 use Illuminate\Support\Facades\Route;
 
-// =============================================================================
-//  ROUTES VÉHICULES — routes/vehicles.php
-//  Chargé dans bootstrap/app.php via :
-//      ->withRouting(using: function () {
-//          Route::middleware('api')->prefix('api')->group(base_path('routes/vehicles.php'));
-//      })
-//  OU dans routes/api.php via :
-//      require __DIR__ . '/vehicles.php';
-// =============================================================================
-
-
-// -----------------------------------------------------------------------------
-//  Endpoints AUTHENTIFIÉS — conducteurs
-// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------
+// 🔒 TOUTES LES ROUTES VÉHICULES SONT PROTÉGÉES
+// -----------------------------------------------------------------------
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::prefix('vehicles')->group(function () {
+    // CRUD véhicule
+    Route::get('vehicles',          [VehicleController::class, 'index'])->name('vehicles.index');
+    Route::post('vehicles',         [VehicleController::class, 'store'])->name('vehicles.store');
+    Route::get('vehicles/{id}',     [VehicleController::class, 'show'])->name('vehicles.show');
+    Route::put('vehicles/{id}',     [VehicleController::class, 'update'])->name('vehicles.update');
+    Route::delete('vehicles/{id}',  [VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
-        // GET    /api/vehicles         — Lister mes véhicules (admin = toute la flotte)
-        Route::get('/', [VehicleController::class, 'index']);
+    // -----------------------------------------------------------------------
+    // 👑 ROUTES ADMIN
+    // -----------------------------------------------------------------------
 
-        // POST   /api/vehicles         — Soumettre un nouveau véhicule
-        Route::post('/', [VehicleController::class, 'store']);
-
-        // GET    /api/vehicles/{id}    — Consulter la fiche d'un véhicule
-        Route::get('/{id}', [VehicleController::class, 'show']);
-
-        // PUT    /api/vehicles/{id}    — Modifier un véhicule
-        Route::put('/{id}', [VehicleController::class, 'update']);
-
-        // DELETE /api/vehicles/{id}    — Supprimer un véhicule
-        Route::delete('/{id}', [VehicleController::class, 'destroy']);
-
-    });
-
-});
-
-
-// -----------------------------------------------------------------------------
-//  Endpoints ADMIN uniquement
-// -----------------------------------------------------------------------------
-
-Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
-
-    // POST /api/admin/vehicles/{id}/approve — Approuver ou bloquer un véhicule
-    Route::post('/vehicles/{id}/approve', [VehicleController::class, 'toggleApproval']);
-
+    Route::post('admin/vehicles/{id}/approve', [VehicleController::class, 'toggleApproval'])->name('admin.vehicles.approve');
 });

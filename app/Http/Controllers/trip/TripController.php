@@ -5,68 +5,74 @@ namespace App\Http\Controllers\Trip;
 use App\Http\Controllers\Controller;
 use App\Models\Trip;
 use App\Models\Vehicle;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 
+/**
+ * Gestion du cycle de vie complet des trajets de covoiturage.
+ *
+ * Couvre :
+ *  - Recherche et consultation des trajets (public)
+ *  - Publication, modification, annulation (conducteur)
+ *  - Démarrage / clôture du voyage (conducteur)
+ *  - Télémétrie GPS en temps réel (conducteur)
+ *  - Supervision administrative (admin)
+ */
 class TripController extends Controller
 {
     // =========================================================================
-    //  INDEX — Rechercher des trajets disponibles
+    //  ROUTES PUBLIQUES (sans token)
     // =========================================================================
 
     #[OA\Get(
         path: '/api/trips',
+        operationId: 'tripsIndex',
         summary: 'Rechercher des trajets disponibles',
-        description: <<<DESC
-        Retourne la liste des offres de covoiturage dont le statut est `pending` (ouvertes à la réservation).
-        Les résultats peuvent être filtrés par ville de départ, ville d\'arrivée et/ou date de départ.
-        Endpoint **public** — aucune authentification requise.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        description: 'Retourne les offres de covoiturage avec le statut `pending`. Filtrage optionnel par ville de départ, ville d\'arrivée et date.',
+        tags: ['🚗 Trajets & Télémétrie'],
         parameters: [
             new OA\Parameter(
                 name: 'departure_city',
                 in: 'query',
                 required: false,
-                description: 'Filtre partiel sur la ville de départ (insensible à la casse).',
+                description: 'Ville de départ (recherche partielle, insensible à la casse)',
                 schema: new OA\Schema(type: 'string', example: 'Cotonou')
             ),
             new OA\Parameter(
                 name: 'arrival_city',
                 in: 'query',
                 required: false,
-                description: 'Filtre partiel sur la ville d\'arrivée.',
+                description: 'Ville d\'arrivée (recherche partielle)',
                 schema: new OA\Schema(type: 'string', example: 'Parakou')
             ),
             new OA\Parameter(
                 name: 'date',
                 in: 'query',
                 required: false,
-                description: 'Filtre sur la date de départ au format `YYYY-MM-DD`.',
-                schema: new OA\Schema(type: 'string', format: 'date', example: '2026-06-15')
+                description: 'Date de départ souhaitée (format YYYY-MM-DD)',
+                schema: new OA\Schema(type: 'string', format: 'date', example: '2026-07-01')
             ),
         ],
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'Liste des trajets correspondant aux critères.',
+                description: 'Liste des trajets correspondants',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(
-                            property: 'body',
-                            type: 'array',
-                            items: new OA\Items(ref: '#/components/schemas/Trip')
-                        ),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Trajets disponibles récupérés.'),
+                        new OA\Property(property: 'body',    type: 'array',   items: new OA\Items(type: 'object')),
                     ]
                 )
             ),
         ]
     )]
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = Trip::with(['user.profile', 'vehicle'])->where('status', 'pending');
+        $query = Trip::with(['user.profile', 'vehicle.vehicleType'])
+            ->where('status', 'pending');
 
         if ($request->filled('departure_city')) {
             $query->where('departure_city', 'like', '%' . $request->departure_city . '%');
@@ -76,89 +82,153 @@ class TripController extends Controller
             $query->where('arrival_city', 'like', '%' . $request->arrival_city . '%');
         }
 
-        // ✅ CORRECTION : le filtre "date" était déclaré dans Swagger mais jamais appliqué en base.
         if ($request->filled('date')) {
             $query->whereDate('departure_time', $request->date);
         }
 
-        return response()->json([
-            'success' => true,
-            'body'    => $query->orderBy('departure_time')->get(),
-        ]);
+        return $this->apiResponse(true, 'Trajets disponibles récupérés.', $query->orderBy('departure_time')->get());
+    }
+
+    // -------------------------------------------------------------------------
+
+    #[OA\Get(
+        path: '/api/trips/{uuid}',
+        operationId: 'tripsShow',
+        summary: 'Fiche complète d\'un trajet',
+        description: 'Retourne tous les détails d\'un trajet : conducteur, véhicule, type de véhicule et statut actuel.',
+        tags: ['🚗 Trajets & Télémétrie'],
+        parameters: [
+            new OA\Parameter(
+                name: 'uuid',
+                in: 'path',
+                required: true,
+                description: 'UUID unique du trajet',
+                schema: new OA\Schema(type: 'string', format: 'uuid')
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détails du trajet récupérés avec succès'),
+            new OA\Response(response: 404, description: 'Trajet introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function show(string $uuid): JsonResponse
+    {
+        $trip = Trip::with(['user.profile', 'vehicle.vehicleType'])
+            ->where('uuid', $uuid)
+            ->first();
+
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        return $this->apiResponse(true, 'Détails du trajet récupérés.', $trip);
+    }
+
+    // -------------------------------------------------------------------------
+
+    #[OA\Get(
+        path: '/api/trips/{uuid}/tracking',
+        operationId: 'tripsTracking',
+        summary: 'Position GPS en temps réel',
+        description: 'Permet à l\'application passager de récupérer les dernières coordonnées GPS du conducteur pour l\'affichage sur la carte.',
+        tags: ['🚗 Trajets & Télémétrie'],
+        parameters: [
+            new OA\Parameter(
+                name: 'uuid',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'string', format: 'uuid')
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Coordonnées GPS récupérées',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Position récupérée.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'uuid',              type: 'string', example: 'abc-123'),
+                                new OA\Property(property: 'status',            type: 'string', example: 'active'),
+                                new OA\Property(property: 'current_latitude',  type: 'number', format: 'float', example: 6.3703),
+                                new OA\Property(property: 'current_longitude', type: 'number', format: 'float', example: 2.3912),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: 'Trajet introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function getTracking(string $uuid): JsonResponse
+    {
+        $trip = Trip::select('uuid', 'status', 'current_latitude', 'current_longitude')
+            ->where('uuid', $uuid)
+            ->first();
+
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        return $this->apiResponse(true, 'Position récupérée.', $trip);
     }
 
     // =========================================================================
-    //  STORE — Publier un trajet
+    //  ROUTES CONDUCTEUR (auth:sanctum requis)
     // =========================================================================
 
     #[OA\Post(
         path: '/api/trips',
-        summary: 'Publier une offre de covoiturage',
-        description: <<<DESC
-        Permet à un conducteur authentifié et vérifié de créer une offre de trajet.
-        **Prérequis** :
-        - Le véhicule doit appartenir au conducteur connecté.
-        - Le véhicule doit avoir été approuvé (`is_approved = true`) par un administrateur.
-        - L\'heure de départ doit être dans le futur.
-        Le trajet est créé avec le statut `pending`.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'tripsStore',
+        summary: 'Publier un trajet',
+        description: 'Permet à un conducteur dont le véhicule est **certifié** (`is_approved = true`) d\'ouvrir une offre de covoiturage sur la plateforme.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
             required: true,
-            description: 'Données du trajet à publier.',
             content: new OA\JsonContent(
                 required: [
                     'vehicle_id', 'departure_city', 'departure_neighborhood',
-                    'arrival_city', 'arrival_neighborhood', 'price_per_seat', 'departure_time',
+                    'arrival_city', 'arrival_neighborhood',
+                    'price_per_seat', 'departure_time',
                 ],
                 properties: [
-                    new OA\Property(property: 'vehicle_id',              type: 'integer', example: 5,                        description: 'ID du véhicule approuvé appartenant au conducteur'),
-                    new OA\Property(property: 'departure_city',          type: 'string',  example: 'Cotonou',                description: 'Ville de départ'),
-                    new OA\Property(property: 'departure_neighborhood',  type: 'string',  example: 'Fidjrossè',              description: 'Quartier / point de départ précis'),
-                    new OA\Property(property: 'arrival_city',            type: 'string',  example: 'Bohicon',                description: 'Ville d\'arrivée'),
-                    new OA\Property(property: 'arrival_neighborhood',    type: 'string',  example: 'Carrefour Mouillage',    description: 'Quartier / point d\'arrivée précis'),
-                    new OA\Property(property: 'price_per_seat',          type: 'integer', example: 3500,                    description: 'Prix par place en FCFA (min 0)'),
-                    new OA\Property(property: 'departure_time',          type: 'string',  format: 'date-time', example: '2026-06-15T07:00:00Z', description: 'Date et heure de départ (doit être dans le futur)'),
-                    new OA\Property(property: 'description',             type: 'string',  example: 'Pas de gros bagages.',   description: 'Instructions ou commentaires pour les passagers (optionnel)'),
+                    new OA\Property(property: 'vehicle_id',              type: 'integer', example: 5,                          description: 'ID du véhicule certifié appartenant au conducteur'),
+                    new OA\Property(property: 'departure_city',          type: 'string',  example: 'Cotonou'),
+                    new OA\Property(property: 'departure_neighborhood',  type: 'string',  example: 'Fidjrossè'),
+                    new OA\Property(property: 'arrival_city',            type: 'string',  example: 'Bohicon'),
+                    new OA\Property(property: 'arrival_neighborhood',    type: 'string',  example: 'Carrefour Mouillage'),
+                    new OA\Property(property: 'price_per_seat',          type: 'integer', example: 3500,                       description: 'Prix par siège en FCFA'),
+                    new OA\Property(property: 'departure_time',          type: 'string',  format: 'date-time',                 example: '2026-07-15T07:00:00Z', description: 'Doit être une date future'),
+                    new OA\Property(property: 'description',             type: 'string',  example: 'Pas de gros bagages SVP.', nullable: true, description: 'Instructions du conducteur'),
                 ]
             )
         ),
         responses: [
-            new OA\Response(
-                response: 201,
-                description: 'Trajet publié avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'body',    ref: '#/components/schemas/Trip'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 403, description: 'Véhicule invalide, non certifié ou n\'appartenant pas au conducteur.'),
-            new OA\Response(response: 422, description: 'Données de saisie invalides.'),
+            new OA\Response(response: 201, description: 'Trajet publié avec succès'),
+            new OA\Response(response: 403, description: 'Véhicule non certifié ou ne vous appartient pas', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Données de formulaire invalides',                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'vehicle_id'             => 'required|integer|exists:vehicles,id',
-            'departure_city'         => 'required|string',
-            'departure_neighborhood' => 'required|string',
-            'arrival_city'           => 'required|string',
-            'arrival_neighborhood'   => 'required|string',
-            'price_per_seat'         => 'required|integer|min:0',
-            'departure_time'         => 'required|date|after:now',
-            'description'            => 'nullable|string',
+            'vehicle_id'             => ['required', 'integer', 'exists:vehicles,id'],
+            'departure_city'         => ['required', 'string', 'max:100'],
+            'departure_neighborhood' => ['required', 'string', 'max:100'],
+            'arrival_city'           => ['required', 'string', 'max:100'],
+            'arrival_neighborhood'   => ['required', 'string', 'max:100'],
+            'price_per_seat'         => ['required', 'integer', 'min:0'],
+            'departure_time'         => ['required', 'date', 'after:now'],
+            'description'            => ['nullable', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Données de saisie invalides.',
-                'errors'  => $validator->errors(),
-            ], 422);
+            return $this->apiResponse(false, 'Données invalides.', $validator->errors(), 422);
         }
 
         $vehicle = Vehicle::where('id', $request->vehicle_id)
@@ -166,515 +236,282 @@ class TripController extends Controller
             ->first();
 
         if (! $vehicle || ! $vehicle->is_approved) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Véhicule invalide ou non certifié par l\'administration.',
-            ], 403);
+            return $this->apiResponse(false, 'Véhicule invalide ou non certifié par l\'administration.', [], 403);
         }
 
-        $trip = Trip::create(array_merge($validator->validated(), [
-            'user_id' => $request->user()->id,
-            'status'  => 'pending',
-        ]));
-
-        return response()->json([
-            'success' => true,
-            'body'    => $trip->load(['vehicle', 'user.profile']),
-        ], 201);
-    }
-
-    // =========================================================================
-    //  SHOW — Consulter un trajet
-    // =========================================================================
-
-    #[OA\Get(
-        path: '/api/trips/{uuid}',
-        summary: 'Consulter la fiche complète d\'un trajet',
-        description: <<<DESC
-        Retourne toutes les informations d\'un trajet identifié par son UUID,
-        incluant le profil du conducteur et le détail du véhicule.
-        Endpoint **public** — aucune authentification requise.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
-        parameters: [
-            new OA\Parameter(
-                name: 'uuid',
-                in: 'path',
-                required: true,
-                description: 'UUID unique du trajet.',
-                schema: new OA\Schema(type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000')
-            ),
-        ],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Détails du trajet retournés.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'body',    ref: '#/components/schemas/Trip'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
-        ]
-    )]
-    public function show(Request $request, $uuid)
-    {
-        $trip = Trip::with(['user.profile', 'vehicle.vehicleType'])->where('uuid', $uuid)->first();
-
-        if (! $trip) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Trajet introuvable.',
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'body'    => $trip,
+        $trip = Trip::create([
+            'user_id'                => $request->user()->id,
+            'vehicle_id'             => $request->vehicle_id,
+            'departure_city'         => $request->departure_city,
+            'departure_neighborhood' => $request->departure_neighborhood,
+            'arrival_city'           => $request->arrival_city,
+            'arrival_neighborhood'   => $request->arrival_neighborhood,
+            'price_per_seat'         => $request->price_per_seat,
+            'departure_time'         => $request->departure_time,
+            'description'            => $request->description,
+            'status'                 => 'pending',
         ]);
+
+        return $this->apiResponse(true, 'Trajet publié avec succès.', $trip->load(['vehicle.vehicleType']), 201);
     }
 
-    // =========================================================================
-    //  UPDATE — Modifier un trajet
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     #[OA\Put(
         path: '/api/trips/{uuid}',
-        summary: 'Modifier les conditions d\'un trajet',
-        description: <<<DESC
-        Permet au conducteur propriétaire d\'ajuster l\'heure de départ, le prix ou la description.
-        **Conditions** :
-        - Le trajet doit être dans le statut `pending` (non encore démarré).
-        - Seul le conducteur auteur du trajet peut effectuer cette modification.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'tripsUpdate',
+        summary: 'Modifier un trajet',
+        description: 'Permet au conducteur d\'ajuster le prix, l\'heure de départ ou la description. **Uniquement possible si le trajet est encore `pending`.**',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(
                 name: 'uuid',
                 in: 'path',
                 required: true,
-                description: 'UUID unique du trajet.',
                 schema: new OA\Schema(type: 'string', format: 'uuid')
             ),
         ],
         requestBody: new OA\RequestBody(
             required: true,
-            description: 'Champs modifiables (au moins un requis).',
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'price_per_seat',  type: 'integer', example: 4000,                    description: 'Nouveau prix par place en FCFA (min 0)'),
-                    new OA\Property(property: 'departure_time',  type: 'string',  format: 'date-time', example: '2026-06-16T08:00:00Z', description: 'Nouvelle heure de départ (doit être dans le futur)'),
-                    new OA\Property(property: 'description',     type: 'string',  example: 'Bagages légers uniquement.', description: 'Message mis à jour pour les passagers'),
+                    new OA\Property(property: 'price_per_seat', type: 'integer', example: 4000,                description: 'Nouveau prix en FCFA'),
+                    new OA\Property(property: 'departure_time', type: 'string',  format: 'date-time',           example: '2026-07-15T08:00:00Z'),
+                    new OA\Property(property: 'description',    type: 'string',  example: 'Bagages légers ok.', nullable: true),
                 ]
             )
         ),
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Trajet mis à jour avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'body',    ref: '#/components/schemas/Trip'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 422, description: 'Modification impossible (statut incorrect, trajet introuvable ou données invalides).'),
+            new OA\Response(response: 200, description: 'Trajet mis à jour avec succès'),
+            new OA\Response(response: 403, description: 'Ce trajet ne vous appartient pas',                          content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',                                        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Modification impossible — trajet déjà démarré ou terminé', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function update(Request $request, $uuid)
+    public function update(Request $request, string $uuid): JsonResponse
     {
-        $trip = Trip::where('uuid', $uuid)->where('user_id', $request->user()->id)->first();
+        $trip = Trip::where('uuid', $uuid)->first();
 
-        if (! $trip || $trip->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Modification impossible : le trajet est introuvable ou n\'est plus modifiable.',
-            ], 422);
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
         }
 
-        // ✅ CORRECTION : validation ajoutée avant la mise à jour.
-        //    L'original appelait $trip->update() sans valider les entrées,
-        //    ce qui permettait d'injecter n'importe quel champ (ex: status, user_id).
+        if ($trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Ce trajet ne vous appartient pas.', [], 403);
+        }
+
+        if ($trip->status !== 'pending') {
+            return $this->apiResponse(false, 'Modification impossible : statut actuel « ' . $trip->status . ' ».', [], 422);
+        }
+
         $validator = Validator::make($request->all(), [
-            'price_per_seat' => 'nullable|integer|min:0',
-            'departure_time' => 'nullable|date|after:now',
-            'description'    => 'nullable|string',
+            'price_per_seat' => ['nullable', 'integer', 'min:0'],
+            'departure_time' => ['nullable', 'date', 'after:now'],
+            'description'    => ['nullable', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Données invalides.',
-                'errors'  => $validator->errors(),
-            ], 422);
+            return $this->apiResponse(false, 'Données invalides.', $validator->errors(), 422);
         }
 
-        $trip->update($validator->validated());
+        $trip->update($request->only(['price_per_seat', 'departure_time', 'description']));
 
-        return response()->json([
-            'success' => true,
-            'body'    => $trip->fresh(),
-        ]);
+        return $this->apiResponse(true, 'Trajet mis à jour avec succès.', $trip->fresh());
     }
 
-    // =========================================================================
-    //  DESTROY — Annuler / Supprimer un trajet
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     #[OA\Delete(
         path: '/api/trips/{uuid}',
-        summary: 'Annuler une offre de trajet',
-        description: <<<DESC
-        Supprime (annule) définitivement un trajet.
-        Seul le conducteur auteur du trajet ou un administrateur peuvent effectuer cette action.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'tripsDestroy',
+        summary: 'Annuler / Supprimer un trajet',
+        description: 'Supprime définitivement un trajet. Action réservée au conducteur propriétaire.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(
                 name: 'uuid',
                 in: 'path',
                 required: true,
-                description: 'UUID unique du trajet.',
                 schema: new OA\Schema(type: 'string', format: 'uuid')
             ),
         ],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Trajet annulé et supprimé avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Trajet supprimé avec succès.'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 403, description: 'Action interdite — vous n\'êtes pas l\'auteur de ce trajet.'),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
+            new OA\Response(response: 200, description: 'Trajet annulé et supprimé avec succès'),
+            new OA\Response(response: 403, description: 'Ce trajet ne vous appartient pas', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function destroy(Request $request, $uuid)
+    public function destroy(Request $request, string $uuid): JsonResponse
     {
-        // ✅ CORRECTION : ajout du cloisonnement admin.
-        //    L'original ne permettait qu'au conducteur propriétaire de supprimer.
-        //    Un admin doit aussi pouvoir supprimer n'importe quel trajet.
-        $user = $request->user();
-
-        $query = Trip::where('uuid', $uuid);
-
-        if ($user->role !== 'admin') {
-            $query->where('user_id', $user->id);
-        }
-
-        $trip = $query->first();
+        $trip = Trip::where('uuid', $uuid)->first();
 
         if (! $trip) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Trajet introuvable ou accès non autorisé.',
-            ], 404);
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        if ($trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Ce trajet ne vous appartient pas.', [], 403);
         }
 
         $trip->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Trajet supprimé avec succès.',
-        ]);
+        return $this->apiResponse(true, 'Trajet annulé et supprimé avec succès.');
     }
 
-    // =========================================================================
-    //  DRIVER TRIPS — Historique conducteur
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     #[OA\Get(
         path: '/api/driver/trips',
-        summary: 'Historique des trajets du conducteur connecté',
-        description: 'Retourne tous les trajets créés par le conducteur authentifié, triés du plus récent au plus ancien.',
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'driverTrips',
+        summary: 'Mes trajets publiés (conducteur)',
+        description: 'Retourne l\'historique complet des trajets publiés par le conducteur connecté, triés du plus récent au plus ancien.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Historique récupéré avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(
-                            property: 'body',
-                            type: 'array',
-                            items: new OA\Items(ref: '#/components/schemas/Trip')
-                        ),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
+            new OA\Response(response: 200, description: 'Historique des trajets récupéré'),
+            new OA\Response(response: 401, description: 'Non authentifié', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function driverTrips(Request $request)
+    public function driverTrips(Request $request): JsonResponse
     {
-        $trips = Trip::where('user_id', $request->user()->id)
-            ->orderBy('departure_time', 'desc')
+        $trips = Trip::with(['vehicle.vehicleType'])
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('departure_time')
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'body'    => $trips,
-        ]);
+        return $this->apiResponse(true, 'Historique des trajets récupéré.', $trips);
     }
 
     // =========================================================================
-    //  ADMIN INDEX — Supervision globale [ADMIN]
-    // =========================================================================
-
-    #[OA\Get(
-        path: '/api/admin/trips',
-        summary: '[ADMIN] Supervision de tous les covoiturages',
-        description: <<<DESC
-        **Accès restreint aux administrateurs.**
-        Retourne l\'intégralité des trajets enregistrés sur la plateforme,
-        tous statuts confondus (`pending`, `active`, `completed`), avec le profil du conducteur.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Liste complète des trajets retournée.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(
-                            property: 'body',
-                            type: 'array',
-                            items: new OA\Items(ref: '#/components/schemas/Trip')
-                        ),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 403, description: 'Accès refusé — privilèges administrateur requis.'),
-        ]
-    )]
-    public function adminIndex(Request $request)
-    {
-        if ($request->user()->role !== 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès refusé.',
-            ], 403);
-        }
-
-        return response()->json([
-            'success' => true,
-            'body'    => Trip::with('user.profile')->orderBy('created_at', 'desc')->get(),
-        ]);
-    }
-
-    // =========================================================================
-    //  START TRIP — Démarrer le voyage
+    //  CYCLE DE VIE DU VOYAGE (conducteur)
     // =========================================================================
 
     #[OA\Post(
         path: '/api/trips/{uuid}/start',
+        operationId: 'tripsStart',
         summary: 'Démarrer le voyage',
-        description: <<<DESC
-        Passe le statut du trajet de `pending` à `active`.
-        À partir de ce moment, **aucune nouvelle réservation n\'est acceptée** sur ce trajet.
-        Seul le conducteur auteur du trajet peut effectuer cette action.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        description: 'Passe le statut du trajet de `pending` à `active`. Bloque les nouvelles réservations et active le suivi GPS.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(
-                name: 'uuid',
-                in: 'path',
-                required: true,
-                description: 'UUID unique du trajet.',
-                schema: new OA\Schema(type: 'string', format: 'uuid')
-            ),
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Voyage démarré avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Bon voyage ! Le trajet est maintenant en cours.'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
-            new OA\Response(response: 422, description: 'Le trajet n\'est pas dans un état démarrable (doit être `pending`).'),
+            new OA\Response(response: 200, description: 'Voyage démarré — statut passé à active'),
+            new OA\Response(response: 403, description: 'Ce trajet ne vous appartient pas',            content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',                          content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Trajet non démarrable (statut incompatible)', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function startTrip(Request $request, $uuid)
+    public function startTrip(Request $request, string $uuid): JsonResponse
     {
-        $trip = Trip::where('uuid', $uuid)->where('user_id', $request->user()->id)->first();
+        $trip = Trip::where('uuid', $uuid)->first();
 
         if (! $trip) {
-            return response()->json(['success' => false, 'message' => 'Trajet introuvable.'], 404);
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
         }
 
-        // ✅ CORRECTION : vérification du statut avant transition.
-        //    L'original permettait de "démarrer" un trajet déjà actif ou terminé.
+        if ($trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Ce trajet ne vous appartient pas.', [], 403);
+        }
+
         if ($trip->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ce trajet ne peut pas être démarré (statut actuel : ' . $trip->status . ').',
-            ], 422);
+            return $this->apiResponse(false, 'Ce trajet ne peut pas être démarré (statut actuel : « ' . $trip->status . ' »).', [], 422);
         }
 
         $trip->update(['status' => 'active']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Bon voyage ! Le trajet est maintenant en cours.',
-        ]);
+        return $this->apiResponse(true, 'Bon voyage ! Le trajet est maintenant en cours.', $trip->fresh());
     }
 
-    // =========================================================================
-    //  END TRIP — Clôturer le trajet
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     #[OA\Post(
         path: '/api/trips/{uuid}/end',
-        summary: 'Clôturer le trajet (arrivée à destination)',
-        description: <<<DESC
-        Passe le statut du trajet de `active` à `completed`.
-        Cette action est irréversible. Elle déclenche la période d\'évaluation mutuelle
-        entre le conducteur et les passagers.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'tripsEnd',
+        summary: 'Clôturer le trajet',
+        description: 'Passe le statut du trajet de `active` à `completed`. Déclenche le calcul des évaluations.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(
-                name: 'uuid',
-                in: 'path',
-                required: true,
-                description: 'UUID unique du trajet.',
-                schema: new OA\Schema(type: 'string', format: 'uuid')
-            ),
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Trajet clôturé avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Trajet clôturé avec succès.'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
-            new OA\Response(response: 422, description: 'Le trajet n\'est pas dans un état clôturable (doit être `active`).'),
+            new OA\Response(response: 200, description: 'Trajet clôturé — statut passé à completed'),
+            new OA\Response(response: 403, description: 'Ce trajet ne vous appartient pas',           content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',                         content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Trajet non clôturable (statut incompatible)', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function endTrip(Request $request, $uuid)
+    public function endTrip(Request $request, string $uuid): JsonResponse
     {
-        $trip = Trip::where('uuid', $uuid)->where('user_id', $request->user()->id)->first();
+        $trip = Trip::where('uuid', $uuid)->first();
 
         if (! $trip) {
-            return response()->json(['success' => false, 'message' => 'Trajet introuvable.'], 404);
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
         }
 
-        // ✅ CORRECTION : vérification du statut avant transition.
-        //    L'original permettait de clôturer un trajet en `pending` ou déjà `completed`.
+        if ($trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Ce trajet ne vous appartient pas.', [], 403);
+        }
+
         if ($trip->status !== 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ce trajet ne peut pas être clôturé (statut actuel : ' . $trip->status . ').',
-            ], 422);
+            return $this->apiResponse(false, 'Ce trajet ne peut pas être clôturé (statut actuel : « ' . $trip->status . ' »).', [], 422);
         }
 
         $trip->update(['status' => 'completed']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Trajet clôturé avec succès.',
-        ]);
+        return $this->apiResponse(true, 'Trajet clôturé avec succès. Merci pour votre service !', $trip->fresh());
     }
 
-    // =========================================================================
-    //  UPDATE LOCATION — Télémétrie GPS
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     #[OA\Post(
         path: '/api/trips/{uuid}/location',
-        summary: 'Envoyer les coordonnées GPS en temps réel',
-        description: <<<DESC
-        Permet à l\'application mobile du conducteur de pousser sa position géographique
-        en tâche de fond pendant un trajet `active`.
-        Ces données sont utilisées par les passagers pour le suivi en temps réel sur la carte.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
+        operationId: 'tripsLocation',
+        summary: 'Télémétrie GPS — Envoyer la position',
+        description: 'L\'application mobile du conducteur pousse ses coordonnées GPS en tâche de fond. Disponible uniquement sur un trajet `active`. Coordonnées au format WGS84.',
+        tags: ['🚗 Trajets & Télémétrie'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(
-                name: 'uuid',
-                in: 'path',
-                required: true,
-                description: 'UUID unique du trajet.',
-                schema: new OA\Schema(type: 'string', format: 'uuid')
-            ),
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
-            description: 'Coordonnées géographiques actuelles du conducteur.',
             content: new OA\JsonContent(
                 required: ['current_latitude', 'current_longitude'],
                 properties: [
-                    new OA\Property(property: 'current_latitude',  type: 'number', format: 'float', example: 6.3703,  description: 'Latitude en degrés décimaux (WGS 84)'),
-                    new OA\Property(property: 'current_longitude', type: 'number', format: 'float', example: 2.3912,  description: 'Longitude en degrés décimaux (WGS 84)'),
+                    new OA\Property(property: 'current_latitude',  type: 'number', format: 'float', example: 6.3703, description: 'Latitude WGS84 — entre -90 et 90'),
+                    new OA\Property(property: 'current_longitude', type: 'number', format: 'float', example: 2.3912, description: 'Longitude WGS84 — entre -180 et 180'),
                 ]
             )
         ),
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Coordonnées GPS synchronisées avec succès.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Position mise à jour.'),
-                    ]
-                )
-            ),
-            new OA\Response(response: 401, description: 'Non authentifié.'),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
-            new OA\Response(response: 422, description: 'Coordonnées invalides ou manquantes.'),
+            new OA\Response(response: 200, description: 'Coordonnées GPS synchronisées avec succès'),
+            new OA\Response(response: 403, description: 'Ce trajet ne vous appartient pas', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Coordonnées GPS invalides',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function updateLocation(Request $request, $uuid)
+    public function updateLocation(Request $request, string $uuid): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'current_latitude'  => 'required|numeric|between:-90,90',
-            'current_longitude' => 'required|numeric|between:-180,180',
+            'current_latitude'  => ['required', 'numeric', 'between:-90,90'],
+            'current_longitude' => ['required', 'numeric', 'between:-180,180'],
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Coordonnées GPS invalides.',
-                'errors'  => $validator->errors(),
-            ], 422);
+            return $this->apiResponse(false, 'Coordonnées GPS invalides.', $validator->errors(), 422);
         }
 
-        $trip = Trip::where('uuid', $uuid)->where('user_id', $request->user()->id)->first();
+        $trip = Trip::where('uuid', $uuid)
+            ->where('user_id', $request->user()->id)
+            ->first();
 
         if (! $trip) {
-            return response()->json(['success' => false, 'message' => 'Trajet introuvable.'], 404);
+            return $this->apiResponse(false, 'Trajet introuvable ou non autorisé.', [], 404);
         }
 
         $trip->update([
@@ -682,70 +519,48 @@ class TripController extends Controller
             'current_longitude' => $request->current_longitude,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Position mise à jour.',
-        ]);
+        return $this->apiResponse(true, 'Position GPS synchronisée.');
     }
 
     // =========================================================================
-    //  GET TRACKING — Récupérer la position live
+    //  PANEL ADMINISTRATIF
     // =========================================================================
 
     #[OA\Get(
-        path: '/api/trips/{uuid}/tracking',
-        summary: 'Récupérer la position GPS live du conducteur',
-        description: <<<DESC
-        Retourne les dernières coordonnées GPS du conducteur pour un trajet donné.
-        À interroger en polling côté client (app passager) pour actualiser la carte en temps réel.
-        Endpoint **public** — aucune authentification requise pour permettre l\'accès aux passagers non inscrits.
-        DESC,
-        tags: ['Trajets & Télémétrie'],
-        parameters: [
-            new OA\Parameter(
-                name: 'uuid',
-                in: 'path',
-                required: true,
-                description: 'UUID unique du trajet.',
-                schema: new OA\Schema(type: 'string', format: 'uuid')
-            ),
-        ],
+        path: '/api/admin/trips',
+        operationId: 'adminTripsIndex',
+        summary: '[ADMIN] Supervision globale des trajets',
+        description: 'Extrait tous les trajets de la plateforme, tous statuts confondus, avec les informations complètes du conducteur. Accès réservé aux administrateurs.',
+        tags: ['🚗 Trajets & Télémétrie'],
+        security: [['bearerAuth' => []]],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Données de suivi retournées.',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(
-                            property: 'body',
-                            type: 'object',
-                            properties: [
-                                new OA\Property(property: 'uuid',               type: 'string', format: 'uuid',  example: '550e8400-e29b-41d4-a716-446655440000'),
-                                new OA\Property(property: 'status',             type: 'string', example: 'active',  description: 'Statut actuel du trajet'),
-                                new OA\Property(property: 'current_latitude',   type: 'number', format: 'float', example: 6.4281),
-                                new OA\Property(property: 'current_longitude',  type: 'number', format: 'float', example: 2.3580),
-                            ]
-                        ),
-                    ]
-                )
-            ),
-            new OA\Response(response: 404, description: 'Trajet introuvable.'),
+            new OA\Response(response: 200, description: 'Liste complète des trajets'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
-    public function getTracking(Request $request, $uuid)
+    public function adminIndex(Request $request): JsonResponse
     {
-        $trip = Trip::select('uuid', 'status', 'current_latitude', 'current_longitude')
-            ->where('uuid', $uuid)
-            ->first();
-
-        if (! $trip) {
-            return response()->json(['success' => false, 'message' => 'Trajet introuvable.'], 404);
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Accès refusé. Privilèges administratifs requis.', [], 403);
         }
 
+        $trips = Trip::with(['user.profile', 'vehicle.vehicleType'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->apiResponse(true, 'Supervision globale des trajets.', $trips);
+    }
+
+    // =========================================================================
+    //  HELPER PRIVÉ
+    // =========================================================================
+
+    private function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): JsonResponse
+    {
         return response()->json([
-            'success' => true,
-            'body'    => $trip,
-        ]);
+            'success' => $success,
+            'message' => $message,
+            'body'    => $body,
+        ], $status);
     }
 }

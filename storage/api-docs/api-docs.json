@@ -2,25 +2,17 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Minizon API",
-        "description": "API REST de la plateforme **Minizon** — Application de transport et livraison.\n\n\r\n### Authentification\r\nToutes les routes protégées nécessitent un token **Bearer (Sanctum)**.\r\nObtenez-le via `POST /api/auth/verify-otp` ou `POST /api/auth/admin/login`.\r\n\r\n### Codes de réponse standards\r\n| Code | Signification |\r\n|------|---------------|\r\n| 200  | Succès |\r\n| 201  | Ressource créée |\r\n| 401  | Non authentifié |\r\n| 403  | Accès interdit |\r\n| 404  | Ressource introuvable |\r\n| 422  | Erreur de validation |\r\n| 500  | Erreur serveur |",
+        "description": "API REST de la plateforme Minizon — Transport et livraison.",
         "contact": {
             "name": "Équipe Minizon",
             "email": "dev@minizon.com"
-        },
-        "license": {
-            "name": "Propriétaire — Minizon SAS",
-            "url": "https://minizon.com"
         },
         "version": "1.0.0"
     },
     "servers": [
         {
             "url": "http://localhost:8000",
-            "description": "🖥️ Serveur de développement local"
-        },
-        {
-            "url": "https://api.minizon.com",
-            "description": "🌐 Serveur de production"
+            "description": "Serveur local"
         }
     ],
     "paths": {
@@ -942,74 +934,1150 @@
                     }
                 ]
             }
+        },
+        "/api/trips": {
+            "get": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Rechercher des trajets disponibles",
+                "description": "Retourne les offres de covoiturage avec le statut `pending`. Filtrage optionnel par ville de départ, ville d'arrivée et date.",
+                "operationId": "tripsIndex",
+                "parameters": [
+                    {
+                        "name": "departure_city",
+                        "in": "query",
+                        "description": "Ville de départ (recherche partielle, insensible à la casse)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "Cotonou"
+                        }
+                    },
+                    {
+                        "name": "arrival_city",
+                        "in": "query",
+                        "description": "Ville d'arrivée (recherche partielle)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "Parakou"
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Date de départ souhaitée (format YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-07-01"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des trajets correspondants",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Trajets disponibles récupérés."
+                                        },
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Publier un trajet",
+                "description": "Permet à un conducteur dont le véhicule est **certifié** (`is_approved = true`) d'ouvrir une offre de covoiturage sur la plateforme.",
+                "operationId": "tripsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "vehicle_id",
+                                    "departure_city",
+                                    "departure_neighborhood",
+                                    "arrival_city",
+                                    "arrival_neighborhood",
+                                    "price_per_seat",
+                                    "departure_time"
+                                ],
+                                "properties": {
+                                    "vehicle_id": {
+                                        "description": "ID du véhicule certifié appartenant au conducteur",
+                                        "type": "integer",
+                                        "example": 5
+                                    },
+                                    "departure_city": {
+                                        "type": "string",
+                                        "example": "Cotonou"
+                                    },
+                                    "departure_neighborhood": {
+                                        "type": "string",
+                                        "example": "Fidjrossè"
+                                    },
+                                    "arrival_city": {
+                                        "type": "string",
+                                        "example": "Bohicon"
+                                    },
+                                    "arrival_neighborhood": {
+                                        "type": "string",
+                                        "example": "Carrefour Mouillage"
+                                    },
+                                    "price_per_seat": {
+                                        "description": "Prix par siège en FCFA",
+                                        "type": "integer",
+                                        "example": 3500
+                                    },
+                                    "departure_time": {
+                                        "description": "Doit être une date future",
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-07-15T07:00:00Z"
+                                    },
+                                    "description": {
+                                        "description": "Instructions du conducteur",
+                                        "type": "string",
+                                        "example": "Pas de gros bagages SVP.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Trajet publié avec succès"
+                    },
+                    "403": {
+                        "description": "Véhicule non certifié ou ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données de formulaire invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}": {
+            "get": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Fiche complète d'un trajet",
+                "description": "Retourne tous les détails d'un trajet : conducteur, véhicule, type de véhicule et statut actuel.",
+                "operationId": "tripsShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID unique du trajet",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du trajet récupérés avec succès"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Modifier un trajet",
+                "description": "Permet au conducteur d'ajuster le prix, l'heure de départ ou la description. **Uniquement possible si le trajet est encore `pending`.**",
+                "operationId": "tripsUpdate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "price_per_seat": {
+                                        "description": "Nouveau prix en FCFA",
+                                        "type": "integer",
+                                        "example": 4000
+                                    },
+                                    "departure_time": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-07-15T08:00:00Z"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Bagages légers ok.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Trajet mis à jour avec succès"
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Modification impossible — trajet déjà démarré ou terminé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Annuler / Supprimer un trajet",
+                "description": "Supprime définitivement un trajet. Action réservée au conducteur propriétaire.",
+                "operationId": "tripsDestroy",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet annulé et supprimé avec succès"
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/tracking": {
+            "get": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Position GPS en temps réel",
+                "description": "Permet à l'application passager de récupérer les dernières coordonnées GPS du conducteur pour l'affichage sur la carte.",
+                "operationId": "tripsTracking",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Coordonnées GPS récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Position récupérée."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "uuid": {
+                                                    "type": "string",
+                                                    "example": "abc-123"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "active"
+                                                },
+                                                "current_latitude": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 6.3703
+                                                },
+                                                "current_longitude": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 2.3912
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/driver/trips": {
+            "get": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Mes trajets publiés (conducteur)",
+                "description": "Retourne l'historique complet des trajets publiés par le conducteur connecté, triés du plus récent au plus ancien.",
+                "operationId": "driverTrips",
+                "responses": {
+                    "200": {
+                        "description": "Historique des trajets récupéré"
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/start": {
+            "post": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Démarrer le voyage",
+                "description": "Passe le statut du trajet de `pending` à `active`. Bloque les nouvelles réservations et active le suivi GPS.",
+                "operationId": "tripsStart",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Voyage démarré — statut passé à active"
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Trajet non démarrable (statut incompatible)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/end": {
+            "post": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Clôturer le trajet",
+                "description": "Passe le statut du trajet de `active` à `completed`. Déclenche le calcul des évaluations.",
+                "operationId": "tripsEnd",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet clôturé — statut passé à completed"
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Trajet non clôturable (statut incompatible)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/location": {
+            "post": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "Télémétrie GPS — Envoyer la position",
+                "description": "L'application mobile du conducteur pousse ses coordonnées GPS en tâche de fond. Disponible uniquement sur un trajet `active`. Coordonnées au format WGS84.",
+                "operationId": "tripsLocation",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_latitude",
+                                    "current_longitude"
+                                ],
+                                "properties": {
+                                    "current_latitude": {
+                                        "description": "Latitude WGS84 — entre -90 et 90",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 6.3703
+                                    },
+                                    "current_longitude": {
+                                        "description": "Longitude WGS84 — entre -180 et 180",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.3912
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Coordonnées GPS synchronisées avec succès"
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Coordonnées GPS invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/trips": {
+            "get": {
+                "tags": [
+                    "🚗 Trajets & Télémétrie"
+                ],
+                "summary": "[ADMIN] Supervision globale des trajets",
+                "description": "Extrait tous les trajets de la plateforme, tous statuts confondus, avec les informations complètes du conducteur. Accès réservé aux administrateurs.",
+                "operationId": "adminTripsIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste complète des trajets"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/vehicles": {
+            "get": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "Lister les véhicules",
+                "description": "Un **conducteur** ne voit que ses propres véhicules. Un **administrateur** accède à la flotte globale avec les informations du propriétaire.",
+                "operationId": "vehiclesIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste des véhicules récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Liste des véhicules récupérée."
+                                        },
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "Soumettre un nouveau véhicule",
+                "description": "Permet à un conducteur connecté de soumettre un véhicule pour certification. Le véhicule est créé avec `is_approved = false` et doit être validé par un administrateur avant d'être utilisable.",
+                "operationId": "vehiclesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "vehicle_type_id",
+                                    "brand",
+                                    "model",
+                                    "color",
+                                    "available_seats",
+                                    "license_plate",
+                                    "vehicle_photo",
+                                    "registration_doc",
+                                    "insurance_doc",
+                                    "tvm_doc"
+                                ],
+                                "properties": {
+                                    "vehicle_type_id": {
+                                        "description": "ID du type de véhicule (voir table vehicle_types)",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "brand": {
+                                        "type": "string",
+                                        "example": "Toyota"
+                                    },
+                                    "model": {
+                                        "type": "string",
+                                        "example": "Camry"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "Gris Étoile"
+                                    },
+                                    "available_seats": {
+                                        "description": "Nombre de places disponibles (hors conducteur)",
+                                        "type": "integer",
+                                        "example": 4
+                                    },
+                                    "license_plate": {
+                                        "description": "Immatriculation unique",
+                                        "type": "string",
+                                        "example": "RB 1234 X"
+                                    },
+                                    "vehicle_photo": {
+                                        "description": "Chemin de la photo du véhicule",
+                                        "type": "string",
+                                        "example": "uploads/vehicles/photo.png"
+                                    },
+                                    "registration_doc": {
+                                        "description": "Carte grise",
+                                        "type": "string",
+                                        "example": "uploads/docs/carte_grise.pdf"
+                                    },
+                                    "insurance_doc": {
+                                        "description": "Attestation d'assurance",
+                                        "type": "string",
+                                        "example": "uploads/docs/assurance.pdf"
+                                    },
+                                    "tvm_doc": {
+                                        "description": "TVM (Taxe sur les Véhicules à Moteur)",
+                                        "type": "string",
+                                        "example": "uploads/docs/tvm.pdf"
+                                    },
+                                    "technical_control_doc": {
+                                        "description": "Visite technique (optionnel)",
+                                        "type": "string",
+                                        "example": "uploads/docs/ct.pdf",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Véhicule soumis — en attente de certification admin"
+                    },
+                    "422": {
+                        "description": "Données invalides ou immatriculation déjà existante",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/vehicles/{id}": {
+            "get": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "Détails d'un véhicule",
+                "description": "Retourne la fiche complète d'un véhicule. **Cloisonnement strict** : un conducteur ne peut pas consulter le véhicule d'un tiers. Un admin peut tout voir.",
+                "operationId": "vehiclesShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Identifiant numérique du véhicule",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 12
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fiche véhicule récupérée avec succès"
+                    },
+                    "403": {
+                        "description": "Ce véhicule ne vous appartient pas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Véhicule introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "Modifier les spécifications d'un véhicule",
+                "description": "Met à jour les informations modifiables d'un véhicule (marque, modèle, couleur, places). Un conducteur ne peut modifier que ses propres véhicules.",
+                "operationId": "vehiclesUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 12
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "brand": {
+                                        "type": "string",
+                                        "example": "Honda",
+                                        "nullable": true
+                                    },
+                                    "model": {
+                                        "type": "string",
+                                        "example": "Civic",
+                                        "nullable": true
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "Rouge",
+                                        "nullable": true
+                                    },
+                                    "available_seats": {
+                                        "type": "integer",
+                                        "example": 3,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Informations du véhicule mises à jour"
+                    },
+                    "403": {
+                        "description": "Action non autorisée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Véhicule introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "Retirer un véhicule du parc",
+                "description": "Supprime définitivement un véhicule. **Bloqué** si le véhicule est rattaché à un trajet `pending` ou `active`.",
+                "operationId": "vehiclesDestroy",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 12
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Véhicule supprimé de la flotte avec succès"
+                    },
+                    "403": {
+                        "description": "Action interdite",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Véhicule introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Suppression impossible — véhicule sur un trajet actif",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/vehicles/{id}/approve": {
+            "post": {
+                "tags": [
+                    "🚙 Flotte & Véhicules"
+                ],
+                "summary": "[ADMIN] Certifier / Suspendre un véhicule",
+                "description": "Action réservée au Back-Office. Active ou gèle l'autorisation de rouler d'un véhicule (`is_approved`). Un véhicule non certifié ne peut pas être utilisé pour créer un trajet.",
+                "operationId": "vehiclesToggleApproval",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Identifiant numérique du véhicule",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 5
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "is_approved"
+                                ],
+                                "properties": {
+                                    "is_approved": {
+                                        "description": "`true` pour certifier, `false` pour suspendre",
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut de certification du véhicule mis à jour"
+                    },
+                    "403": {
+                        "description": "Privilèges administratifs requis",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Véhicule introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Valeur d'approbation invalide",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
         "schemas": {
             "ErrorResponse": {
-                "title": "Réponse d'erreur",
-                "description": "Structure standard retournée pour toutes les erreurs API.",
                 "properties": {
                     "success": {
-                        "description": "Fichier de configuration globale Swagger UI — Minizon API.\r\n\r\nCe fichier ne contient aucune logique métier.\r\nIl déclare uniquement les métadonnées OpenAPI 3.0 :\r\n - @OA\\Info       : titre, version, description\r\n - @OA\\Server     : URL de base\r\n - @OA\\SecurityScheme : schéma Bearer (Sanctum)\r\n - @OA\\Schema     : modèles réutilisables (ErrorResponse, etc.)",
                         "type": "boolean",
                         "example": false
                     },
                     "message": {
                         "type": "string",
-                        "example": "Message d'erreur explicite."
+                        "example": "Message d'erreur."
                     },
                     "body": {
-                        "description": "Détails additionnels (erreurs de validation, etc.)",
-                        "type": "object",
-                        "nullable": true
-                    }
-                },
-                "type": "object"
-            },
-            "UserResource": {
-                "title": "Utilisateur complet",
-                "description": "Représentation complète d'un utilisateur avec profil, rôle et véhicule.",
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "example": 1
-                    },
-                    "uuid": {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8"
-                    },
-                    "phone": {
-                        "type": "string",
-                        "example": "+2290161165619"
-                    },
-                    "is_verified": {
-                        "type": "boolean",
-                        "example": false
-                    },
-                    "is_blocked": {
-                        "type": "boolean",
-                        "example": false
-                    },
-                    "penalty_points": {
-                        "type": "integer",
-                        "example": 0
-                    },
-                    "role": {
-                        "type": "string",
-                        "example": "passenger",
-                        "enum": [
-                            "passenger",
-                            "driver",
-                            "admin"
-                        ]
-                    },
-                    "profile": {
-                        "type": "object",
-                        "nullable": true
-                    },
-                    "vehicle": {
                         "type": "object",
                         "nullable": true
                     }
@@ -1020,7 +2088,6 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
-                "description": "Token Sanctum — format : `Bearer {token}`",
                 "bearerFormat": "Sanctum",
                 "scheme": "bearer"
             }
@@ -1042,6 +2109,14 @@
         {
             "name": "👤 Utilisateurs",
             "description": "👤 Utilisateurs"
+        },
+        {
+            "name": "🚗 Trajets & Télémétrie",
+            "description": "🚗 Trajets & Télémétrie"
+        },
+        {
+            "name": "🚙 Flotte & Véhicules",
+            "description": "🚙 Flotte & Véhicules"
         }
     ]
 }

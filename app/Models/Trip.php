@@ -10,10 +10,6 @@ class Trip extends Model
 {
     use HasFactory;
 
-    // -------------------------------------------------------------------------
-    //  Configuration
-    // -------------------------------------------------------------------------
-
     protected $fillable = [
         'uuid',
         'user_id',
@@ -24,8 +20,8 @@ class Trip extends Model
         'arrival_neighborhood',
         'price_per_seat',
         'departure_time',
-        'status',               // pending | active | completed
         'description',
+        'status',
         'current_latitude',
         'current_longitude',
     ];
@@ -37,60 +33,56 @@ class Trip extends Model
         'current_longitude' => 'float',
     ];
 
-    // -------------------------------------------------------------------------
-    //  UUID auto-généré à la création
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // BOOT : génération automatique de l'UUID
+    // -----------------------------------------------------------------------
 
-    protected static function booted(): void
+    protected static function boot(): void
     {
-        static::creating(function (Trip $trip) {
+        parent::boot();
+
+        static::creating(function (self $trip) {
             if (empty($trip->uuid)) {
                 $trip->uuid = (string) Str::uuid();
             }
         });
     }
 
-    // -------------------------------------------------------------------------
-    //  Relations
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // RELATIONS
+    // -----------------------------------------------------------------------
 
-    /** Conducteur propriétaire du trajet */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /** Véhicule utilisé pour ce trajet */
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class);
     }
 
-    /** Réservations liées à ce trajet */
-    public function bookings()
+    // -----------------------------------------------------------------------
+    // HELPERS
+    // -----------------------------------------------------------------------
+
+    public function isPending(): bool
     {
-        return $this->hasMany(Booking::class);
+        return $this->status === 'pending';
     }
 
-    // -------------------------------------------------------------------------
-    //  Scopes utilitaires
-    // -------------------------------------------------------------------------
-
-    /** Trajets ouverts à la réservation */
-    public function scopePending($query)
+    public function isActive(): bool
     {
-        return $query->where('status', 'pending');
+        return $this->status === 'active';
     }
 
-    /** Trajets en cours */
-    public function scopeActive($query)
+    public function isCompleted(): bool
     {
-        return $query->where('status', 'active');
+        return $this->status === 'completed';
     }
 
-    /** Trajets terminés */
-    public function scopeCompleted($query)
+    public function route(): string
     {
-        return $query->where('status', 'completed');
+        return "{$this->departure_city} → {$this->arrival_city}";
     }
 }
