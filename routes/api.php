@@ -26,3 +26,11 @@ require __DIR__ . '/api/trips.php';
 require __DIR__ . '/api/vehicles.php';
 require __DIR__ . '/api/bookings.php';
 require __DIR__ . '/api/payments.php';
+require __DIR__ . '/api/withdrawals.php';
+require __DIR__ . '/api/notifications.php';
+require __DIR__ . '/api/chat.php';
+
+// Routes sandbox (jamais en production)
+if (! app()->environment('production')) {
+    require __DIR__ . '/api/sandbox.php';
+}

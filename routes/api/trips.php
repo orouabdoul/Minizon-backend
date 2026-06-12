@@ -12,7 +12,7 @@ Route::get('trips/{uuid}/reviews',         [ReviewController::class, 'tripReview
 Route::get('drivers/{uuid}/reviews',       [ReviewController::class, 'driverReviews'])->name('drivers.reviews.index');
 
 // 🔒 Actions authentifiées — token requis
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     Route::post('trips',                 [TripController::class, 'store'])->name('trips.store');
     Route::put('trips/{uuid}',           [TripController::class, 'update'])->name('trips.update');
     Route::delete('trips/{uuid}',        [TripController::class, 'destroy'])->name('trips.destroy');

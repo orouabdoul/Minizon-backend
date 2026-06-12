@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Booking;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
+use App\Notifications\BookingStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -50,6 +51,10 @@ class BookingController extends Controller
 
         if (! $trip->isPending()) {
             return $this->apiResponse(false, "Ce trajet n'accepte plus de réservations (statut : « {$trip->status} »).", [], 403);
+        }
+
+        if ($trip->user_id === $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez pas réserver votre propre trajet.', [], 403);
         }
 
         $seats = max(1, (int) $request->input('seats_booked', 1));
@@ -186,6 +191,9 @@ class BookingController extends Controller
         $booking->update(['status' => 'accepted']);
         $booking->trip->decrement('available_seats', $booking->seats_booked);
 
+        // Notifier le passager
+        $booking->passenger->notify(new BookingStatusChanged($booking->fresh('trip')));
+
         return $this->apiResponse(true, 'Réservation acceptée.', $booking->fresh(['trip', 'passenger.profile']));
     }
 
@@ -226,6 +234,9 @@ class BookingController extends Controller
         }
 
         $booking->update(['status' => 'rejected']);
+
+        // Notifier le passager
+        $booking->passenger->notify(new BookingStatusChanged($booking->fresh('trip')));
 
         return $this->apiResponse(true, 'Réservation rejetée.', $booking->fresh());
     }
@@ -276,6 +287,11 @@ class BookingController extends Controller
         }
 
         $booking->update(['status' => 'cancelled']);
+
+        // Notifier l'autre partie (passager notifie si driver annule, vice-versa)
+        if ($isDriver) {
+            $booking->passenger->notify(new BookingStatusChanged($booking->fresh('trip')));
+        }
 
         return $this->apiResponse(true, 'Réservation annulée.', $booking->fresh());
     }
@@ -331,6 +347,67 @@ class BookingController extends Controller
             ->get();
 
         return $this->apiResponse(true, 'Supervision globale des réservations.', $bookings);
+    }
+
+    // =========================================================================
+    //  CONTACT — Révéler le numéro du conducteur (après acceptation)
+    // =========================================================================
+
+    #[OA\Get(
+        path: '/api/bookings/{uuid}/contact',
+        operationId: 'bookingContact',
+        summary: 'Numéro de téléphone du conducteur',
+        description: <<<'DESC'
+Retourne le numéro de téléphone du conducteur **uniquement si** la réservation
+est acceptée (`status = accepted`). Protège la vie privée avant toute confirmation.
+DESC,
+        tags: ['📦 Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Contact du conducteur',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success',        type: 'boolean', example: true),
+                        new OA\Property(property: 'message',        type: 'string'),
+                        new OA\Property(property: 'body', type: 'object', properties: [
+                            new OA\Property(property: 'driver_name',  type: 'string',  example: 'Koffi Mensah'),
+                            new OA\Property(property: 'phone_number', type: 'string',  example: '+22997000000'),
+                        ]),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Réservation non acceptée ou accès refusé'),
+            new OA\Response(response: 404, description: 'Réservation introuvable'),
+        ]
+    )]
+    public function contact(Request $request, string $uuid): JsonResponse
+    {
+        $booking = Booking::with(['trip.user.profile', 'passenger'])->where('uuid', $uuid)->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        if ($booking->passenger_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Accès refusé.', [], 403);
+        }
+
+        if (! $booking->isAccepted()) {
+            return $this->apiResponse(false, 'Le contact conducteur n\'est disponible qu\'après acceptation de la réservation.', [], 403);
+        }
+
+        $driver  = $booking->trip->user;
+        $profile = $driver->profile;
+
+        return $this->apiResponse(true, 'Contact du conducteur.', [
+            'driver_name'  => trim(($profile->first_name ?? '') . ' ' . ($profile->last_name ?? '')) ?: $driver->name,
+            'phone_number' => $driver->phone ?? $profile->phone ?? null,
+        ]);
     }
 
     // =========================================================================

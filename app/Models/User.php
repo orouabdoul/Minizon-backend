@@ -24,12 +24,14 @@ class User extends Authenticatable
         'is_blocked',
         'blocked_until',
         'penalty_points',
+        'fcm_token',
     ];
 
     protected $hidden = [
         'password',
         'otp_code',
         'remember_token',
+        'fcm_token',
     ];
 
     protected $casts = [

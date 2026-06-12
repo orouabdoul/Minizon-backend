@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\TripValidation;
+use App\Notifications\PaymentConfirmed;
 use FedaPay\FedaPay;
 use FedaPay\Transaction as FedaTransaction;
 use FedaPay\Webhook as FedaWebhook;
@@ -139,44 +140,109 @@ DESC,
         $internalRef    = 'TXN-' . strtoupper(Str::random(12));
         $fedaMode       = config('fedapay.modes.' . $request->provider, 'mtn_open');
 
+        // — Normalisation du numéro de téléphone —
+        // FedaPay attend le numéro LOCAL sans indicatif pays.
+        // Exemples d'entrées acceptées → résultat attendu :
+        //   02290159000892  →  0159000892
+        //   +2290159000892  →  0159000892
+        //   2290159000892   →  0159000892
+        //   0159000892      →  0159000892  (déjà local)
+        //   97123456        →  97123456    (ancien format 8 chiffres)
+        $localPhone = preg_replace('/\s+/', '', $request->phone_number); // retire les espaces
+        $localPhone = preg_replace('/^\+?(00?)?229/', '', $localPhone);  // retire l'indicatif +229 / 00229 / 0229 / 229
+        // Garde le 0 de tête du numéro local béninois (ex: 0159…)
+        // Si encore > 10 chiffres après nettoyage, prendre les 8 derniers (sécurité)
+        if (strlen($localPhone) > 10) {
+            $localPhone = substr($localPhone, -8);
+        }
+
         // — Création de la transaction FedaPay —
 
+        $fedaTxn     = null;
+        $checkoutUrl = null;
+
         try {
+            $profile = $booking->passenger->profile;
+
             $fedaTxn = FedaTransaction::create([
-                'description'  => "Réservation trajet MINIZON — {$booking->trip->route()}",
+                'description'  => "Réservation trajet MINIZON — {$booking->trip->departure_city} → {$booking->trip->arrival_city}",
                 'amount'       => $gross,
                 'currency'     => ['iso' => 'XOF'],
                 'callback_url' => config('fedapay.callback_url'),
                 'customer'     => [
-                    'firstname' => $booking->passenger->profile->first_name ?? 'Passager',
-                    'lastname'  => $booking->passenger->profile->last_name  ?? '',
-                    'email'     => $booking->passenger->profile->email       ?? null,
+                    'firstname' => $profile->first_name ?? 'Passager',
+                    'lastname'  => $profile->last_name  ?? 'MINIZON',
+                    'email'     => $profile->email       ?? "passenger+{$booking->passenger->id}@minizon.bj",
                     'phone_number' => [
-                        'number'  => $request->phone_number,
+                        'number'  => $localPhone,   // numéro local normalisé sans indicatif
                         'country' => 'bj',
                     ],
                 ],
             ]);
 
-            // — Génération du token et envoi du push USSD —
+            // — Génération du token (checkout URL) — utile comme fallback en sandbox
+            $tokenObject = $fedaTxn->generateToken();
+            $checkoutUrl = $tokenObject->url ?? null;
 
-            $token = $fedaTxn->generateToken()->token;
-
-            $fedaTxn->sendNowWithToken($fedaMode, $token, [
-                'number'  => $request->phone_number,
-                'country' => 'bj',
-            ]);
+            // — Envoi du push USSD Mobile Money —
+            // sendNow génère un token en interne + POST /v1/{mode} avec {"token":"..."}
+            // Ne pas passer de paramètres téléphone : le numéro est déjà dans le customer
+            $fedaTxn->sendNowWithToken($fedaMode, $tokenObject->token);
 
         } catch (\Exception $e) {
+            // Extraire les détails de validation FedaPay si disponibles
+            $fedaErrors  = method_exists($e, 'getErrors')  ? $e->getErrors()  : null;
+            $fedaStatus  = method_exists($e, 'getHttpStatus') ? $e->getHttpStatus() : null;
+            $fedaBody    = method_exists($e, 'getHttpBody')   ? $e->getHttpBody()   : null;
+
             AuditLog::record(
                 'payment.fedapay_error',
                 $request->user()->id,
                 $request->ip(),
-                ['error' => $e->getMessage(), 'booking_uuid' => $uuid],
+                [
+                    'error'        => $e->getMessage(),
+                    'feda_errors'  => $fedaErrors,
+                    'feda_status'  => $fedaStatus,
+                    'booking_uuid' => $uuid,
+                    'local_phone'  => $localPhone,
+                ],
                 $request->userAgent()
             );
 
-            return $this->apiResponse(false, 'Erreur lors de la communication avec FedaPay : ' . $e->getMessage(), [], 502);
+            // Si la transaction a été créée mais le push USSD a échoué,
+            // sauvegarder le paiement et retourner le checkout URL (utile en sandbox)
+            if ($fedaTxn && $checkoutUrl) {
+                $payment = Payment::create([
+                    'booking_id'            => $booking->id,
+                    'user_id'               => $request->user()->id,
+                    'gross_amount'          => $gross,
+                    'commission_amount'     => $commission,
+                    'net_amount'            => $net,
+                    'provider'              => $request->provider,
+                    'idempotency_key'       => (string) Str::uuid(),
+                    'transaction_reference' => $internalRef,
+                    'provider_reference'    => (string) $fedaTxn->id,
+                    'status'                => 'pending',
+                ]);
+
+                return $this->apiResponse(true, 'USSD push indisponible — utilisez le lien de paiement (checkout_url).', [
+                    'payment_uuid'          => $payment->uuid,
+                    'transaction_reference' => $internalRef,
+                    'fedapay_id'            => $fedaTxn->id,
+                    'amount'                => $gross,
+                    'provider'              => $request->provider,
+                    'status'                => 'pending',
+                    'checkout_url'          => $checkoutUrl,
+                    'push_error'            => $e->getMessage(),
+                ], 202);
+            }
+
+            // La création même de la transaction a échoué — retourner les détails FedaPay
+            return $this->apiResponse(false, 'Erreur FedaPay : ' . $e->getMessage(), [
+                'feda_errors' => $fedaErrors,
+                'feda_status' => $fedaStatus,
+                'phone_used'  => $localPhone,
+            ], 502);
         }
 
         // — Enregistrement en base —
@@ -201,6 +267,7 @@ DESC,
             'amount'                => $gross,
             'provider'              => $request->provider,
             'status'                => 'pending',
+            'checkout_url'          => $checkoutUrl, // fallback URL si USSD non disponible
         ], 202);
     }
 
@@ -472,6 +539,9 @@ DESC,
                 'status'          => 'waiting',
             ]
         );
+
+        // Notifier le passager que son paiement a été reçu
+        $payment->user->notify(new PaymentConfirmed($payment->load('booking.trip')));
     }
 
     // =========================================================================

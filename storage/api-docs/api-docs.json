@@ -16,17 +16,6 @@
         }
     ],
     "paths": {
-        "/api/test": {
-            "get": {
-                "summary": "Route de test",
-                "operationId": "7c2e6b5602b42636e41cc7228a9d8765",
-                "responses": {
-                    "200": {
-                        "description": "Succès"
-                    }
-                }
-            }
-        },
         "/api/auth/send-otp": {
             "post": {
                 "tags": [
@@ -1315,6 +1304,845 @@
                 ]
             }
         },
+        "/api/bookings/{uuid}/contact": {
+            "get": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Numéro de téléphone du conducteur",
+                "description": "Retourne le numéro de téléphone du conducteur **uniquement si** la réservation\nest acceptée (`status = accepted`). Protège la vie privée avant toute confirmation.",
+                "operationId": "bookingContact",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Contact du conducteur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "driver_name": {
+                                                    "type": "string",
+                                                    "example": "Koffi Mensah"
+                                                },
+                                                "phone_number": {
+                                                    "type": "string",
+                                                    "example": "+22997000000"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Réservation non acceptée ou accès refusé"
+                    },
+                    "404": {
+                        "description": "Réservation introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/conversations": {
+            "get": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "Mes conversations",
+                "description": "Retourne toutes les conversations de l'utilisateur connecté, triées par activité récente. Chaque entrée inclut le dernier message et le nombre de messages non lus.",
+                "operationId": "conversationsIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste des conversations"
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}/conversation": {
+            "post": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "Ouvrir la conversation d'une réservation",
+                "description": "Crée (ou retourne si elle existe déjà) la conversation entre le conducteur et le passager pour une réservation **acceptée**. Idempotent : appeler plusieurs fois retourne toujours la même conversation.",
+                "operationId": "conversationGetOrCreate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la réservation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation récupérée ou créée"
+                    },
+                    "403": {
+                        "description": "Accès refusé ou réservation non acceptée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/conversations/{uuid}/messages": {
+            "get": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "Historique des messages (scroll infini)",
+                "description": "Retourne les messages d'une conversation, du plus récent au plus ancien. Pour charger les messages plus anciens, passer `before_id` = ID du plus ancien message déjà chargé.",
+                "operationId": "conversationMessages",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la conversation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "description": "Charger les messages antérieurs à cet ID (pagination cursor)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Nombre de messages par page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20,
+                            "maximum": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages récupérés"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "Envoyer un message",
+                "description": "Envoie un message texte et/ou une image dans une conversation. Envoie une notification push FCM au destinataire. Requête `multipart/form-data` si image jointe.",
+                "operationId": "conversationSend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "body": {
+                                        "description": "Texte du message (max 2000 caractères)",
+                                        "type": "string",
+                                        "example": "Je suis en route !",
+                                        "nullable": true
+                                    },
+                                    "attachment": {
+                                        "description": "Image jpg/png/webp/gif — max 5 Mo",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message envoyé"
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/conversations/{uuid}/read": {
+            "post": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "Marquer les messages comme lus",
+                "description": "Marque tous les messages reçus non lus de cette conversation comme lus. À appeler lorsque l'utilisateur ouvre la conversation.",
+                "operationId": "conversationRead",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages marqués comme lus"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/conversations": {
+            "get": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "[ADMIN] Supervision des conversations",
+                "description": "Liste toutes les conversations de la plateforme avec leur dernier message et nombre de messages. Accès réservé aux administrateurs.",
+                "operationId": "adminConversationsIndex",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste paginée des conversations"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/conversations/{uuid}/messages": {
+            "get": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "[ADMIN] Lire une conversation complète",
+                "description": "Accès admin à tous les messages d'une conversation. Utilisé pour la modération et le support.",
+                "operationId": "adminConversationMessages",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "description": "Pagination cursor",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages + infos participants"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/conversations/{uuid}/messages/{id}": {
+            "delete": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "[ADMIN] Supprimer un message",
+                "description": "Supprime définitivement un message (modération). Si le message contient une pièce jointe, le fichier est également supprimé du stockage.",
+                "operationId": "adminDeleteMessage",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la conversation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du message",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Message supprimé"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Message introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/conversations/{uuid}": {
+            "delete": {
+                "tags": [
+                    "💬 Messagerie"
+                ],
+                "summary": "[ADMIN] Supprimer une conversation",
+                "description": "Supprime définitivement une conversation et tous ses messages (y compris les pièces jointes). Action irréversible.",
+                "operationId": "adminDeleteConversation",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation supprimée"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/device/token": {
+            "post": {
+                "tags": [
+                    "📱 Appareil & Token FCM"
+                ],
+                "summary": "Enregistrer le token FCM de l'appareil",
+                "description": "À appeler dès que l\\'app mobile obtient ou renouvelle son token FCM.\nStocker le token côté serveur permet d\\'envoyer des push notifications\nmême quand l\\'app est en arrière-plan.\n\n**Quand appeler :**\n- Au démarrage de l\\'app (onApplicationMount)\n- Quand `onTokenRefresh` est déclenché par le SDK Firebase",
+                "operationId": "deviceTokenRegister",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "fcm_token"
+                                ],
+                                "properties": {
+                                    "fcm_token": {
+                                        "description": "Token FCM fourni par le SDK Firebase côté mobile",
+                                        "type": "string",
+                                        "example": "dIhSm8…qA3x"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token enregistré avec succès"
+                    },
+                    "422": {
+                        "description": "Token manquant ou invalide"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "📱 Appareil & Token FCM"
+                ],
+                "summary": "Supprimer le token FCM (déconnexion)",
+                "description": "À appeler lors de la déconnexion de l'utilisateur pour ne plus recevoir de notifications sur cet appareil.",
+                "operationId": "deviceTokenRevoke",
+                "responses": {
+                    "200": {
+                        "description": "Token supprimé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/stats": {
+            "get": {
+                "tags": [
+                    "📊 Stats Conducteur"
+                ],
+                "summary": "Tableau de bord conducteur",
+                "description": "Retourne les statistiques clés du conducteur connecté :\n- Gains totaux (fonds libérés en sa faveur)\n- Solde disponible pour retrait (non encore retiré)\n- Nombre de trajets effectués\n- Note moyenne\n- Nombre de passagers transportés",
+                "operationId": "driverStats",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques du conducteur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total_earnings": {
+                                                    "description": "Gains totaux XOF",
+                                                    "type": "integer",
+                                                    "example": 125000
+                                                },
+                                                "available_balance": {
+                                                    "description": "Solde disponible pour retrait",
+                                                    "type": "integer",
+                                                    "example": 45000
+                                                },
+                                                "total_withdrawals": {
+                                                    "description": "Total retiré",
+                                                    "type": "integer",
+                                                    "example": 80000
+                                                },
+                                                "trips_completed": {
+                                                    "type": "integer",
+                                                    "example": 18
+                                                },
+                                                "passengers_transported": {
+                                                    "type": "integer",
+                                                    "example": 42
+                                                },
+                                                "average_rating": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 4.6,
+                                                    "nullable": true
+                                                },
+                                                "total_reviews": {
+                                                    "type": "integer",
+                                                    "example": 14
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications": {
+            "get": {
+                "tags": [
+                    "🔔 Notifications"
+                ],
+                "summary": "Mes notifications (toutes)",
+                "description": "Retourne toutes les notifications de l'utilisateur connecté, triées de la plus récente. Les non lues apparaissent en premier.",
+                "operationId": "notificationsIndex",
+                "parameters": [
+                    {
+                        "name": "unread_only",
+                        "in": "query",
+                        "description": "Si \"1\", retourne uniquement les notifications non lues.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notifications récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "unread_count": {
+                                            "type": "integer",
+                                            "example": 3
+                                        },
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/{id}/read": {
+            "post": {
+                "tags": [
+                    "🔔 Notifications"
+                ],
+                "summary": "Marquer une notification comme lue",
+                "operationId": "notificationMarkRead",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Marquée comme lue"
+                    },
+                    "404": {
+                        "description": "Notification introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/read-all": {
+            "post": {
+                "tags": [
+                    "🔔 Notifications"
+                ],
+                "summary": "Tout marquer comme lu",
+                "description": "Marque toutes les notifications non lues comme lues d'un coup.",
+                "operationId": "notificationMarkAllRead",
+                "responses": {
+                    "200": {
+                        "description": "Toutes marquées comme lues"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/{id}": {
+            "delete": {
+                "tags": [
+                    "🔔 Notifications"
+                ],
+                "summary": "Supprimer une notification",
+                "operationId": "notificationDelete",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Supprimée"
+                    },
+                    "404": {
+                        "description": "Introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/bookings/{uuid}/pay": {
             "post": {
                 "tags": [
@@ -1942,6 +2770,17 @@
                 }
             }
         },
+        "/api/test": {
+            "get": {
+                "summary": "Route de test",
+                "operationId": "7c2e6b5602b42636e41cc7228a9d8765",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                }
+            }
+        },
         "/api/trips": {
             "get": {
                 "tags": [
@@ -1954,7 +2793,7 @@
                     {
                         "name": "departure_city",
                         "in": "query",
-                        "description": "Ville de départ (recherche partielle, insensible à la casse)",
+                        "description": "Ville de départ (recherche partielle)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -1974,12 +2813,52 @@
                     {
                         "name": "date",
                         "in": "query",
-                        "description": "Date de départ souhaitée (format YYYY-MM-DD)",
+                        "description": "Date de départ (YYYY-MM-DD)",
                         "required": false,
                         "schema": {
                             "type": "string",
                             "format": "date",
                             "example": "2026-07-01"
+                        }
+                    },
+                    {
+                        "name": "min_seats",
+                        "in": "query",
+                        "description": "Nombre de places minimum disponibles",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2
+                        }
+                    },
+                    {
+                        "name": "max_price",
+                        "in": "query",
+                        "description": "Prix max par siège (XOF)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 5000
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Résultats par page (défaut 15, max 50)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 15
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
                         }
                     }
                 ],
@@ -2065,6 +2944,12 @@
                                         "type": "string",
                                         "format": "date-time",
                                         "example": "2026-07-15T07:00:00Z"
+                                    },
+                                    "total_seats": {
+                                        "description": "Nombre de places offertes (défaut = capacité du véhicule, max 20)",
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
                                     },
                                     "description": {
                                         "description": "Instructions du conducteur",
@@ -3070,6 +3955,247 @@
                     }
                 ]
             }
+        },
+        "/api/withdrawals": {
+            "get": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "Mes retraits (conducteur)",
+                "operationId": "withdrawalIndex",
+                "responses": {
+                    "200": {
+                        "description": "Historique"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "Demander un retrait Mobile Money",
+                "description": "Conducteur uniquement. Soumet une demande qui sera traitée par un admin dans les 24 h.",
+                "operationId": "withdrawalStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount",
+                                    "provider",
+                                    "phone_number"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "description": "Montant XOF (min 500)",
+                                        "type": "integer",
+                                        "example": 15000,
+                                        "minimum": 500
+                                    },
+                                    "provider": {
+                                        "type": "string",
+                                        "example": "mtn",
+                                        "enum": [
+                                            "mtn",
+                                            "moov",
+                                            "celtiis"
+                                        ]
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "97000000"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Demande enregistrée"
+                    },
+                    "403": {
+                        "description": "Réservé aux conducteurs"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/withdrawals": {
+            "get": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "[ADMIN] Demandes de retrait",
+                "operationId": "adminWithdrawals",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "approved",
+                                "rejected",
+                                "failed"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste"
+                    },
+                    "403": {
+                        "description": "Accès refusé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/withdrawals/balance": {
+            "get": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "[ADMIN] Solde FedaPay disponible par opérateur",
+                "operationId": "fedapayBalance",
+                "responses": {
+                    "200": {
+                        "description": "Soldes"
+                    },
+                    "403": {
+                        "description": "Accès refusé"
+                    },
+                    "502": {
+                        "description": "Erreur API FedaPay"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/withdrawals/{id}/process": {
+            "post": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "[ADMIN] Approuver & virer via FedaPay Payout",
+                "description": "Vérifie le solde FedaPay, crée un Payout et envoie les fonds au conducteur. Notification push envoyée au conducteur.",
+                "operationId": "withdrawalProcess",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Virement envoyé"
+                    },
+                    "403": {
+                        "description": "Accès refusé"
+                    },
+                    "404": {
+                        "description": "Demande introuvable"
+                    },
+                    "422": {
+                        "description": "Déjà traitée / solde insuffisant"
+                    },
+                    "502": {
+                        "description": "Échec FedaPay Payout"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/withdrawals/{id}/reject": {
+            "post": {
+                "tags": [
+                    "💸 Retraits & Virements"
+                ],
+                "summary": "[ADMIN] Rejeter une demande de retrait",
+                "operationId": "withdrawalReject",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Solde insuffisant sur le compte MINIZON."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Demande rejetée"
+                    },
+                    "403": {
+                        "description": "Accès refusé"
+                    },
+                    "404": {
+                        "description": "Demande introuvable"
+                    },
+                    "422": {
+                        "description": "Déjà traitée ou motif manquant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -3122,6 +4248,22 @@
             "description": "📦 Réservations"
         },
         {
+            "name": "💬 Messagerie",
+            "description": "💬 Messagerie"
+        },
+        {
+            "name": "📱 Appareil & Token FCM",
+            "description": "📱 Appareil & Token FCM"
+        },
+        {
+            "name": "📊 Stats Conducteur",
+            "description": "📊 Stats Conducteur"
+        },
+        {
+            "name": "🔔 Notifications",
+            "description": "🔔 Notifications"
+        },
+        {
             "name": "💰 Paiements & Escrow",
             "description": "💰 Paiements & Escrow"
         },
@@ -3136,6 +4278,10 @@
         {
             "name": "🚙 Flotte & Véhicules",
             "description": "🚙 Flotte & Véhicules"
+        },
+        {
+            "name": "💸 Retraits & Virements",
+            "description": "💸 Retraits & Virements"
         }
     ]
 }

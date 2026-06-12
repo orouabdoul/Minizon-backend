@@ -33,27 +33,20 @@ class TripController extends Controller
         description: 'Retourne les offres de covoiturage avec le statut `pending`. Filtrage optionnel par ville de départ, ville d\'arrivée et date.',
         tags: ['🚗 Trajets & Télémétrie'],
         parameters: [
-            new OA\Parameter(
-                name: 'departure_city',
-                in: 'query',
-                required: false,
-                description: 'Ville de départ (recherche partielle, insensible à la casse)',
-                schema: new OA\Schema(type: 'string', example: 'Cotonou')
-            ),
-            new OA\Parameter(
-                name: 'arrival_city',
-                in: 'query',
-                required: false,
-                description: 'Ville d\'arrivée (recherche partielle)',
-                schema: new OA\Schema(type: 'string', example: 'Parakou')
-            ),
-            new OA\Parameter(
-                name: 'date',
-                in: 'query',
-                required: false,
-                description: 'Date de départ souhaitée (format YYYY-MM-DD)',
-                schema: new OA\Schema(type: 'string', format: 'date', example: '2026-07-01')
-            ),
+            new OA\Parameter(name: 'departure_city', in: 'query', required: false,
+                description: 'Ville de départ (recherche partielle)', schema: new OA\Schema(type: 'string', example: 'Cotonou')),
+            new OA\Parameter(name: 'arrival_city', in: 'query', required: false,
+                description: 'Ville d\'arrivée (recherche partielle)', schema: new OA\Schema(type: 'string', example: 'Parakou')),
+            new OA\Parameter(name: 'date', in: 'query', required: false,
+                description: 'Date de départ (YYYY-MM-DD)', schema: new OA\Schema(type: 'string', format: 'date', example: '2026-07-01')),
+            new OA\Parameter(name: 'min_seats', in: 'query', required: false,
+                description: 'Nombre de places minimum disponibles', schema: new OA\Schema(type: 'integer', example: 2)),
+            new OA\Parameter(name: 'max_price', in: 'query', required: false,
+                description: 'Prix max par siège (XOF)', schema: new OA\Schema(type: 'integer', example: 5000)),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false,
+                description: 'Résultats par page (défaut 15, max 50)', schema: new OA\Schema(type: 'integer', example: 15)),
+            new OA\Parameter(name: 'page', in: 'query', required: false,
+                description: 'Numéro de page', schema: new OA\Schema(type: 'integer', example: 1)),
         ],
         responses: [
             new OA\Response(
@@ -72,7 +65,8 @@ class TripController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Trip::with(['user.profile', 'vehicle.vehicleType'])
-            ->where('status', 'pending');
+            ->where('status', 'pending')
+            ->where('departure_time', '>', now());
 
         if ($request->filled('departure_city')) {
             $query->where('departure_city', 'like', '%' . $request->departure_city . '%');
@@ -86,7 +80,18 @@ class TripController extends Controller
             $query->whereDate('departure_time', $request->date);
         }
 
-        return $this->apiResponse(true, 'Trajets disponibles récupérés.', $query->orderBy('departure_time')->get());
+        if ($request->filled('min_seats')) {
+            $query->where('available_seats', '>=', (int) $request->min_seats);
+        }
+
+        if ($request->filled('max_price')) {
+            $query->where('price_per_seat', '<=', (int) $request->max_price);
+        }
+
+        $perPage = min(50, max(1, (int) $request->input('per_page', 15)));
+        $trips   = $query->orderBy('departure_time')->paginate($perPage);
+
+        return $this->apiResponse(true, 'Trajets disponibles récupérés.', $trips);
     }
 
     // -------------------------------------------------------------------------
@@ -204,6 +209,7 @@ class TripController extends Controller
                     new OA\Property(property: 'arrival_neighborhood',    type: 'string',  example: 'Carrefour Mouillage'),
                     new OA\Property(property: 'price_per_seat',          type: 'integer', example: 3500,                       description: 'Prix par siège en FCFA'),
                     new OA\Property(property: 'departure_time',          type: 'string',  format: 'date-time',                 example: '2026-07-15T07:00:00Z', description: 'Doit être une date future'),
+                    new OA\Property(property: 'total_seats',             type: 'integer', example: 4,                          nullable: true, description: 'Nombre de places offertes (défaut = capacité du véhicule, max 20)'),
                     new OA\Property(property: 'description',             type: 'string',  example: 'Pas de gros bagages SVP.', nullable: true, description: 'Instructions du conducteur'),
                 ]
             )
@@ -224,6 +230,7 @@ class TripController extends Controller
             'arrival_neighborhood'   => ['required', 'string', 'max:100'],
             'price_per_seat'         => ['required', 'integer', 'min:0'],
             'departure_time'         => ['required', 'date', 'after:now'],
+            'total_seats'            => ['nullable', 'integer', 'min:1', 'max:20'],
             'description'            => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -239,6 +246,8 @@ class TripController extends Controller
             return $this->apiResponse(false, 'Véhicule invalide ou non certifié par l\'administration.', [], 403);
         }
 
+        $totalSeats = $request->total_seats ?? $vehicle->available_seats;
+
         $trip = Trip::create([
             'user_id'                => $request->user()->id,
             'vehicle_id'             => $request->vehicle_id,
@@ -248,6 +257,8 @@ class TripController extends Controller
             'arrival_neighborhood'   => $request->arrival_neighborhood,
             'price_per_seat'         => $request->price_per_seat,
             'departure_time'         => $request->departure_time,
+            'total_seats'            => $totalSeats,
+            'available_seats'        => $totalSeats,
             'description'            => $request->description,
             'status'                 => 'pending',
         ]);

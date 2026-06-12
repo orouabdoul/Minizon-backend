@@ -3,7 +3,7 @@
 use App\Http\Controllers\Booking\BookingController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'approved'])->group(function () {
 
     // 🔒 Passager — réserver
     Route::post('trips/{uuid}/bookings',  [BookingController::class, 'store'])->name('bookings.store');
@@ -11,7 +11,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // 🔒 Passager — mes réservations
     Route::get('bookings',                [BookingController::class, 'index'])->name('bookings.index');
     Route::get('bookings/{uuid}',         [BookingController::class, 'show'])->name('bookings.show');
-    Route::post('bookings/{uuid}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+    Route::post('bookings/{uuid}/cancel',  [BookingController::class, 'cancel'])->name('bookings.cancel');
+    Route::get('bookings/{uuid}/contact',  [BookingController::class, 'contact'])->name('bookings.contact');
 
     // 🔒 Conducteur — gérer les demandes
     Route::post('bookings/{uuid}/accept', [BookingController::class, 'accept'])->name('bookings.accept');

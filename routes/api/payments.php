@@ -12,7 +12,7 @@ Route::post('payments/webhook/fedapay', [PaymentController::class, 'webhook'])->
 // ============================================================
 //  🔒 Routes authentifiées
 // ============================================================
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'approved'])->group(function () {
 
     // Passager — initier le paiement (push USSD Mobile Money)
     Route::post('bookings/{uuid}/pay',             [PaymentController::class, 'initiate'])->name('payments.initiate');
