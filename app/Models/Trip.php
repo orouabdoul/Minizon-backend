@@ -21,6 +21,8 @@ class Trip extends Model
         'price_per_seat',
         'departure_time',
         'description',
+        'total_seats',
+        'available_seats',
         'status',
         'current_latitude',
         'current_longitude',
@@ -29,12 +31,14 @@ class Trip extends Model
     protected $casts = [
         'departure_time'    => 'datetime',
         'price_per_seat'    => 'integer',
+        'total_seats'       => 'integer',
+        'available_seats'   => 'integer',
         'current_latitude'  => 'float',
         'current_longitude' => 'float',
     ];
 
     // -----------------------------------------------------------------------
-    // BOOT : génération automatique de l'UUID
+    // BOOT
     // -----------------------------------------------------------------------
 
     protected static function boot(): void
@@ -62,6 +66,26 @@ class Trip extends Model
         return $this->belongsTo(Vehicle::class);
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    public function tripValidations()
+    {
+        return $this->hasMany(TripValidation::class);
+    }
+
     // -----------------------------------------------------------------------
     // HELPERS
     // -----------------------------------------------------------------------
@@ -79,6 +103,11 @@ class Trip extends Model
     public function isCompleted(): bool
     {
         return $this->status === 'completed';
+    }
+
+    public function hasSeatsAvailable(int $seats = 1): bool
+    {
+        return $this->available_seats >= $seats;
     }
 
     public function route(): string

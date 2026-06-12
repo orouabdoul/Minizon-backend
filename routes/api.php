@@ -24,8 +24,5 @@ Route::get('ping', fn () => response()->json([
 require __DIR__ . '/api/auth.php';
 require __DIR__ . '/api/trips.php';
 require __DIR__ . '/api/vehicles.php';
-
-// À décommenter au fur et à mesure :
-// require __DIR__ . '/api/bookings.php';
-// require __DIR__ . '/api/payments.php';
-// require __DIR__ . '/api/notifications.php';
+require __DIR__ . '/api/bookings.php';
+require __DIR__ . '/api/payments.php';

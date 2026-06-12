@@ -935,6 +935,1013 @@
                 ]
             }
         },
+        "/api/trips/{uuid}/bookings": {
+            "post": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Réserver une place sur un trajet",
+                "description": "Un passager envoie une demande de réservation pour un trajet `pending`. Le conducteur devra accepter ou rejeter.",
+                "operationId": "bookingStore",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "seats_booked": {
+                                        "description": "Nombre de places (défaut : 1)",
+                                        "type": "integer",
+                                        "example": 1,
+                                        "minimum": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Demande envoyée au conducteur"
+                    },
+                    "403": {
+                        "description": "Places insuffisantes / trajet indisponible",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Réservation active déjà existante",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings": {
+            "get": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Mes réservations (passager)",
+                "description": "Toutes les réservations du passager connecté, triées de la plus récente.",
+                "operationId": "bookingIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste des réservations"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}": {
+            "get": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Détail d'une réservation",
+                "operationId": "bookingShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détail complet"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}/accept": {
+            "post": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Accepter une réservation",
+                "description": "Le conducteur accepte la demande. Les places disponibles sont décrémentées automatiquement.",
+                "operationId": "bookingAccept",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réservation acceptée"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Statut incompatible",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}/reject": {
+            "post": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Rejeter une réservation",
+                "operationId": "bookingReject",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réservation rejetée"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Statut incompatible",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}/cancel": {
+            "post": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Annuler une réservation",
+                "description": "Le passager **ou** le conducteur peut annuler. Si la réservation était `accepted`, les places sont restituées au trajet.",
+                "operationId": "bookingCancel",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réservation annulée"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Déjà annulée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/bookings": {
+            "get": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "Réservations reçues (conducteur)",
+                "description": "Toutes les demandes de réservation reçues sur les trajets du conducteur connecté.",
+                "operationId": "driverBookings",
+                "responses": {
+                    "200": {
+                        "description": "Liste des réservations reçues"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/bookings": {
+            "get": {
+                "tags": [
+                    "📦 Réservations"
+                ],
+                "summary": "[ADMIN] Supervision globale des réservations",
+                "operationId": "adminBookings",
+                "responses": {
+                    "200": {
+                        "description": "Toutes les réservations"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{uuid}/pay": {
+            "post": {
+                "tags": [
+                    "💰 Paiements & Escrow"
+                ],
+                "summary": "Initier un paiement Mobile Money (FedaPay)",
+                "description": "Crée une transaction FedaPay et déclenche immédiatement un push USSD sur le téléphone du passager.\n\n**Flux asynchrone :**\n1. L'API crée la transaction et répond `202 Accepted` immédiatement.\n2. Le passager reçoit une notification USSD et entre son code PIN.\n3. FedaPay appelle le webhook `/payments/webhook/fedapay` avec le résultat.\n4. L'application mobile poll `/payments/{uuid}` toutes les 3 secondes pour connaître le statut.",
+                "operationId": "paymentInitiate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la réservation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "provider",
+                                    "phone_number"
+                                ],
+                                "properties": {
+                                    "provider": {
+                                        "description": "Opérateur Mobile Money",
+                                        "type": "string",
+                                        "example": "mtn",
+                                        "enum": [
+                                            "mtn",
+                                            "moov",
+                                            "celtiis"
+                                        ]
+                                    },
+                                    "phone_number": {
+                                        "description": "Numéro MoMo sans indicatif (ex: 97000000)",
+                                        "type": "string",
+                                        "example": "97000000"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Transaction initiée — push USSD envoyé au passager",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paiement initié. Validez sur votre téléphone."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "payment_uuid": {
+                                                    "type": "string",
+                                                    "example": "uuid-xxx"
+                                                },
+                                                "transaction_reference": {
+                                                    "type": "string",
+                                                    "example": "TXN-XXXXXXXX"
+                                                },
+                                                "fedapay_id": {
+                                                    "type": "integer",
+                                                    "example": 12345
+                                                },
+                                                "amount": {
+                                                    "type": "integer",
+                                                    "example": 5000
+                                                },
+                                                "provider": {
+                                                    "type": "string",
+                                                    "example": "mtn"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "pending"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Réservation non acceptée / accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Un paiement existe déjà pour cette réservation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Erreur communication FedaPay",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/payments/{uuid}": {
+            "get": {
+                "tags": [
+                    "💰 Paiements & Escrow"
+                ],
+                "summary": "Statut d'un paiement (polling)",
+                "description": "Appelée par l'application mobile toutes les **3 secondes** après initiation. Retourne le statut actuel du paiement en interrogeant également FedaPay en temps réel.",
+                "operationId": "paymentStatus",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID interne du paiement",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statut du paiement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Statut récupéré."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "locked",
+                                                    "enum": [
+                                                        "pending",
+                                                        "locked",
+                                                        "success",
+                                                        "failed",
+                                                        "refunded"
+                                                    ]
+                                                },
+                                                "feda_status": {
+                                                    "type": "string",
+                                                    "example": "approved",
+                                                    "enum": [
+                                                        "pending",
+                                                        "approved",
+                                                        "declined",
+                                                        "canceled"
+                                                    ]
+                                                },
+                                                "amount": {
+                                                    "type": "integer",
+                                                    "example": 5000
+                                                },
+                                                "provider": {
+                                                    "type": "string",
+                                                    "example": "mtn"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paiement introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/payments/webhook/fedapay": {
+            "post": {
+                "tags": [
+                    "💰 Paiements & Escrow"
+                ],
+                "summary": "Webhook FedaPay (notification asynchrone)",
+                "description": "**Route publique** appelée automatiquement par FedaPay lorsqu\\'un paiement est finalisé.\n\nSécurisée par signature HMAC via l\\'en-tête `X-FEDAPAY-SIGNATURE`.\nNe jamais exposer le `FEDAPAY_WEBHOOK_SECRET` côté client.",
+                "operationId": "paymentWebhook",
+                "parameters": [
+                    {
+                        "name": "X-FEDAPAY-SIGNATURE",
+                        "in": "header",
+                        "description": "Signature HMAC fournie par FedaPay",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook traité avec succès"
+                    },
+                    "400": {
+                        "description": "Signature invalide ou payload corrompu"
+                    }
+                }
+            }
+        },
+        "/api/bookings/{uuid}/confirm-arrival": {
+            "post": {
+                "tags": [
+                    "💰 Paiements & Escrow"
+                ],
+                "summary": "Confirmer l'arrivée (passager)",
+                "description": "Le passager confirme qu\\'il est bien arrivé à destination.\nLes fonds passent de l\\'**escrow** au conducteur **immédiatement**, sans attendre le délai de 24h.\n\nSi le passager ne confirme pas, les fonds sont libérés automatiquement par le planificateur `minizon:release-funds`.",
+                "operationId": "confirmArrival",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Arrivée confirmée — fonds libérés au conducteur"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Paiement non en escrow",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments": {
+            "get": {
+                "tags": [
+                    "💰 Paiements & Escrow"
+                ],
+                "summary": "[ADMIN] Supervision globale des paiements",
+                "operationId": "adminPayments",
+                "responses": {
+                    "200": {
+                        "description": "Tous les paiements"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/reviews": {
+            "get": {
+                "tags": [
+                    "⭐ Avis Passagers"
+                ],
+                "summary": "Avis d'un trajet",
+                "description": "Retourne tous les avis laissés sur un trajet terminé, avec la note moyenne.",
+                "operationId": "tripReviews",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID du trajet",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des avis avec note moyenne",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avis récupérés."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "average_rating": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 4.5
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "reviews": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "⭐ Avis Passagers"
+                ],
+                "summary": "Laisser un avis sur un trajet",
+                "description": "Permet à un **passager authentifié** de noter et commenter un trajet **terminé** (`completed`). Un seul avis par passager par trajet.",
+                "operationId": "reviewsStore",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID du trajet",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "rating"
+                                ],
+                                "properties": {
+                                    "rating": {
+                                        "description": "Note de 1 (mauvais) à 5 (excellent)",
+                                        "type": "integer",
+                                        "example": 5,
+                                        "maximum": 5,
+                                        "minimum": 1
+                                    },
+                                    "comment": {
+                                        "type": "string",
+                                        "example": "Conducteur ponctuel, trajet très agréable !",
+                                        "nullable": true,
+                                        "maxLength": 500
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Avis soumis avec succès"
+                    },
+                    "403": {
+                        "description": "Réservé aux passagers / trajet non terminé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Avis déjà soumis pour ce trajet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/drivers/{uuid}/reviews": {
+            "get": {
+                "tags": [
+                    "⭐ Avis Passagers"
+                ],
+                "summary": "Avis d'un conducteur",
+                "description": "Retourne tous les avis reçus par un conducteur sur l'ensemble de ses trajets, avec la note moyenne globale.",
+                "operationId": "driverReviews",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID du conducteur",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Avis du conducteur avec note moyenne globale",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avis du conducteur récupérés."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "average_rating": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 4.2
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "reviews": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conducteur introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/trips": {
             "get": {
                 "tags": [
@@ -2109,6 +3116,18 @@
         {
             "name": "👤 Utilisateurs",
             "description": "👤 Utilisateurs"
+        },
+        {
+            "name": "📦 Réservations",
+            "description": "📦 Réservations"
+        },
+        {
+            "name": "💰 Paiements & Escrow",
+            "description": "💰 Paiements & Escrow"
+        },
+        {
+            "name": "⭐ Avis Passagers",
+            "description": "⭐ Avis Passagers"
         },
         {
             "name": "🚗 Trajets & Télémétrie",

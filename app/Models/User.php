@@ -33,16 +33,16 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'is_verified'        => 'boolean',
-        'is_blocked'         => 'boolean',
-        'phone_verified_at'  => 'datetime',
-        'otp_expires_at'     => 'datetime',
-        'blocked_until'      => 'datetime',
-        'penalty_points'     => 'integer',
+        'is_verified'       => 'boolean',
+        'is_blocked'        => 'boolean',
+        'phone_verified_at' => 'datetime',
+        'otp_expires_at'    => 'datetime',
+        'blocked_until'     => 'datetime',
+        'penalty_points'    => 'integer',
     ];
 
     // -----------------------------------------------------------------------
-    // BOOT : génération automatique de l'UUID à la création
+    // BOOT
     // -----------------------------------------------------------------------
 
     protected static function boot(): void
@@ -75,6 +75,56 @@ class User extends Authenticatable
         return $this->hasOne(Vehicle::class);
     }
 
+    public function trips()
+    {
+        return $this->hasMany(Trip::class, 'user_id');
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class, 'passenger_id');
+    }
+
+    public function withdrawals()
+    {
+        return $this->hasMany(Withdrawal::class);
+    }
+
+    public function conversations()
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_user');
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function disputes()
+    {
+        return $this->hasMany(Dispute::class, 'reporter_id');
+    }
+
+    public function penalties()
+    {
+        return $this->hasMany(Penalty::class);
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    public function reviewsReceived()
+    {
+        return $this->hasMany(Review::class, 'reviewee_id');
+    }
+
+    public function reviewsGiven()
+    {
+        return $this->hasMany(Review::class, 'reviewer_id');
+    }
+
     // -----------------------------------------------------------------------
     // HELPERS
     // -----------------------------------------------------------------------
@@ -97,5 +147,11 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return ! $this->is_blocked;
+    }
+
+    public function averageRating(): ?float
+    {
+        $avg = $this->reviewsReceived()->avg('rating');
+        return $avg ? round($avg, 1) : null;
     }
 }

@@ -1,0 +1,70 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'uuid',
+        'trip_id',
+        'passenger_id',
+        'seats_booked',
+        'status',
+        'payment_status',
+    ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $booking) {
+            if (empty($booking->uuid)) {
+                $booking->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    // -----------------------------------------------------------------------
+    // RELATIONS
+    // -----------------------------------------------------------------------
+
+    public function trip()
+    {
+        return $this->belongsTo(Trip::class);
+    }
+
+    public function passenger()
+    {
+        return $this->belongsTo(User::class, 'passenger_id');
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
+    }
+
+    public function tripValidation()
+    {
+        return $this->hasOne(TripValidation::class);
+    }
+
+    public function dispute()
+    {
+        return $this->hasOne(Dispute::class);
+    }
+
+    // -----------------------------------------------------------------------
+    // HELPERS
+    // -----------------------------------------------------------------------
+
+    public function isPending(): bool   { return $this->status === 'pending'; }
+    public function isAccepted(): bool  { return $this->status === 'accepted'; }
+    public function isCancelled(): bool { return $this->status === 'cancelled'; }
+    public function isPaid(): bool      { return $this->payment_status === 'escrow_locked'; }
+}
