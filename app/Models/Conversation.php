@@ -54,4 +54,21 @@ class Conversation extends Model
     {
         return $this->hasOne(Message::class)->latestOfMany();
     }
+
+    // -----------------------------------------------------------------------
+    // HELPERS
+    // -----------------------------------------------------------------------
+
+    public function unreadCountFor(int $userId): int
+    {
+        return $this->messages()
+            ->where('sender_id', '!=', $userId)
+            ->whereNull('read_at')
+            ->count();
+    }
+
+    public function hasParticipant(int $userId): bool
+    {
+        return $this->participants()->where('user_id', $userId)->exists();
+    }
 }

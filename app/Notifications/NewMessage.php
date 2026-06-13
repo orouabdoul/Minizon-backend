@@ -19,7 +19,7 @@ class NewMessage extends Notification
 
     public function via(object $notifiable): array
     {
-        return [];
+        return ['database'];
     }
 
     public function toArray(object $notifiable): array
@@ -42,11 +42,17 @@ class NewMessage extends Notification
                 [
                     'type'              => 'new_message',
                     'conversation_uuid' => $this->conversation->uuid,
-                    'message_id'        => (string) $this->message->id,
+                    'message_uuid'      => $this->message->uuid,
                 ]
             );
         }
 
-        return [];
+        return [
+            'type'              => 'new_message',
+            'conversation_uuid' => $this->conversation->uuid,
+            'message_uuid'      => $this->message->uuid,
+            'sender_name'       => $senderName,
+            'preview'           => $preview,
+        ];
     }
 }
