@@ -18,8 +18,18 @@ services:
         value: https://minizon-api.onrender.com
       - key: LOG_CHANNEL
         value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: FILESYSTEM_DISK
+        value: local
       - key: SESSION_DRIVER
         value: cookie
+      - key: SESSION_LIFETIME
+        value: 120
       - key: L5_SWAGGER_GENERATE_ALWAYS
         value: false
       - key: DB_CONNECTION
@@ -46,6 +56,16 @@ services:
           property: password
       - key: FEDAPAY_SECRET_KEY
         sync: false
+      - key: FEDAPAY_PUBLIC_KEY
+        sync: false
+      - key: FEDAPAY_ENVIRONMENT
+        value: sandbox
+      - key: FEDAPAY_WEBHOOK_SECRET
+        sync: false
+      - key: FEDAPAY_CALLBACK_URL
+        value: https://minizon-api.onrender.com/api/payments/callback
+      - key: FEDAPAY_COMMISSION_RATE
+        value: 10
       - key: FCM_SERVER_KEY
         sync: false
 
