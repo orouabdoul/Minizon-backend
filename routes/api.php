@@ -73,6 +73,50 @@ Route::get('debug', function () {
         $results['rate_limiter'] = 'ERROR: ' . $e->getMessage();
     }
 
+    // 7. Test vehicles table
+    try {
+        $count = \DB::table('vehicles')->count();
+        $results['vehicles_table'] = 'OK (rows: ' . $count . ')';
+    } catch (\Throwable $e) {
+        $results['vehicles_table'] = 'ERROR: ' . $e->getMessage();
+    }
+
+    // 8. Simulation complète adminLogin (sans créer de token)
+    try {
+        $profile  = \App\Models\Profile::where('email', 'admin@minizon.com')->first();
+        $user     = $profile ? \App\Models\User::find($profile->user_id) : null;
+        $adminRole = \App\Models\Role::where('name', 'admin')->first();
+        $isAdmin  = $user && $adminRole && (int) $user->role_id === (int) $adminRole->id;
+        $pwOk     = $user ? \Illuminate\Support\Facades\Hash::check('minizon@229', $user->password) : false;
+
+        $results['admin_login_sim'] = [
+            'profile_found'    => (bool) $profile,
+            'user_id'          => $user?->id,
+            'user_role_id'     => $user?->role_id,
+            'admin_role_id'    => $adminRole?->id,
+            'is_admin'         => $isAdmin,
+            'password_ok'      => $pwOk,
+            'password_set'     => !empty($user?->password),
+        ];
+    } catch (\Throwable $e) {
+        $results['admin_login_sim'] = 'ERROR: ' . $e->getMessage();
+    }
+
+    // 9. Simulation getUserWithDetails pour l'admin
+    try {
+        $profile = \App\Models\Profile::where('email', 'admin@minizon.com')->first();
+        $user    = $profile ? \App\Models\User::find($profile->user_id) : null;
+        if ($user) {
+            $role    = \App\Models\Role::find($user->role_id);
+            $vehicle = \App\Models\Vehicle::where('user_id', $user->id)->first();
+            $results['get_user_details'] = 'OK (role=' . $role?->name . ', vehicle=' . ($vehicle ? 'YES' : 'none') . ')';
+        } else {
+            $results['get_user_details'] = 'user not found';
+        }
+    } catch (\Throwable $e) {
+        $results['get_user_details'] = 'ERROR: ' . $e->getMessage();
+    }
+
     return response()->json(['success' => true, 'body' => $results]);
 })->name('api.debug');
 
