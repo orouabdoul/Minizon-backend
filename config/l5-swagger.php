@@ -62,7 +62,7 @@ return [
          * ✅ true en développement — régénère la doc à chaque requête
          * ❌ false en production
          */
-        'generate_always' => env('L5_SWAGGER_GENERATE_ALWAYS', true),
+        'generate_always' => env('L5_SWAGGER_GENERATE_ALWAYS', false),
 
         'generate_yaml_copy' => env('L5_SWAGGER_GENERATE_YAML_COPY', false),
 

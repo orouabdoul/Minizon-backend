@@ -18,6 +18,8 @@ services:
         value: https://minizon-api.onrender.com
       - key: LOG_CHANNEL
         value: stderr
+      - key: SESSION_DRIVER
+        value: cookie
       - key: L5_SWAGGER_GENERATE_ALWAYS
         value: false
       - key: DB_CONNECTION
