@@ -10,7 +10,8 @@ use OpenApi\Attributes as OA;
     description: 'API REST de la plateforme Minizon — Transport et livraison.',
     contact: new OA\Contact(name: 'Équipe Minizon', email: 'dev@minizon.com')
 )]
-#[OA\Server(url: 'http://localhost:8000', description: 'Serveur local')]
+#[OA\Server(url: 'https://minizon-api.onrender.com', description: 'Production')]
+#[OA\Server(url: 'http://localhost:8000', description: 'Local')]
 #[OA\SecurityScheme(
     securityScheme: 'bearerAuth',
     type: 'http',

@@ -11,8 +11,12 @@
     },
     "servers": [
         {
+            "url": "https://minizon-api.onrender.com",
+            "description": "Production"
+        },
+        {
             "url": "http://localhost:8000",
-            "description": "Serveur local"
+            "description": "Local"
         }
     ],
     "paths": {
