@@ -14,8 +14,12 @@ services:
         value: false
       - key: APP_KEY
         generateValue: true
+      - key: APP_URL
+        value: https://minizon-api.onrender.com
       - key: LOG_CHANNEL
         value: stderr
+      - key: L5_SWAGGER_GENERATE_ALWAYS
+        value: false
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
