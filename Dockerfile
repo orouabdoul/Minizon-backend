@@ -22,12 +22,6 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Créer un .env temporaire pour que artisan fonctionne pendant le build
-RUN cp .env.example .env && \
-    php artisan key:generate && \
-    php artisan vendor:publish --provider "L5Swagger\L5SwaggerServiceProvider" --force && \
-    rm .env
-
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
