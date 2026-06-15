@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Booking;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Trip;
+use App\Models\TripValidation;
 use App\Notifications\BookingStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -264,7 +266,7 @@ class BookingController extends Controller
     )]
     public function cancel(Request $request, string $uuid): JsonResponse
     {
-        $booking = Booking::with('trip')->where('uuid', $uuid)->first();
+        $booking = Booking::with(['trip', 'payment'])->where('uuid', $uuid)->first();
 
         if (! $booking) {
             return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
@@ -286,14 +288,26 @@ class BookingController extends Controller
             $booking->trip->increment('available_seats', $booking->seats_booked);
         }
 
-        $booking->update(['status' => 'cancelled']);
-
-        // Notifier l'autre partie (passager notifie si driver annule, vice-versa)
-        if ($isDriver) {
-            $booking->passenger->notify(new BookingStatusChanged($booking->fresh('trip')));
+        // Remboursement automatique si paiement en escrow
+        $refunded = false;
+        if ($booking->payment && $booking->payment->status === 'locked') {
+            $booking->payment->update(['status' => 'refunded']);
+            $booking->update(['payment_status' => 'refunded']);
+            TripValidation::where('booking_id', $booking->id)
+                ->whereIn('status', ['waiting', 'disputed'])
+                ->update(['status' => 'cancelled']);
+            $refunded = true;
         }
 
-        return $this->apiResponse(true, 'Réservation annulée.', $booking->fresh());
+        $booking->update(['status' => 'cancelled']);
+
+        if ($isDriver) {
+            $booking->passenger->notify(new BookingStatusChanged($booking->fresh('trip')));
+        } elseif ($isPassenger) {
+            $booking->trip->user->notify(new BookingStatusChanged($booking->fresh('trip')));
+        }
+
+        return $this->apiResponse(true, 'Réservation annulée.' . ($refunded ? ' Paiement remboursé.' : ''), $booking->fresh());
     }
 
     // =========================================================================
@@ -414,7 +428,7 @@ DESC,
     //  HELPER
     // =========================================================================
 
-    private function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): JsonResponse
+    protected function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): JsonResponse
     {
         return response()->json(['success' => $success, 'message' => $message, 'body' => $body], $status);
     }

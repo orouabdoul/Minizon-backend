@@ -548,7 +548,7 @@ DESC,
     //  HELPER
     // =========================================================================
 
-    private function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): JsonResponse
+    protected function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): JsonResponse
     {
         return response()->json(['success' => $success, 'message' => $message, 'body' => $body], $status);
     }

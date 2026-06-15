@@ -853,7 +853,7 @@ class AuthController extends Controller
      *
      * @param  mixed  $body
      */
-    private function apiResponse(bool $success, string $message, mixed $body = [], int $statusCode = 200): JsonResponse
+    protected function apiResponse(bool $success, string $message, mixed $body = [], int $statusCode = 200): JsonResponse
     {
         return response()->json([
             'success' => $success,

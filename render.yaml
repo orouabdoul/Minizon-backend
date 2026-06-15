@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: minizon-api
+    env: docker
+    plan: free
+    branch: main
+    healthCheckPath: /api/ping
+    envVars:
+      - key: APP_NAME
+        value: Minizon
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: minizon-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: minizon-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: minizon-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: minizon-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: minizon-db
+          property: password
+      - key: FEDAPAY_SECRET_KEY
+        sync: false
+      - key: FCM_SERVER_KEY
+        sync: false
+
+databases:
+  - name: minizon-db
+    databaseName: minizon_db
+    user: minizon
+    plan: free
