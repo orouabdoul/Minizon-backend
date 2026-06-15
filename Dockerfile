@@ -30,8 +30,8 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 
 EXPOSE 80
 
+# storage/api-docs/api-docs.json est pré-généré et commité dans le repo
 CMD php artisan config:cache && \
     php artisan route:cache && \
     php artisan migrate --force && \
-    php artisan l5-swagger:generate && \
     apache2-foreground
