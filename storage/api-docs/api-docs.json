@@ -16,6 +16,126 @@
         }
     ],
     "paths": {
+        "/api/admin/audit-logs": {
+            "get": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Journal d'audit de sécurité",
+                "description": "Retourne le journal des événements sensibles de la plateforme (tentatives OTP, connexions admin, actions critiques).\n\nFiltres disponibles : `action`, `user_uuid`, `ip_address`, `from`, `to`.",
+                "operationId": "adminAuditLogs",
+                "parameters": [
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "description": "Filtrer par type d'action (ex: otp_failed, admin_login)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "user_uuid",
+                        "in": "query",
+                        "description": "UUID de l'utilisateur concerné",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "ip_address",
+                        "in": "query",
+                        "description": "Adresse IP source",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Date de début (incluse)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "example": "2025-01-01"
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "Date de fin (incluse)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "example": "2025-12-31"
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Journal d'audit paginé"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Tableau de bord — statistiques plateforme",
+                "description": "Retourne un snapshot complet des métriques clés : utilisateurs, trajets, paiements, litiges et revenus. Réservé aux administrateurs.",
+                "operationId": "adminDashboard",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques récupérées"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/send-otp": {
             "post": {
                 "tags": [
@@ -1922,6 +2042,376 @@
                 ]
             }
         },
+        "/api/bookings/{uuid}/disputes": {
+            "post": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "Ouvrir un litige",
+                "description": "Permet à un passager ou conducteur de signaler un problème sur une réservation. Le paiement est immédiatement gelé en attente de décision admin. Une seule plainte par réservation par utilisateur.",
+                "operationId": "disputeStore",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la réservation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "reason_type",
+                                    "description"
+                                ],
+                                "properties": {
+                                    "reason_type": {
+                                        "type": "string",
+                                        "example": "driver_absent",
+                                        "enum": [
+                                            "driver_absent",
+                                            "passenger_absent",
+                                            "scam",
+                                            "bad_behavior"
+                                        ]
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Le conducteur n'est jamais arrivé au point de rendez-vous."
+                                    },
+                                    "proof": {
+                                        "description": "Capture d'écran ou preuve (jpg/png/pdf — max 5 Mo)",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Litige ouvert, paiement gelé"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Litige déjà ouvert",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/disputes": {
+            "get": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "Mes litiges",
+                "description": "Liste tous les litiges ouverts par l'utilisateur connecté.",
+                "operationId": "disputeIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste des litiges"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/disputes/{id}": {
+            "get": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "Détail d'un litige",
+                "operationId": "disputeShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détail du litige"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Litige introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/disputes": {
+            "get": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "[ADMIN] Tous les litiges",
+                "description": "Liste tous les litiges de la plateforme avec filtres par statut. Réservé aux administrateurs.",
+                "operationId": "adminDisputeIndex",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "investigating",
+                                "resolved_refunded",
+                                "resolved_paid_to_driver"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste paginée des litiges"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/disputes/{id}/assign": {
+            "post": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "[ADMIN] Prendre en charge un litige",
+                "description": "L'administrateur connecté s'assigne le litige et le passe en statut `investigating`.",
+                "operationId": "adminDisputeAssign",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Litige assigné"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Litige introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/disputes/{id}/resolve": {
+            "post": {
+                "tags": [
+                    "⚖️ Litiges"
+                ],
+                "summary": "[ADMIN] Résoudre un litige",
+                "description": "Clôture un litige avec la décision finale :\n- `resolved_refunded` → rembourse le passager\n- `resolved_paid_to_driver` → libère les fonds vers le conducteur",
+                "operationId": "adminDisputeResolve",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "decision"
+                                ],
+                                "properties": {
+                                    "decision": {
+                                        "type": "string",
+                                        "example": "resolved_refunded",
+                                        "enum": [
+                                            "resolved_refunded",
+                                            "resolved_paid_to_driver"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Le conducteur n'a pas effectué le trajet selon les preuves fournies.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Litige résolu"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Litige introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/driver/stats": {
             "get": {
                 "tags": [
@@ -2134,6 +2624,26 @@
                     },
                     "404": {
                         "description": "Introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/passenger/stats": {
+            "get": {
+                "tags": [
+                    "👤 Passager"
+                ],
+                "summary": "Statistiques du passager connecté",
+                "description": "Retourne les métriques de déplacement du passager : trajets effectués, dépenses totales, conducteurs fréquents, etc.",
+                "operationId": "passengerStats",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques récupérées"
                     }
                 },
                 "security": [
@@ -2508,6 +3018,219 @@
                     },
                     "403": {
                         "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/penalties": {
+            "post": {
+                "tags": [
+                    "🚨 Pénalités"
+                ],
+                "summary": "[ADMIN] Infliger une pénalité",
+                "description": "Ajoute des points de pénalité et/ou une amende financière à un utilisateur.\n- À **10 points** cumulés, le compte est automatiquement suspendu temporairement.\n- L'amende financière est déduite du prochain retrait du conducteur.",
+                "operationId": "penaltyStore",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de l'utilisateur",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reason",
+                                    "points_added"
+                                ],
+                                "properties": {
+                                    "reason": {
+                                        "description": "Code raison (ex: late_cancellation, minor_dispute, no_show)",
+                                        "type": "string",
+                                        "example": "late_cancellation"
+                                    },
+                                    "points_added": {
+                                        "description": "Points de pénalité à ajouter (1-10)",
+                                        "type": "integer",
+                                        "example": 2,
+                                        "maximum": 10,
+                                        "minimum": 1
+                                    },
+                                    "financial_fine": {
+                                        "description": "Amende en FCFA (optionnelle)",
+                                        "type": "integer",
+                                        "example": 500,
+                                        "nullable": true,
+                                        "minimum": 0
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Annulation tardive pour la 3e fois ce mois.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Pénalité infligée"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/penalties": {
+            "get": {
+                "tags": [
+                    "🚨 Pénalités"
+                ],
+                "summary": "Mes pénalités",
+                "description": "Retourne toutes les pénalités reçues par l'utilisateur connecté et son score cumulatif actuel.",
+                "operationId": "penaltyIndex",
+                "responses": {
+                    "200": {
+                        "description": "Pénalités récupérées"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/penalties": {
+            "get": {
+                "tags": [
+                    "🚨 Pénalités"
+                ],
+                "summary": "[ADMIN] Toutes les pénalités",
+                "description": "Liste toutes les pénalités infligées sur la plateforme, paginées.",
+                "operationId": "adminPenaltyIndex",
+                "parameters": [
+                    {
+                        "name": "user_uuid",
+                        "in": "query",
+                        "description": "Filtrer par UUID utilisateur",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste paginée des pénalités"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/penalties/reset": {
+            "post": {
+                "tags": [
+                    "🚨 Pénalités"
+                ],
+                "summary": "[ADMIN] Réinitialiser les points de pénalité",
+                "description": "Remet à zéro le compteur de points de pénalité et débloque le compte si suspendu.",
+                "operationId": "penaltyReset",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Points réinitialisés"
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4228,12 +4951,12 @@
     },
     "tags": [
         {
-            "name": "🔓 Authentification & KYC",
-            "description": "🔓 Authentification & KYC"
-        },
-        {
             "name": "👑 Administration",
             "description": "👑 Administration"
+        },
+        {
+            "name": "🔓 Authentification & KYC",
+            "description": "🔓 Authentification & KYC"
         },
         {
             "name": "🔒 Session",
@@ -4256,6 +4979,10 @@
             "description": "📱 Appareil & Token FCM"
         },
         {
+            "name": "⚖️ Litiges",
+            "description": "⚖️ Litiges"
+        },
+        {
             "name": "📊 Stats Conducteur",
             "description": "📊 Stats Conducteur"
         },
@@ -4264,8 +4991,16 @@
             "description": "🔔 Notifications"
         },
         {
+            "name": "👤 Passager",
+            "description": "👤 Passager"
+        },
+        {
             "name": "💰 Paiements & Escrow",
             "description": "💰 Paiements & Escrow"
+        },
+        {
+            "name": "🚨 Pénalités",
+            "description": "🚨 Pénalités"
         },
         {
             "name": "⭐ Avis Passagers",
