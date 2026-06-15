@@ -22,15 +22,17 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Publier les assets Swagger UI dans public/vendor/
-RUN php artisan vendor:publish --provider "L5Swagger\L5SwaggerServiceProvider" --force
+# Créer un .env temporaire pour que artisan fonctionne pendant le build
+RUN cp .env.example .env && \
+    php artisan key:generate && \
+    php artisan vendor:publish --provider "L5Swagger\L5SwaggerServiceProvider" --force && \
+    rm .env
 
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 80
 
-# storage/api-docs/api-docs.json est pré-généré et commité dans le repo
 CMD php artisan config:cache && \
     php artisan route:cache && \
     php artisan migrate --force && \
