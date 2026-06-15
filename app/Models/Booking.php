@@ -19,6 +19,10 @@ class Booking extends Model
         'payment_status',
     ];
 
+    protected $casts = [
+        'seats_booked' => 'integer',
+    ];
+
     protected static function boot(): void
     {
         parent::boot();
@@ -65,6 +69,7 @@ class Booking extends Model
 
     public function isPending(): bool   { return $this->status === 'pending'; }
     public function isAccepted(): bool  { return $this->status === 'accepted'; }
+    public function isRejected(): bool  { return $this->status === 'rejected'; }
     public function isCancelled(): bool { return $this->status === 'cancelled'; }
     public function isPaid(): bool      { return $this->payment_status === 'escrow_locked'; }
 }

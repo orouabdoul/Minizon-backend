@@ -42,12 +42,15 @@ class TripValidation extends Model
     // HELPERS
     // -----------------------------------------------------------------------
 
-    public function isWaiting(): bool  { return $this->status === 'waiting'; }
-    public function isReleased(): bool { return $this->status === 'released'; }
-    public function isDisputed(): bool { return $this->status === 'disputed'; }
+    public function isWaiting(): bool    { return $this->status === 'waiting'; }
+    public function isReleased(): bool   { return $this->status === 'released'; }
+    public function isDisputed(): bool   { return $this->status === 'disputed'; }
+    public function isCancelled(): bool  { return $this->status === 'cancelled'; }
 
     public function shouldAutoRelease(): bool
     {
-        return $this->isWaiting() && now()->gte($this->auto_release_at);
+        return $this->isWaiting()
+            && $this->auto_release_at !== null
+            && now()->gte($this->auto_release_at);
     }
 }

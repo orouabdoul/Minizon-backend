@@ -105,6 +105,11 @@ class Trip extends Model
         return $this->status === 'completed';
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
     public function hasSeatsAvailable(int $seats = 1): bool
     {
         return $this->available_seats >= $seats;

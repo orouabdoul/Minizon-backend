@@ -50,7 +50,8 @@ class Withdrawal extends Model
     // HELPERS
     // -----------------------------------------------------------------------
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isApproved(): bool { return $this->status === 'approved'; }
-    public function isFailed(): bool   { return $this->status === 'failed'; }
+    public function isPending(): bool   { return $this->status === 'pending'; }
+    public function isApproved(): bool  { return $this->status === 'approved'; }
+    public function isRejected(): bool  { return $this->status === 'rejected'; }
+    public function isFailed(): bool    { return $this->status === 'failed'; }
 }

@@ -62,5 +62,6 @@ class Payment extends Model
     public function isPending(): bool  { return $this->status === 'pending'; }
     public function isLocked(): bool   { return $this->status === 'locked'; }
     public function isSuccess(): bool  { return $this->status === 'success'; }
+    public function isFailed(): bool   { return $this->status === 'failed'; }
     public function isRefunded(): bool { return $this->status === 'refunded'; }
 }

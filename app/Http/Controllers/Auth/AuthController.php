@@ -79,39 +79,37 @@ class AuthController extends Controller
     )]
     public function sendOtp(Request $request): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
-            ]);
+        $validator = Validator::make($request->all(), [
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+        ]);
 
-            if ($validator->fails()) {
-                return $this->apiResponse(false, 'Format de numéro de téléphone invalide.', $validator->errors(), 422);
-            }
-
-            $passengerRole = Role::where('name', 'passenger')->first();
-
-            $user = User::firstOrCreate(
-                ['phone' => $request->phone],
-                [
-                    'role_id'     => $passengerRole?->id ?? 2,
-                    'is_verified' => false,
-                ]
-            );
-
-            $otpCode = (string) random_int(100000, 999999);
-
-            $user->update([
-                'otp_code'       => $otpCode,
-                'otp_expires_at' => now()->addMinutes(2),
-            ]);
-
-            return $this->apiResponse(true, 'Code OTP généré avec succès.', [
-                'phone'    => $user->phone,
-                'otp_code' => $otpCode,
-            ]);
-        } catch (\Throwable $e) {
-            return $this->apiResponse(false, 'ERR [' . get_class($e) . ']: ' . $e->getMessage(), [], 500);
+        if ($validator->fails()) {
+            return $this->apiResponse(false, 'Format de numéro de téléphone invalide.', $validator->errors(), 422);
         }
+
+        $passengerRole = Role::where('name', 'passenger')->first();
+
+        $user = User::firstOrCreate(
+            ['phone' => $request->phone],
+            [
+                'role_id'     => $passengerRole?->id ?? 2,
+                'is_verified' => false,
+            ]
+        );
+
+        $otpCode = (string) random_int(100000, 999999);
+
+        $user->update([
+            'otp_code'       => $otpCode,
+            'otp_expires_at' => now()->addMinutes(2),
+        ]);
+
+        // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
+
+        return $this->apiResponse(true, 'Code OTP généré avec succès.', [
+            'phone'    => $user->phone,
+            'otp_code' => $otpCode, // À retirer en production — uniquement pour le dev
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -158,43 +156,39 @@ class AuthController extends Controller
     )]
     public function verifyOtp(Request $request): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'phone'    => ['required', 'string'],
-                'otp_code' => ['required', 'string', 'size:6'],
-            ]);
+        $validator = Validator::make($request->all(), [
+            'phone'    => ['required', 'string'],
+            'otp_code' => ['required', 'string', 'size:6'],
+        ]);
 
-            if ($validator->fails()) {
-                return $this->apiResponse(false, 'Données fournies incomplètes.', $validator->errors(), 422);
-            }
-
-            $user = User::where('phone', $request->phone)
-                ->where('otp_code', $request->otp_code)
-                ->where('otp_expires_at', '>', now())
-                ->first();
-
-            if (! $user) {
-                return $this->apiResponse(false, 'Code OTP incorrect ou expiré.', [], 401);
-            }
-
-            $user->update([
-                'phone_verified_at' => now(),
-                'otp_code'          => null,
-                'otp_expires_at'    => null,
-            ]);
-
-            $profile = Profile::where('user_id', $user->id)->first();
-            $token   = $user->createToken('mobile_auth_token')->plainTextToken;
-
-            return $this->apiResponse(true, 'Authentification réussie.', [
-                'token'            => $token,
-                'profile_complete' => ! is_null($profile),
-                'is_verified'      => (bool) $user->is_verified,
-                'user'             => $this->getUserWithDetails($user),
-            ]);
-        } catch (\Throwable $e) {
-            return $this->apiResponse(false, 'ERR [' . get_class($e) . ']: ' . $e->getMessage(), [], 500);
+        if ($validator->fails()) {
+            return $this->apiResponse(false, 'Données fournies incomplètes.', $validator->errors(), 422);
         }
+
+        $user = User::where('phone', $request->phone)
+            ->where('otp_code', $request->otp_code)
+            ->where('otp_expires_at', '>', now())
+            ->first();
+
+        if (! $user) {
+            return $this->apiResponse(false, 'Code OTP incorrect ou expiré.', [], 401);
+        }
+
+        $user->update([
+            'phone_verified_at' => now(),
+            'otp_code'          => null,
+            'otp_expires_at'    => null,
+        ]);
+
+        $profile = Profile::where('user_id', $user->id)->first();
+        $token   = $user->createToken('mobile_auth_token')->plainTextToken;
+
+        return $this->apiResponse(true, 'Authentification réussie.', [
+            'token'            => $token,
+            'profile_complete' => ! is_null($profile),
+            'is_verified'      => (bool) $user->is_verified,
+            'user'             => $this->getUserWithDetails($user),
+        ]);
     }
 
     // =========================================================================
@@ -410,40 +404,36 @@ class AuthController extends Controller
     )]
     public function adminLogin(Request $request): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'email'    => ['required', 'email'],
-                'password' => ['required', 'string'],
-            ]);
+        $validator = Validator::make($request->all(), [
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
 
-            if ($validator->fails()) {
-                return $this->apiResponse(false, 'Données d\'accès invalides.', $validator->errors(), 422);
-            }
-
-            $profile = Profile::where('email', $request->email)->first();
-            if (! $profile) {
-                return $this->apiResponse(false, 'Identifiants de sécurité incorrects.', [], 401);
-            }
-
-            $user = User::find($profile->user_id);
-
-            if (! $user || ! $this->isAdmin($user)) {
-                return $this->apiResponse(false, 'Accès refusé. Privilèges administratifs requis.', [], 403);
-            }
-
-            if (! Hash::check($request->password, $user->password)) {
-                return $this->apiResponse(false, 'Identifiants de sécurité incorrects.', [], 401);
-            }
-
-            $token = $user->createToken('admin_backoffice_token', ['*'])->plainTextToken;
-
-            return $this->apiResponse(true, 'Authentification administrative réussie.', [
-                'token' => $token,
-                'user'  => $this->getUserWithDetails($user),
-            ]);
-        } catch (\Throwable $e) {
-            return $this->apiResponse(false, 'ERR [' . get_class($e) . ']: ' . $e->getMessage(), [], 500);
+        if ($validator->fails()) {
+            return $this->apiResponse(false, 'Données d\'accès invalides.', $validator->errors(), 422);
         }
+
+        $profile = Profile::where('email', $request->email)->first();
+        if (! $profile) {
+            return $this->apiResponse(false, 'Identifiants de sécurité incorrects.', [], 401);
+        }
+
+        $user = User::find($profile->user_id);
+
+        if (! $user || ! $this->isAdmin($user)) {
+            return $this->apiResponse(false, 'Accès refusé. Privilèges administratifs requis.', [], 403);
+        }
+
+        if (! Hash::check($request->password, $user->password)) {
+            return $this->apiResponse(false, 'Identifiants de sécurité incorrects.', [], 401);
+        }
+
+        $token = $user->createToken('admin_backoffice_token', ['*'])->plainTextToken;
+
+        return $this->apiResponse(true, 'Authentification administrative réussie.', [
+            'token' => $token,
+            'user'  => $this->getUserWithDetails($user),
+        ]);
     }
 
     // =========================================================================
