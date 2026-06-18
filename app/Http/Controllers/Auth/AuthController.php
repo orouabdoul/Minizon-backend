@@ -101,7 +101,7 @@ class AuthController extends Controller
 
         $user->update([
             'otp_code'       => $otpCode,
-            'otp_expires_at' => now()->addMinutes(2),
+            'otp_expires_at' => now()->addMinutes(3),
         ]);
 
         // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
