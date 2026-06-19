@@ -87,6 +87,11 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class, 'passenger_id');
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function withdrawals()
     {
         return $this->hasMany(Withdrawal::class);

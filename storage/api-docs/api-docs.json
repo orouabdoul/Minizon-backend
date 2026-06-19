@@ -381,6 +381,288 @@
                 ]
             }
         },
+        "/api/admin/passengers/metrics": {
+            "get": {
+                "tags": [
+                    "🧑 Admin — Passagers"
+                ],
+                "summary": "[ADMIN] Métriques des passagers",
+                "description": "Retourne les 8 KPI affichés en haut du tableau de bord passagers.",
+                "operationId": "adminPassengerMetrics",
+                "responses": {
+                    "200": {
+                        "description": "Métriques récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Métriques passagers récupérées."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 2487
+                                                },
+                                                "active": {
+                                                    "type": "integer",
+                                                    "example": 1934
+                                                },
+                                                "new_this_month": {
+                                                    "type": "integer",
+                                                    "example": 312
+                                                },
+                                                "bookings_month": {
+                                                    "type": "integer",
+                                                    "example": 847
+                                                },
+                                                "cancellation_rate": {
+                                                    "type": "number",
+                                                    "example": 8.3
+                                                },
+                                                "incidents": {
+                                                    "type": "integer",
+                                                    "example": 23
+                                                },
+                                                "avg_rating": {
+                                                    "type": "number",
+                                                    "example": 4.2
+                                                },
+                                                "suspended": {
+                                                    "type": "integer",
+                                                    "example": 45
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/passengers": {
+            "get": {
+                "tags": [
+                    "🧑 Admin — Passagers"
+                ],
+                "summary": "[ADMIN] Lister les passagers",
+                "description": "Liste paginée des passagers avec filtres par ville, risque, statut, vérification et recherche.",
+                "operationId": "adminPassengerIndex",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "city",
+                        "in": "query",
+                        "description": "Filtre par ville (ex: Cotonou)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "risk",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "Faible",
+                                "Moyen",
+                                "Élevé"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "Actif",
+                                "Inactif",
+                                "Suspendu"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "verif",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "approved",
+                                "rejected"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des passagers"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/passengers/{uuid}": {
+            "get": {
+                "tags": [
+                    "🧑 Admin — Passagers"
+                ],
+                "summary": "[ADMIN] Détail d'un passager",
+                "operationId": "adminPassengerShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Passager trouvé"
+                    },
+                    "404": {
+                        "description": "Passager introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/passengers/{uuid}/suspend": {
+            "put": {
+                "tags": [
+                    "🧑 Admin — Passagers"
+                ],
+                "summary": "[ADMIN] Suspendre un passager",
+                "description": "Bloque le compte passager (is_blocked → true). Il ne peut plus effectuer de réservations.",
+                "operationId": "adminPassengerSuspend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Passager suspendu"
+                    },
+                    "404": {
+                        "description": "Passager introuvable"
+                    },
+                    "422": {
+                        "description": "Déjà suspendu"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/passengers/{uuid}/unsuspend": {
+            "put": {
+                "tags": [
+                    "🧑 Admin — Passagers"
+                ],
+                "summary": "[ADMIN] Réactiver un passager",
+                "description": "Lève la suspension d'un passager (is_blocked → false).",
+                "operationId": "adminPassengerUnsuspend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Passager réactivé"
+                    },
+                    "404": {
+                        "description": "Passager introuvable"
+                    },
+                    "422": {
+                        "description": "Passager non suspendu"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/send-otp": {
             "post": {
                 "tags": [
@@ -5514,6 +5796,10 @@
         {
             "name": "🚗 Admin — Conducteurs",
             "description": "Gestion et validation des conducteurs"
+        },
+        {
+            "name": "🧑 Admin — Passagers",
+            "description": "Supervision et gestion des passagers"
         },
         {
             "name": "👑 Administration",
