@@ -9,6 +9,7 @@ use App\Models\Trip;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: '🗺️ Admin — Trajets', description: 'Supervision et gestion des trajets (Back-Office)')]
@@ -46,7 +47,9 @@ class AdminTripController extends Controller
 
         $passengers = $trip->bookings->map(fn ($b) => [
             'id'     => $b->passenger?->uuid,
-            'avatar' => $b->passenger?->profile?->selfie_front,
+            'avatar' => $b->passenger?->profile?->selfie_front
+                ? Storage::url($b->passenger->profile->selfie_front)
+                : null,
         ])->values();
 
         Carbon::setLocale('fr');
@@ -55,7 +58,7 @@ class AdminTripController extends Controller
             'id'            => $trip->uuid,
             'tripId'        => 'TRP-' . strtoupper(substr($trip->uuid, 0, 8)),
             'driverName'    => $driverName,
-            'driverAvatar'  => $profile?->selfie_front,
+            'driverAvatar'  => $profile?->selfie_front ? Storage::url($profile->selfie_front) : null,
             'driverRating'  => $driver?->averageRating() ?? 0,
             'driverReviews' => $driver?->reviewsReceived()->count() ?? 0,
             'from'          => $trip->departure_city,

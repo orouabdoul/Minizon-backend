@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: '🚗 Admin — Conducteurs', description: 'Gestion et validation des conducteurs')]
@@ -43,6 +44,11 @@ class DriverController extends Controller
         return $fileField ? 'ok' : 'pending';
     }
 
+    private function fileUrl(?string $path): ?string
+    {
+        return $path ? Storage::url($path) : null;
+    }
+
     /** Sérialise un User driver en tableau frontend. */
     private function format(User $driver): array
     {
@@ -56,16 +62,34 @@ class DriverController extends Controller
         return [
             'id'       => $driver->uuid,
             'name'     => trim("{$firstName} {$lastName}") ?: $driver->phone,
-            'avatar'   => $profile?->selfie_front ?? null,
+            'avatar'   => $this->fileUrl($profile?->selfie_front),
             'driverId' => 'DRV-' . strtoupper(substr($driver->uuid, 0, 8)),
             'phone'    => $driver->phone,
             'email'    => $profile?->email ?? null,
             'vehicle'  => $vehicle ? "{$vehicle->brand} {$vehicle->model}" : null,
             'plate'    => $vehicle?->license_plate ?? null,
+            'selfies' => [
+                'front' => $this->fileUrl($profile?->selfie_front),
+                'left'  => $this->fileUrl($profile?->selfie_left),
+                'right' => $this->fileUrl($profile?->selfie_right),
+            ],
+            'idCard' => [
+                'front' => $this->fileUrl($profile?->id_card_front),
+                'back'  => $this->fileUrl($profile?->id_card_back),
+            ],
             'documents' => [
-                'permis'     => $this->docStatus($profile?->driving_license_photo, $kycStatus),
-                'carteGrise' => $this->docStatus($vehicle?->registration_doc, $kycStatus),
-                'assurance'  => $this->docStatus($vehicle?->insurance_doc, $kycStatus),
+                'permis' => [
+                    'status' => $this->docStatus($profile?->driving_license_photo, $kycStatus),
+                    'url'    => $this->fileUrl($profile?->driving_license_photo),
+                ],
+                'carteGrise' => [
+                    'status' => $this->docStatus($vehicle?->registration_doc, $kycStatus),
+                    'url'    => $this->fileUrl($vehicle?->registration_doc),
+                ],
+                'assurance' => [
+                    'status' => $this->docStatus($vehicle?->insurance_doc, $kycStatus),
+                    'url'    => $this->fileUrl($vehicle?->insurance_doc),
+                ],
             ],
             'score'  => $profile?->kyc_matching_score ?? 0,
             'status' => $this->driverStatus($driver),

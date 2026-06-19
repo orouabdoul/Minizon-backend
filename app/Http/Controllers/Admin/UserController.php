@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
@@ -51,7 +52,7 @@ class UserController extends Controller
             'id'           => $user->uuid,
             'name'         => trim("{$firstName} {$lastName}") ?: $user->phone,
             'phone'        => $user->phone,
-            'avatar'       => $profile?->selfie_front ?? null,
+            'avatar'       => $profile?->selfie_front ? Storage::url($profile->selfie_front) : null,
             'type'         => $user->role?->name === 'driver' ? 'Conducteur' : 'Passager',
             'status'       => $this->userStatus($user),
             'verification' => $this->verificationLabel($profile?->kyc_status),
