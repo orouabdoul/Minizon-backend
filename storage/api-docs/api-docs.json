@@ -140,6 +140,134 @@
                 ]
             }
         },
+        "/api/admin/dashboard/activity": {
+            "get": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "[ADMIN] Activité en temps réel",
+                "description": "Retourne les dernières inscriptions, trajets actifs, paiements et litiges pour le widget \"Activité en Temps Réel\" du dashboard.",
+                "operationId": "adminDashboardActivity",
+                "responses": {
+                    "200": {
+                        "description": "Activité récupérée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Activité récupérée."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "inscriptions": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Jean Dossou"
+                                                            },
+                                                            "time": {
+                                                                "type": "string",
+                                                                "example": "il y a 2 minutes"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "trips": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "route": {
+                                                                "type": "string",
+                                                                "example": "Cotonou → Porto-Novo"
+                                                            },
+                                                            "driver": {
+                                                                "type": "string",
+                                                                "example": "Kofi Adjovi"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "payments": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "amount": {
+                                                                "type": "string",
+                                                                "example": "2 500 FCFA"
+                                                            },
+                                                            "trip": {
+                                                                "type": "string",
+                                                                "example": "Cotonou → Parakou"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "disputes": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "title": {
+                                                                "type": "string",
+                                                                "example": "Conducteur absent"
+                                                            },
+                                                            "trip": {
+                                                                "type": "string",
+                                                                "example": "Cotonou → Abomey"
+                                                            },
+                                                            "variant": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "error",
+                                                                    "warning"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/drivers/metrics": {
             "get": {
                 "tags": [

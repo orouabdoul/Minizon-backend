@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
 
     // Tableau de bord global
-    Route::get('admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('admin/dashboard',          [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('admin/dashboard/activity', [DashboardController::class, 'activity'])->name('admin.dashboard.activity');
 
     // Pénalités — supervision admin
     Route::get('admin/penalties',                          [PenaltyController::class, 'adminIndex'])->name('admin.penalties.index');
