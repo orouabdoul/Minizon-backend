@@ -537,18 +537,6 @@ class TripController extends Controller
     //  PANEL ADMINISTRATIF
     // =========================================================================
 
-    #[OA\Get(
-        path: '/api/admin/trips',
-        operationId: 'adminTripsIndex',
-        summary: '[ADMIN] Supervision globale des trajets',
-        description: 'Extrait tous les trajets de la plateforme, tous statuts confondus, avec les informations complètes du conducteur. Accès réservé aux administrateurs.',
-        tags: ['🚗 Trajets & Télémétrie'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(response: 200, description: 'Liste complète des trajets'),
-            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ]
-    )]
     public function adminIndex(Request $request): JsonResponse
     {
         if (! $request->user()->isAdmin()) {

@@ -20,8 +20,6 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     Route::post('trips/{uuid}/start',    [TripController::class, 'startTrip'])->name('trips.start');
     Route::post('trips/{uuid}/end',      [TripController::class, 'endTrip'])->name('trips.end');
     Route::post('trips/{uuid}/location', [TripController::class, 'updateLocation'])->name('trips.location');
-    Route::get('admin/trips',            [TripController::class, 'adminIndex'])->name('admin.trips.index');
-
     // ⭐ Avis passagers
     Route::post('trips/{uuid}/reviews',  [ReviewController::class, 'store'])->name('trips.reviews.store');
 });

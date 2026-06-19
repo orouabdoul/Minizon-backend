@@ -20,6 +20,181 @@
         }
     ],
     "paths": {
+        "/api/admin/trips/metrics": {
+            "get": {
+                "tags": [
+                    "🗺️ Admin — Trajets"
+                ],
+                "summary": "[ADMIN] Métriques des trajets",
+                "description": "Retourne les 4 KPI affichés en haut de la page Gestion des Trajets.",
+                "operationId": "adminTripMetrics",
+                "responses": {
+                    "200": {
+                        "description": "Métriques récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Métriques trajets récupérées."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 1240
+                                                },
+                                                "completed": {
+                                                    "type": "integer",
+                                                    "example": 980
+                                                },
+                                                "reported": {
+                                                    "type": "integer",
+                                                    "example": 23
+                                                },
+                                                "total_revenue": {
+                                                    "description": "Montant total en FCFA",
+                                                    "type": "integer",
+                                                    "example": 4500000
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/trips": {
+            "get": {
+                "tags": [
+                    "🗺️ Admin — Trajets"
+                ],
+                "summary": "[ADMIN] Liste paginée des trajets",
+                "description": "Retourne tous les trajets avec filtres par ville de départ, destination, statut et date.",
+                "operationId": "adminTripIndex",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15
+                        }
+                    },
+                    {
+                        "name": "departure",
+                        "in": "query",
+                        "description": "Ville de départ (recherche partielle)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "destination",
+                        "in": "query",
+                        "description": "Ville d'arrivée (recherche partielle)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "Actif",
+                                "Terminé",
+                                "Annulé",
+                                "Signalé"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Date de départ (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des trajets"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/trips/{uuid}": {
+            "get": {
+                "tags": [
+                    "🗺️ Admin — Trajets"
+                ],
+                "summary": "[ADMIN] Détail d'un trajet",
+                "description": "Retourne toutes les informations d'un trajet, incluant conducteur, passagers et revenus.",
+                "operationId": "adminTripShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet trouvé"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/audit-logs": {
             "get": {
                 "tags": [
@@ -5662,36 +5837,6 @@
                 ]
             }
         },
-        "/api/admin/trips": {
-            "get": {
-                "tags": [
-                    "🚗 Trajets & Télémétrie"
-                ],
-                "summary": "[ADMIN] Supervision globale des trajets",
-                "description": "Extrait tous les trajets de la plateforme, tous statuts confondus, avec les informations complètes du conducteur. Accès réservé aux administrateurs.",
-                "operationId": "adminTripsIndex",
-                "responses": {
-                    "200": {
-                        "description": "Liste complète des trajets"
-                    },
-                    "403": {
-                        "description": "Accès réservé aux administrateurs",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
         "/api/vehicles": {
             "get": {
                 "tags": [
@@ -6405,6 +6550,10 @@
         }
     },
     "tags": [
+        {
+            "name": "🗺️ Admin — Trajets",
+            "description": "Supervision et gestion des trajets (Back-Office)"
+        },
         {
             "name": "🚗 Admin — Conducteurs",
             "description": "Gestion et validation des conducteurs"

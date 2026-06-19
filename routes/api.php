@@ -23,6 +23,7 @@ Route::get('ping', fn () => response()->json([
 // -----------------------------------------------------------------------
 
 require __DIR__ . '/api/auth.php';
+require __DIR__ . '/api/admin-trips.php';
 require __DIR__ . '/api/trips.php';
 require __DIR__ . '/api/vehicles.php';
 require __DIR__ . '/api/bookings.php';
