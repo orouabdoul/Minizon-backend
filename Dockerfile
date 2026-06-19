@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd
 
+# Limites upload pour les dossiers KYC (photos + PDFs)
+RUN printf "upload_max_filesize = 15M\npost_max_size = 120M\nmemory_limit = 256M\nmax_execution_time = 120\nmax_input_time = 120\n" \
+    > /usr/local/etc/php/conf.d/uploads.ini
+
 RUN a2enmod rewrite
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
