@@ -663,6 +663,490 @@
                 ]
             }
         },
+        "/api/admin/users/metrics": {
+            "get": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Métriques globales utilisateurs",
+                "description": "Retourne les 4 cartes statistiques de la page Gestion des Utilisateurs.",
+                "operationId": "adminUserMetrics",
+                "responses": {
+                    "200": {
+                        "description": "Métriques récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Métriques utilisateurs récupérées."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total_users": {
+                                                    "type": "integer",
+                                                    "example": 3420
+                                                },
+                                                "total_trips": {
+                                                    "type": "integer",
+                                                    "example": 8750
+                                                },
+                                                "verification_rate": {
+                                                    "type": "number",
+                                                    "example": 78.4
+                                                },
+                                                "blocked_or_rejected": {
+                                                    "type": "integer",
+                                                    "example": 53
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Liste paginée des utilisateurs",
+                "description": "Retourne tous les passagers et conducteurs avec pagination, recherche et filtres.",
+                "operationId": "adminUserIndex",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Recherche nom, téléphone ou email",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "role_id",
+                        "in": "query",
+                        "description": "0 = tous, 2 = passagers, 3 = conducteurs",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "Actif",
+                                "Inactif",
+                                "Suspendu"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des utilisateurs"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Créer un utilisateur",
+                "description": "Crée un compte utilisateur directement depuis le Back-Office sans passer par le flux OTP/KYC mobile.",
+                "operationId": "adminUserStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "phone"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "description": "Prénom et nom (séparés par un espace)",
+                                        "type": "string",
+                                        "example": "Marie Dupont"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+22997123456"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "example": "Passager",
+                                        "enum": [
+                                            "Passager",
+                                            "Conducteur"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Actif",
+                                        "enum": [
+                                            "Actif",
+                                            "Inactif"
+                                        ]
+                                    },
+                                    "verification": {
+                                        "type": "string",
+                                        "example": "En attente",
+                                        "enum": [
+                                            "En attente",
+                                            "Vérifié"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Utilisateur créé"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}": {
+            "get": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Détail d'un utilisateur",
+                "operationId": "adminUserShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur trouvé"
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Modifier un utilisateur",
+                "description": "Met à jour nom, téléphone, type, statut et vérification d'un utilisateur.",
+                "operationId": "adminUserUpdate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Marie Dupont"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+22997123456"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Passager",
+                                            "Conducteur"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Actif",
+                                            "Inactif",
+                                            "Suspendu"
+                                        ]
+                                    },
+                                    "verification": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Vérifié",
+                                            "En attente",
+                                            "Rejeté"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur mis à jour"
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Supprimer un utilisateur",
+                "description": "Supprime définitivement le compte et toutes ses données associées (profil, véhicule, tokens).",
+                "operationId": "adminUserDestroy",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur supprimé"
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/approve-kyc": {
+            "put": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Approuver le KYC",
+                "operationId": "adminUserApproveKyc",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "KYC approuvé"
+                    },
+                    "422": {
+                        "description": "KYC déjà traité"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/reject-kyc": {
+            "put": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Rejeter le KYC",
+                "operationId": "adminUserRejectKyc",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "KYC rejeté"
+                    },
+                    "422": {
+                        "description": "KYC déjà rejeté"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/suspend": {
+            "put": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Suspendre un utilisateur",
+                "operationId": "adminUserSuspend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur suspendu"
+                    },
+                    "422": {
+                        "description": "Déjà suspendu"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{uuid}/unsuspend": {
+            "put": {
+                "tags": [
+                    "👥 Admin — Utilisateurs"
+                ],
+                "summary": "[ADMIN] Lever la suspension",
+                "operationId": "adminUserUnsuspend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Suspension levée"
+                    },
+                    "422": {
+                        "description": "Utilisateur non suspendu"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/send-otp": {
             "post": {
                 "tags": [
@@ -5800,6 +6284,10 @@
         {
             "name": "🧑 Admin — Passagers",
             "description": "Supervision et gestion des passagers"
+        },
+        {
+            "name": "👥 Admin — Utilisateurs",
+            "description": "CRUD complet des comptes utilisateurs (Back-Office)"
         },
         {
             "name": "👑 Administration",
