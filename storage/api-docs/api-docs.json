@@ -140,6 +140,247 @@
                 ]
             }
         },
+        "/api/admin/drivers/metrics": {
+            "get": {
+                "tags": [
+                    "🚗 Admin — Conducteurs"
+                ],
+                "summary": "[ADMIN] Métriques des conducteurs",
+                "description": "Retourne les 4 cartes de statistiques affichées en haut du tableau de bord conducteurs.",
+                "operationId": "adminDriverMetrics",
+                "responses": {
+                    "200": {
+                        "description": "Métriques récupérées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Métriques conducteurs récupérées."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 120
+                                                },
+                                                "pending": {
+                                                    "type": "integer",
+                                                    "example": 14
+                                                },
+                                                "verified": {
+                                                    "type": "integer",
+                                                    "example": 98
+                                                },
+                                                "suspended_rejected": {
+                                                    "type": "integer",
+                                                    "example": 8
+                                                },
+                                                "validation_rate": {
+                                                    "type": "number",
+                                                    "example": 81.7
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/drivers": {
+            "get": {
+                "tags": [
+                    "🚗 Admin — Conducteurs"
+                ],
+                "summary": "[ADMIN] Lister les conducteurs",
+                "description": "Liste paginée des conducteurs avec filtres par statut et recherche textuelle.",
+                "operationId": "adminDriverIndex",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Recherche par nom, téléphone ou email",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filtre par statut",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "En attente",
+                                "Vérifié",
+                                "Rejeté",
+                                "Suspendu"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des conducteurs"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/drivers/{uuid}": {
+            "get": {
+                "tags": [
+                    "🚗 Admin — Conducteurs"
+                ],
+                "summary": "[ADMIN] Détail d'un conducteur",
+                "operationId": "adminDriverShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conducteur trouvé"
+                    },
+                    "404": {
+                        "description": "Conducteur introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/drivers/{uuid}/validate": {
+            "put": {
+                "tags": [
+                    "🚗 Admin — Conducteurs"
+                ],
+                "summary": "[ADMIN] Valider un conducteur",
+                "description": "Approuve la demande de vérification d'un conducteur (kyc_status → approved).",
+                "operationId": "adminDriverValidate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conducteur validé"
+                    },
+                    "404": {
+                        "description": "Conducteur introuvable"
+                    },
+                    "422": {
+                        "description": "Statut incompatible (déjà validé, suspendu…)"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/drivers/{uuid}/reject": {
+            "put": {
+                "tags": [
+                    "🚗 Admin — Conducteurs"
+                ],
+                "summary": "[ADMIN] Rejeter un conducteur",
+                "description": "Refuse la demande de vérification d'un conducteur (kyc_status → rejected).",
+                "operationId": "adminDriverReject",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conducteur rejeté"
+                    },
+                    "404": {
+                        "description": "Conducteur introuvable"
+                    },
+                    "422": {
+                        "description": "Statut incompatible"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/auth/send-otp": {
             "post": {
                 "tags": [
@@ -3497,6 +3738,322 @@
                 }
             }
         },
+        "/api/roles": {
+            "get": {
+                "tags": [
+                    "🎭 Rôles"
+                ],
+                "summary": "Lister tous les rôles",
+                "description": "Retourne la liste complète des rôles disponibles sur la plateforme. Accessible à tout utilisateur authentifié.",
+                "operationId": "rolesIndex",
+                "responses": {
+                    "200": {
+                        "description": "Liste des rôles récupérée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Liste des rôles récupérée."
+                                        },
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "admin"
+                                                    },
+                                                    "label": {
+                                                        "type": "string",
+                                                        "example": "Administrateur"
+                                                    },
+                                                    "users_count": {
+                                                        "type": "integer",
+                                                        "example": 3
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "🎭 Rôles"
+                ],
+                "summary": "[ADMIN] Créer un rôle",
+                "description": "Crée un nouveau rôle. Le champ `name` doit être unique et en minuscules (ex : `moderateur`).",
+                "operationId": "rolesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "label"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "description": "Identifiant unique (minuscules, sans espaces)",
+                                        "type": "string",
+                                        "example": "moderateur"
+                                    },
+                                    "label": {
+                                        "description": "Libellé affiché",
+                                        "type": "string",
+                                        "example": "Modérateur"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Rôle créé avec succès"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/roles/{id}": {
+            "get": {
+                "tags": [
+                    "🎭 Rôles"
+                ],
+                "summary": "Détails d'un rôle",
+                "description": "Retourne les informations d'un rôle et le nombre d'utilisateurs qui le possèdent.",
+                "operationId": "rolesShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rôle trouvé"
+                    },
+                    "404": {
+                        "description": "Rôle introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "🎭 Rôles"
+                ],
+                "summary": "[ADMIN] Modifier un rôle",
+                "description": "Met à jour le libellé d'un rôle. Le `name` des rôles système (`admin`, `passenger`, `driver`) ne peut pas être modifié.",
+                "operationId": "rolesUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "label"
+                                ],
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "Modérateur Senior"
+                                    },
+                                    "name": {
+                                        "description": "Ignoré pour les rôles système",
+                                        "type": "string",
+                                        "example": "moderateur_senior"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rôle mis à jour"
+                    },
+                    "403": {
+                        "description": "Accès interdit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Rôle introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "🎭 Rôles"
+                ],
+                "summary": "[ADMIN] Supprimer un rôle",
+                "description": "Supprime un rôle personnalisé. Les rôles système (`admin`, `passenger`, `driver`) sont **protégés** et ne peuvent pas être supprimés. Un rôle attribué à des utilisateurs ne peut pas non plus être supprimé.",
+                "operationId": "rolesDestroy",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rôle supprimé"
+                    },
+                    "403": {
+                        "description": "Rôle système protégé ou accès interdit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Rôle introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Rôle en cours d'utilisation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/test": {
             "get": {
                 "summary": "Route de test",
@@ -4955,6 +5512,10 @@
     },
     "tags": [
         {
+            "name": "🚗 Admin — Conducteurs",
+            "description": "Gestion et validation des conducteurs"
+        },
+        {
             "name": "👑 Administration",
             "description": "👑 Administration"
         },
@@ -5009,6 +5570,10 @@
         {
             "name": "⭐ Avis Passagers",
             "description": "⭐ Avis Passagers"
+        },
+        {
+            "name": "🎭 Rôles",
+            "description": "🎭 Rôles"
         },
         {
             "name": "🚗 Trajets & Télémétrie",

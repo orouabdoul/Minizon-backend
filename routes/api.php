@@ -33,6 +33,7 @@ require __DIR__ . '/api/chat.php';
 require __DIR__ . '/api/disputes.php';
 require __DIR__ . '/api/admin.php';
 require __DIR__ . '/api/roles.php';
+require __DIR__ . '/api/drivers.php';
 
 // Routes sandbox (jamais en production)
 if (! app()->environment('production')) {
