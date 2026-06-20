@@ -570,7 +570,7 @@ class ChatController extends Controller
             'uuid'            => $message->uuid,
             'body'            => $message->body,
             'attachment_url'  => $message->attachment_path
-                ? Storage::url($message->attachment_path)
+                ? Storage::disk('public')->url($message->attachment_path)
                 : null,
             'is_mine'         => $message->sender_id === $myUserId,
             'sender'          => $message->sender ? [

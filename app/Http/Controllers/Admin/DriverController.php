@@ -46,7 +46,7 @@ class DriverController extends Controller
 
     private function fileUrl(?string $path): ?string
     {
-        return $path ? Storage::url($path) : null;
+        return $path ? Storage::disk('public')->url($path) : null;
     }
 
     /** Sérialise un User driver en tableau frontend. */
@@ -78,13 +78,10 @@ class DriverController extends Controller
                 'back'  => $this->fileUrl($profile?->id_card_back),
             ],
             'documents' => [
-                'permis'     => $this->docStatus($profile?->driving_license_photo, $kycStatus),
-                'carteGrise' => $this->docStatus($vehicle?->registration_doc, $kycStatus),
-                'assurance'  => $this->docStatus($vehicle?->insurance_doc, $kycStatus),
+                'permis'     => ['status' => $this->docStatus($profile?->driving_license_photo, $kycStatus), 'url' => $this->fileUrl($profile?->driving_license_photo)],
+                'carteGrise' => ['status' => $this->docStatus($vehicle?->registration_doc, $kycStatus),       'url' => $this->fileUrl($vehicle?->registration_doc)],
+                'assurance'  => ['status' => $this->docStatus($vehicle?->insurance_doc, $kycStatus),          'url' => $this->fileUrl($vehicle?->insurance_doc)],
             ],
-            'permis_url'      => $this->fileUrl($profile?->driving_license_photo),
-            'carte_grise_url' => $this->fileUrl($vehicle?->registration_doc),
-            'assurance_url'   => $this->fileUrl($vehicle?->insurance_doc),
             'score'  => $profile?->kyc_matching_score ?? 0,
             'status' => $this->driverStatus($driver),
         ];

@@ -48,7 +48,7 @@ class AdminTripController extends Controller
         $passengers = $trip->bookings->map(fn ($b) => [
             'id'     => $b->passenger?->uuid,
             'avatar' => $b->passenger?->profile?->selfie_front
-                ? Storage::url($b->passenger->profile->selfie_front)
+                ? Storage::disk('public')->url($b->passenger->profile->selfie_front)
                 : null,
         ])->values();
 
@@ -58,7 +58,7 @@ class AdminTripController extends Controller
             'id'            => $trip->uuid,
             'tripId'        => 'TRP-' . strtoupper(substr($trip->uuid, 0, 8)),
             'driverName'    => $driverName,
-            'driverAvatar'  => $profile?->selfie_front ? Storage::url($profile->selfie_front) : null,
+            'driverAvatar'  => $profile?->selfie_front ? Storage::disk('public')->url($profile->selfie_front) : null,
             'driverRating'  => $driver?->averageRating() ?? 0,
             'driverReviews' => $driver?->reviewsReceived()->count() ?? 0,
             'from'          => $trip->departure_city,

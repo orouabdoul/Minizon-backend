@@ -52,7 +52,7 @@ class UserController extends Controller
             'id'           => $user->uuid,
             'name'         => trim("{$firstName} {$lastName}") ?: $user->phone,
             'phone'        => $user->phone,
-            'avatar'       => $profile?->selfie_front ? Storage::url($profile->selfie_front) : null,
+            'avatar'       => $profile?->selfie_front ? Storage::disk('public')->url($profile->selfie_front) : null,
             'type'         => $user->role?->name === 'driver' ? 'Conducteur' : 'Passager',
             'status'       => $this->userStatus($user),
             'verification' => $this->verificationLabel($profile?->kyc_status),
