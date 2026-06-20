@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: '🧑 Admin — Passagers', description: 'Supervision et gestion des passagers')]
@@ -35,6 +36,20 @@ class PassengerController extends Controller
         if ($user->is_blocked) return 'Suspendu';
         if (! $user->is_verified) return 'Inactif';
         return 'Actif';
+    }
+
+    private function verificationLabel(?string $kycStatus): string
+    {
+        return match ($kycStatus) {
+            'approved' => 'Vérifié',
+            'rejected' => 'Rejeté',
+            default    => 'En attente',
+        };
+    }
+
+    private function fileUrl(?string $path): ?string
+    {
+        return $path ? Storage::disk('public')->url($path) : null;
     }
 
     private function trustScore(User $user): int
@@ -73,6 +88,18 @@ class PassengerController extends Controller
             'phone'       => $user->phone,
             'email'       => $profile?->email ?? null,
             'city'        => $profile?->city  ?? null,
+            'avatar'      => $this->fileUrl($profile?->selfie_front),
+            'selfies' => [
+                'front' => $this->fileUrl($profile?->selfie_front),
+                'left'  => $this->fileUrl($profile?->selfie_left),
+                'right' => $this->fileUrl($profile?->selfie_right),
+            ],
+            'idCard' => [
+                'front' => $this->fileUrl($profile?->id_card_front),
+                'back'  => $this->fileUrl($profile?->id_card_back),
+            ],
+            'score'         => $profile?->kyc_matching_score ?? 0,
+            'verification'  => $this->verificationLabel($profile?->kyc_status),
             'reservations'  => $user->bookings_count ?? 0,
             'spending'      => $this->formatAmount((int) ($user->total_spending ?? 0)),
             'rating'        => $user->avg_rating ? round((float) $user->avg_rating, 1) : null,

@@ -40,11 +40,26 @@ class UserController extends Controller
         };
     }
 
+    private function fileUrl(?string $path): ?string
+    {
+        return $path ? Storage::disk('public')->url($path) : null;
+    }
+
+    private function docStatus(?string $fileField, string $kycStatus): string
+    {
+        if ($kycStatus === 'rejected') return 'rejected';
+        if ($kycStatus === 'approved') return 'ok';
+        return $fileField ? 'ok' : 'pending';
+    }
+
     private function format(User $user): array
     {
         $profile   = $user->profile;
         $firstName = $profile?->first_name ?? '';
         $lastName  = $profile?->last_name  ?? '';
+        $isDriver  = $user->role?->name === 'driver';
+        $vehicle   = $isDriver ? $user->vehicle : null;
+        $kycStatus = $profile?->kyc_status ?? 'pending';
 
         Carbon::setLocale('fr');
 
@@ -52,8 +67,26 @@ class UserController extends Controller
             'id'           => $user->uuid,
             'name'         => trim("{$firstName} {$lastName}") ?: $user->phone,
             'phone'        => $user->phone,
-            'avatar'       => $profile?->selfie_front ? Storage::disk('public')->url($profile->selfie_front) : null,
-            'type'         => $user->role?->name === 'driver' ? 'Conducteur' : 'Passager',
+            'email'        => $profile?->email ?? null,
+            'avatar'       => $this->fileUrl($profile?->selfie_front),
+            'type'         => $isDriver ? 'Conducteur' : 'Passager',
+            'vehicle'      => $vehicle ? "{$vehicle->brand} {$vehicle->model}" : null,
+            'plate'        => $vehicle?->license_plate ?? null,
+            'selfies' => [
+                'front' => $this->fileUrl($profile?->selfie_front),
+                'left'  => $this->fileUrl($profile?->selfie_left),
+                'right' => $this->fileUrl($profile?->selfie_right),
+            ],
+            'idCard' => [
+                'front' => $this->fileUrl($profile?->id_card_front),
+                'back'  => $this->fileUrl($profile?->id_card_back),
+            ],
+            'documents' => $isDriver ? [
+                'permis'     => ['status' => $this->docStatus($profile?->driving_license_photo, $kycStatus), 'url' => $this->fileUrl($profile?->driving_license_photo)],
+                'carteGrise' => ['status' => $this->docStatus($vehicle?->registration_doc, $kycStatus),       'url' => $this->fileUrl($vehicle?->registration_doc)],
+                'assurance'  => ['status' => $this->docStatus($vehicle?->insurance_doc, $kycStatus),          'url' => $this->fileUrl($vehicle?->insurance_doc)],
+            ] : null,
+            'score'        => $profile?->kyc_matching_score ?? 0,
             'status'       => $this->userStatus($user),
             'verification' => $this->verificationLabel($profile?->kyc_status),
             'lastActivity' => $user->updated_at?->diffForHumans(),
@@ -64,7 +97,7 @@ class UserController extends Controller
     {
         return User::query()
             ->whereHas('role', fn ($q) => $q->whereIn('name', ['passenger', 'driver']))
-            ->with(['role', 'profile']);
+            ->with(['role', 'profile', 'vehicle']);
     }
 
     // =========================================================================
