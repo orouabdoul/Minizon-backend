@@ -43,7 +43,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           php artisan config:clear
-          php artisan route:list --compact
+          php artisan route:list
 
   # ----------------------------------------------------------------
   # Job 2 — Deploy sur Render (push main seulement)
