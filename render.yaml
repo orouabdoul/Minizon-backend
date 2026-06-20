@@ -25,7 +25,21 @@ services:
       - key: QUEUE_CONNECTION
         value: sync
       - key: FILESYSTEM_DISK
-        value: local
+        value: public
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: auto
+      - key: AWS_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+      - key: AWS_URL
+        sync: false
+      - key: AWS_USE_PATH_STYLE_ENDPOINT
+        value: true
       - key: SESSION_DRIVER
         value: cookie
       - key: SESSION_LIFETIME
