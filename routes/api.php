@@ -38,6 +38,7 @@ require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
 require __DIR__ . '/api/admin-users.php';
 require __DIR__ . '/api/admin-reservations.php';
+require __DIR__ . '/api/admin-payments.php';
 
 // Routes sandbox (jamais en production)
 if (! app()->environment('production')) {

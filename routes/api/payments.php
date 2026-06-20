@@ -23,6 +23,5 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     // Passager — confirmer l'arrivée (libère l'escrow immédiatement)
     Route::post('bookings/{uuid}/confirm-arrival', [PaymentController::class, 'confirmArrival'])->name('payments.confirm-arrival');
 
-    // Admin — supervision globale
-    Route::get('admin/payments',                   [PaymentController::class, 'adminIndex'])->name('admin.payments.index');
+    // Admin — voir admin-payments.php pour la supervision complète
 });
