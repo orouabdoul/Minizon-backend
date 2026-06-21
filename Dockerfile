@@ -35,9 +35,9 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 EXPOSE 80
 
 CMD php artisan config:cache && \
-    php artisan route:cache && \
+    (php artisan route:cache || true) && \
     php artisan migrate --force && \
-    php artisan db:seed --force && \
-    php artisan storage:link && \
-    php artisan l5-swagger:generate && \
+    (php artisan db:seed --force || true) && \
+    (php artisan storage:link || true) && \
+    (php artisan l5-swagger:generate || true) && \
     apache2-foreground
