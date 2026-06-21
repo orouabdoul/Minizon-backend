@@ -18,10 +18,4 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     Route::get('disputes/{id}', [DisputeController::class, 'show'])->name('disputes.show');
 });
 
-// 🔒 Admin
-Route::middleware('auth:sanctum')->group(function () {
-
-    Route::get('admin/disputes',                  [DisputeController::class, 'adminIndex'])->name('admin.disputes.index');
-    Route::post('admin/disputes/{id}/assign',     [DisputeController::class, 'assign'])->name('admin.disputes.assign');
-    Route::post('admin/disputes/{id}/resolve',    [DisputeController::class, 'resolve'])->name('admin.disputes.resolve');
-});
+// Admin — voir admin-disputes.php pour la supervision complète
