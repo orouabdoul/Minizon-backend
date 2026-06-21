@@ -493,34 +493,6 @@ DESC,
     }
 
     // =========================================================================
-    //  5. ADMIN — Supervision globale des paiements
-    // =========================================================================
-
-    #[OA\Get(
-        path: '/api/admin/payments',
-        operationId: 'adminPayments',
-        summary: '[ADMIN] Supervision globale des paiements',
-        tags: ['💰 Paiements & Escrow'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(response: 200, description: 'Tous les paiements'),
-            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ]
-    )]
-    public function adminIndex(Request $request): JsonResponse
-    {
-        if (! $request->user()->isAdmin()) {
-            return $this->apiResponse(false, 'Accès refusé. Privilèges administratifs requis.', [], 403);
-        }
-
-        $payments = Payment::with(['booking.trip.user.profile', 'booking.passenger.profile'])
-            ->orderByDesc('created_at')
-            ->get();
-
-        return $this->apiResponse(true, 'Supervision globale des paiements.', $payments);
-    }
-
-    // =========================================================================
     //  MÉTHODE PRIVÉE — Logique de validation d'un paiement approuvé
     // =========================================================================
 
