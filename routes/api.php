@@ -43,6 +43,7 @@ require __DIR__ . '/api/admin-reservations.php';
 require __DIR__ . '/api/admin-payments.php';
 require __DIR__ . '/api/admin-disputes.php';
 require __DIR__ . '/api/admin-support.php';
+require __DIR__ . '/api/admin-notifications.php';
 
 // Routes sandbox (jamais en production)
 if (! app()->environment('production')) {
