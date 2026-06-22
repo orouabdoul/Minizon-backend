@@ -4,6 +4,7 @@ services:
     env: docker
     plan: free
     branch: main
+    autoDeploy: yes
     healthCheckPath: /api/ping
     envVars:
       - key: APP_NAME
