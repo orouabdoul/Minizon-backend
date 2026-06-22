@@ -26,9 +26,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('vehicles/{id}',     [VehicleController::class, 'update'])->name('vehicles.update');
     Route::delete('vehicles/{id}',  [VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
-    // -----------------------------------------------------------------------
-    // 👑 ROUTES ADMIN
-    // -----------------------------------------------------------------------
-
-    Route::post('admin/vehicles/{id}/approve', [VehicleController::class, 'toggleApproval'])->name('admin.vehicles.approve');
+    // Admin — voir admin-vehicles.php pour la supervision complète
 });
