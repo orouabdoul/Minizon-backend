@@ -20,7 +20,7 @@ return new class extends Migration
 
         // Synchroniser is_approved → verification_status pour les véhicules existants
         \Illuminate\Support\Facades\DB::statement(
-            "UPDATE vehicles SET verification_status = CASE WHEN is_approved = 1 THEN 'approved' ELSE 'pending' END"
+            "UPDATE vehicles SET verification_status = CASE WHEN is_approved = true THEN 'approved' ELSE 'pending' END"
         );
     }
 
