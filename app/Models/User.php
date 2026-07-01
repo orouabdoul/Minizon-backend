@@ -25,6 +25,8 @@ class User extends Authenticatable
         'blocked_until',
         'penalty_points',
         'fcm_token',
+        'is_online',
+        'availability_mode',
     ];
 
     protected $hidden = [
@@ -37,6 +39,7 @@ class User extends Authenticatable
     protected $casts = [
         'is_verified'       => 'boolean',
         'is_blocked'        => 'boolean',
+        'is_online'         => 'boolean',
         'phone_verified_at' => 'datetime',
         'otp_expires_at'    => 'datetime',
         'blocked_until'     => 'datetime',

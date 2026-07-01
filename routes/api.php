@@ -32,6 +32,7 @@ require __DIR__ . '/api/notifications.php';
 require __DIR__ . '/api/chat.php';
 require __DIR__ . '/api/disputes.php';
 require __DIR__ . '/api/roles.php';
+require __DIR__ . '/api/driver.php';
 require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
 

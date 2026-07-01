@@ -318,21 +318,44 @@ class BookingController extends Controller
         path: '/api/driver/bookings',
         operationId: 'driverBookings',
         summary: 'Réservations reçues (conducteur)',
-        description: 'Toutes les demandes de réservation reçues sur les trajets du conducteur connecté.',
+        description: <<<'DESC'
+Toutes les demandes de réservation reçues sur les trajets du conducteur connecté.
+
+Paramètres de filtrage optionnels :
+- `status`   : `pending` | `accepted` | `rejected` | `cancelled`
+- `upcoming` : `true` — limite aux trajets dont le départ est dans le futur
+- `limit`    : nombre de résultats (défaut : illimité)
+DESC,
         tags: ['📦 Réservations'],
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'status',   in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'accepted', 'rejected', 'cancelled'])),
+            new OA\Parameter(name: 'upcoming', in: 'query', required: false, schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'limit',    in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100)),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Liste des réservations reçues'),
         ]
     )]
     public function driverBookings(Request $request): JsonResponse
     {
-        $bookings = Booking::with(['trip', 'passenger.profile'])
+        $query = Booking::with(['trip', 'passenger.profile'])
             ->whereHas('trip', fn ($q) => $q->where('user_id', $request->user()->id))
-            ->orderByDesc('created_at')
-            ->get();
+            ->orderByDesc('created_at');
 
-        return $this->apiResponse(true, 'Réservations reçues récupérées.', $bookings);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if (filter_var($request->query('upcoming'), FILTER_VALIDATE_BOOLEAN)) {
+            $query->whereHas('trip', fn ($q) => $q->where('departure_time', '>', now()));
+        }
+
+        if ($request->filled('limit')) {
+            $query->limit((int) $request->limit);
+        }
+
+        return $this->apiResponse(true, 'Réservations reçues récupérées.', $query->get());
     }
 
     // =========================================================================
