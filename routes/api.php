@@ -32,7 +32,16 @@ require __DIR__ . '/api/notifications.php';
 require __DIR__ . '/api/chat.php';
 require __DIR__ . '/api/disputes.php';
 require __DIR__ . '/api/roles.php';
-require __DIR__ . '/api/driver.php';
+
+
+// ── Driver (conducteur) — par page ────────────────────────────────────────
+require __DIR__ . '/api/driver-home.php';
+
+
+
+
+
+// ── Admin — gestion des conducteurs & passagers ───────────────────────────
 require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
 
