@@ -47,6 +47,12 @@ require __DIR__ . '/api/driver-messager.php';
 require __DIR__ . '/api/driver-notifications.php';
 require __DIR__ . '/api/driver-payment-history.php';
 require __DIR__ . '/api/driver-bookings.php';
+require __DIR__ . '/api/driver-reviews.php';
+require __DIR__ . '/api/driver-statistics.php';
+require __DIR__ . '/api/driver-safety.php';
+require __DIR__ . '/api/driver-support.php';
+require __DIR__ . '/api/driver-vehicles.php';
+require __DIR__ . '/api/driver-withdraw.php';
 
 
 // ── Admin — gestion des conducteurs & passagers ───────────────────────────

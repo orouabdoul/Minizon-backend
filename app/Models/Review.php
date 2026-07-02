@@ -17,6 +17,7 @@ class Review extends Model
         'reviewee_id',
         'rating',
         'comment',
+        'driver_reply',
     ];
 
     protected $casts = [
