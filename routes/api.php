@@ -36,6 +36,7 @@ require __DIR__ . '/api/roles.php';
 
 // ── Driver (conducteur) — par page ────────────────────────────────────────
 require __DIR__ . '/api/driver-home.php';
+require __DIR__ . '/api/driver-profile.php';
 
 
 

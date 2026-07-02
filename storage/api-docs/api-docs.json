@@ -6577,8 +6577,42 @@
                     "📦 Réservations"
                 ],
                 "summary": "Réservations reçues (conducteur)",
-                "description": "Toutes les demandes de réservation reçues sur les trajets du conducteur connecté.",
+                "description": "Toutes les demandes de réservation reçues sur les trajets du conducteur connecté.\n\nParamètres de filtrage optionnels :\n- `status`   : `pending` | `accepted` | `rejected` | `cancelled`\n- `upcoming` : `true` — limite aux trajets dont le départ est dans le futur\n- `limit`    : nombre de résultats (défaut : illimité)",
                 "operationId": "driverBookings",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "accepted",
+                                "rejected",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "upcoming",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Liste des réservations reçues"
@@ -7415,17 +7449,356 @@
                 ]
             }
         },
+        "/api/driver/dashboard": {
+            "get": {
+                "tags": [
+                    "🚗 Driver — Home"
+                ],
+                "summary": "Tableau de bord conducteur",
+                "description": "Retourne toutes les données de la page d'accueil conducteur en un seul appel : summary (gains aujourd'hui/semaine/mois, demandes en attente, commission), metrics (trajets, passagers, note, taux complétion), next_trip (prochain trajet planifié avec passagers), quick_requests (demandes urgentes en attente), recent_requests (5 dernières demandes), wallet (solde disponible et montant bloqué), level (niveau, progression, badges), disponibilité.",
+                "operationId": "driverDashboard",
+                "responses": {
+                    "200": {
+                        "description": "Données du tableau de bord",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Tableau de bord conducteur."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "summary": {
+                                                    "properties": {
+                                                        "today_earnings": {
+                                                            "type": "integer",
+                                                            "example": 5000
+                                                        },
+                                                        "week_earnings": {
+                                                            "type": "integer",
+                                                            "example": 28000
+                                                        },
+                                                        "month_earnings": {
+                                                            "type": "integer",
+                                                            "example": 112000
+                                                        },
+                                                        "pending_count": {
+                                                            "type": "integer",
+                                                            "example": 3
+                                                        },
+                                                        "total_commission": {
+                                                            "type": "integer",
+                                                            "example": 14000
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "metrics": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "key": {
+                                                                "type": "string"
+                                                            },
+                                                            "value": {
+                                                                "example": 18
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "progress": {
+                                                                "type": "number",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "next_trip": {
+                                                    "properties": {
+                                                        "uuid": {
+                                                            "type": "string",
+                                                            "format": "uuid"
+                                                        },
+                                                        "departure_city": {
+                                                            "type": "string",
+                                                            "example": "Cotonou"
+                                                        },
+                                                        "departure_neighborhood": {
+                                                            "type": "string",
+                                                            "example": "Cadjehoun"
+                                                        },
+                                                        "arrival_city": {
+                                                            "type": "string",
+                                                            "example": "Abomey-Calavi"
+                                                        },
+                                                        "arrival_neighborhood": {
+                                                            "type": "string",
+                                                            "example": "Godomey"
+                                                        },
+                                                        "departure_time": {
+                                                            "type": "string",
+                                                            "format": "date-time"
+                                                        },
+                                                        "status": {
+                                                            "type": "string",
+                                                            "example": "pending"
+                                                        },
+                                                        "price_per_seat": {
+                                                            "type": "integer",
+                                                            "example": 1500
+                                                        },
+                                                        "available_seats": {
+                                                            "type": "integer",
+                                                            "example": 2
+                                                        },
+                                                        "passengers_count": {
+                                                            "type": "integer",
+                                                            "example": 2
+                                                        },
+                                                        "passengers": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "name": {
+                                                                        "type": "string",
+                                                                        "example": "Koffi Mensah"
+                                                                    },
+                                                                    "initials": {
+                                                                        "type": "string",
+                                                                        "example": "KM"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object",
+                                                    "nullable": true
+                                                },
+                                                "quick_requests": {
+                                                    "description": "Demandes en attente sur les trajets à venir (section urgente)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DriverBookingItem"
+                                                    }
+                                                },
+                                                "recent_requests": {
+                                                    "description": "5 dernières demandes toutes statuts confondus",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DriverBookingItem"
+                                                    }
+                                                },
+                                                "wallet": {
+                                                    "properties": {
+                                                        "available_balance": {
+                                                            "type": "integer",
+                                                            "example": 45000
+                                                        },
+                                                        "blocked_amount": {
+                                                            "type": "integer",
+                                                            "example": 12000
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "level": {
+                                                    "properties": {
+                                                        "current_level": {
+                                                            "type": "string",
+                                                            "example": "Argent"
+                                                        },
+                                                        "progress": {
+                                                            "type": "number",
+                                                            "example": 0.45
+                                                        },
+                                                        "next_level": {
+                                                            "type": "string",
+                                                            "example": "Or",
+                                                            "nullable": true
+                                                        },
+                                                        "trips_to_next": {
+                                                            "type": "integer",
+                                                            "example": 22
+                                                        },
+                                                        "badges": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "key": {
+                                                                        "type": "string",
+                                                                        "example": "top_rated"
+                                                                    },
+                                                                    "label": {
+                                                                        "type": "string",
+                                                                        "example": "5 étoiles"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "is_online": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "availability_mode": {
+                                                    "type": "string",
+                                                    "example": "normal",
+                                                    "enum": [
+                                                        "normal",
+                                                        "pause",
+                                                        "night"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Compte non approuvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/availability": {
+            "patch": {
+                "tags": [
+                    "🚗 Driver — Home"
+                ],
+                "summary": "Mettre à jour la disponibilité",
+                "description": "Bascule le statut en ligne / hors ligne et définit le mode (normal, pause, night).",
+                "operationId": "driverUpdateAvailability",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "is_online"
+                                ],
+                                "properties": {
+                                    "is_online": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "example": "normal",
+                                        "enum": [
+                                            "normal",
+                                            "pause",
+                                            "night"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Disponibilité mise à jour",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Disponibilité mise à jour."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "is_online": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "availability_mode": {
+                                                    "type": "string",
+                                                    "example": "normal"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Compte non approuvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/driver/stats": {
             "get": {
                 "tags": [
-                    "📊 Stats Conducteur"
+                    "🚗 Driver — Home"
                 ],
-                "summary": "Tableau de bord conducteur",
-                "description": "Retourne les statistiques clés du conducteur connecté :\n- Gains totaux (fonds libérés en sa faveur)\n- Solde disponible pour retrait (non encore retiré)\n- Nombre de trajets effectués\n- Note moyenne\n- Nombre de passagers transportés",
+                "summary": "Statistiques financières conducteur",
+                "description": "Gains totaux, solde disponible, total retiré, trajets complétés, passagers transportés et note moyenne.",
                 "operationId": "driverStats",
                 "responses": {
                     "200": {
-                        "description": "Statistiques du conducteur",
+                        "description": "Statistiques récupérées",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -7440,17 +7813,14 @@
                                         "body": {
                                             "properties": {
                                                 "total_earnings": {
-                                                    "description": "Gains totaux XOF",
                                                     "type": "integer",
                                                     "example": 125000
                                                 },
                                                 "available_balance": {
-                                                    "description": "Solde disponible pour retrait",
                                                     "type": "integer",
                                                     "example": 45000
                                                 },
                                                 "total_withdrawals": {
-                                                    "description": "Total retiré",
                                                     "type": "integer",
                                                     "example": 80000
                                                 },
@@ -7464,7 +7834,6 @@
                                                 },
                                                 "average_rating": {
                                                     "type": "number",
-                                                    "format": "float",
                                                     "example": 4.6,
                                                     "nullable": true
                                                 },
@@ -10101,6 +10470,66 @@
     },
     "components": {
         "schemas": {
+            "DriverBookingItem": {
+                "properties": {
+                    "uuid": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "seats_booked": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "passenger": {
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "example": "Koffi Mensah"
+                            },
+                            "initials": {
+                                "type": "string",
+                                "example": "KM"
+                            },
+                            "rating": {
+                                "type": "number",
+                                "example": 4.2,
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "trip": {
+                        "properties": {
+                            "uuid": {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            "departure_city": {
+                                "type": "string",
+                                "example": "Cotonou"
+                            },
+                            "arrival_city": {
+                                "type": "string",
+                                "example": "Abomey-Calavi"
+                            },
+                            "departure_time": {
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
             "ErrorResponse": {
                 "properties": {
                     "success": {
@@ -10205,8 +10634,8 @@
             "description": "⚖️ Litiges"
         },
         {
-            "name": "📊 Stats Conducteur",
-            "description": "📊 Stats Conducteur"
+            "name": "🚗 Driver — Home",
+            "description": "🚗 Driver — Home"
         },
         {
             "name": "🔔 Notifications",
