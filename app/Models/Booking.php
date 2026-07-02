@@ -17,10 +17,12 @@ class Booking extends Model
         'seats_booked',
         'status',
         'payment_status',
+        'picked_up_at',
     ];
 
     protected $casts = [
         'seats_booked' => 'integer',
+        'picked_up_at' => 'datetime',
     ];
 
     protected static function boot(): void

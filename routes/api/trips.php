@@ -16,7 +16,7 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     Route::post('trips',                 [TripController::class, 'store'])->name('trips.store');
     Route::put('trips/{uuid}',           [TripController::class, 'update'])->name('trips.update');
     Route::delete('trips/{uuid}',        [TripController::class, 'destroy'])->name('trips.destroy');
-    Route::get('driver/trips',           [TripController::class, 'driverTrips'])->name('driver.trips');
+    // GET driver/trips → routes/api/driver-trips.php (DriverTripController)
     Route::post('trips/{uuid}/start',    [TripController::class, 'startTrip'])->name('trips.start');
     Route::post('trips/{uuid}/end',      [TripController::class, 'endTrip'])->name('trips.end');
     Route::post('trips/{uuid}/location', [TripController::class, 'updateLocation'])->name('trips.location');

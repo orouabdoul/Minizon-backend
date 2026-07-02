@@ -37,9 +37,16 @@ require __DIR__ . '/api/roles.php';
 // ── Driver (conducteur) — par page ────────────────────────────────────────
 require __DIR__ . '/api/driver-home.php';
 require __DIR__ . '/api/driver-profile.php';
-
-
-
+require __DIR__ . '/api/driver-add-trip.php';
+require __DIR__ . '/api/driver-trip-detail.php';
+require __DIR__ . '/api/driver-trips.php';
+require __DIR__ . '/api/driver-active-trip.php';
+require __DIR__ . '/api/driver-end-trip.php';
+require __DIR__ . '/api/driver-interactive-map.php';
+require __DIR__ . '/api/driver-messager.php';
+require __DIR__ . '/api/driver-notifications.php';
+require __DIR__ . '/api/driver-payment-history.php';
+require __DIR__ . '/api/driver-bookings.php';
 
 
 // ── Admin — gestion des conducteurs & passagers ───────────────────────────

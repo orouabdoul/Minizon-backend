@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Trip;
 
 use App\Http\Controllers\Controller;
 use App\Models\Trip;
+use App\Models\TripValidation;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -432,7 +433,7 @@ class TripController extends Controller
             return $this->apiResponse(false, 'Ce trajet ne peut pas être démarré (statut actuel : « ' . $trip->status . ' »).', [], 422);
         }
 
-        $trip->update(['status' => 'active']);
+        $trip->update(['status' => 'active', 'started_at' => now()]);
 
         return $this->apiResponse(true, 'Bon voyage ! Le trajet est maintenant en cours.', $trip->fresh());
     }
@@ -472,7 +473,29 @@ class TripController extends Controller
             return $this->apiResponse(false, 'Ce trajet ne peut pas être clôturé (statut actuel : « ' . $trip->status . ' »).', [], 422);
         }
 
-        $trip->update(['status' => 'completed']);
+        $now = now();
+
+        $trip->update([
+            'status'       => 'completed',
+            'completed_at' => $now,
+        ]);
+
+        // Crée un enregistrement TripValidation par réservation acceptée (si pas déjà présent).
+        // Le passager a 24h pour confirmer ; passé ce délai, les fonds sont libérés automatiquement.
+        $autoReleaseAt = $now->copy()->addHours(24);
+
+        $trip->bookings()
+            ->where('status', 'accepted')
+            ->whereDoesntHave('tripValidation')
+            ->each(function ($booking) use ($trip, $autoReleaseAt) {
+                TripValidation::create([
+                    'trip_id'             => $trip->id,
+                    'booking_id'          => $booking->id,
+                    'passenger_confirmed' => false,
+                    'auto_release_at'     => $autoReleaseAt,
+                    'status'              => 'waiting',
+                ]);
+            });
 
         return $this->apiResponse(true, 'Trajet clôturé avec succès. Merci pour votre service !', $trip->fresh());
     }
