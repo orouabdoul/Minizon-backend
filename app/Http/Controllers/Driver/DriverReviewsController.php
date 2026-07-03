@@ -20,7 +20,7 @@ class DriverReviewsController extends Controller
 
     #[OA\Get(
         path: '/api/driver/reviews',
-        operationId: 'driverReviews',
+        operationId: 'driverMyReviews',
         summary: 'Avis reçus par le conducteur connecté',
         tags: ['⭐ Driver — Avis'],
         security: [['bearerAuth' => []]],

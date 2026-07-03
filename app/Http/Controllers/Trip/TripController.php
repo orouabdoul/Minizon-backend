@@ -374,18 +374,7 @@ class TripController extends Controller
 
     // -------------------------------------------------------------------------
 
-    #[OA\Get(
-        path: '/api/driver/trips',
-        operationId: 'driverTrips',
-        summary: 'Mes trajets publiés (conducteur)',
-        description: 'Retourne l\'historique complet des trajets publiés par le conducteur connecté, triés du plus récent au plus ancien.',
-        tags: ['🚗 Trajets & Télémétrie'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(response: 200, description: 'Historique des trajets récupéré'),
-            new OA\Response(response: 401, description: 'Non authentifié', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ]
-    )]
+    // OA doc moved to DriverTripController (plus détaillée)
     public function driverTrips(Request $request): JsonResponse
     {
         $trips = Trip::with(['vehicle.vehicleType'])

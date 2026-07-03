@@ -291,42 +291,8 @@ class DriverHomeController extends Controller
     }
 
     // =========================================================================
-    //  GET /api/driver/stats
+    //  GET /api/driver/stats  (résumé home — voir DriverStatsController pour la doc OA)
     // =========================================================================
-
-    #[OA\Get(
-        path: '/api/driver/stats',
-        operationId: 'driverStats',
-        summary: "Statistiques financières conducteur",
-        description: "Gains totaux, solde disponible, total retiré, trajets complétés, passagers transportés et note moyenne.",
-        tags: ['🚗 Driver — Home'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Statistiques récupérées',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string'),
-                        new OA\Property(
-                            property: 'body',
-                            type: 'object',
-                            properties: [
-                                new OA\Property(property: 'total_earnings',         type: 'integer', example: 125000),
-                                new OA\Property(property: 'available_balance',      type: 'integer', example: 45000),
-                                new OA\Property(property: 'total_withdrawals',      type: 'integer', example: 80000),
-                                new OA\Property(property: 'trips_completed',        type: 'integer', example: 18),
-                                new OA\Property(property: 'passengers_transported', type: 'integer', example: 42),
-                                new OA\Property(property: 'average_rating',         type: 'number',  nullable: true, example: 4.6),
-                                new OA\Property(property: 'total_reviews',          type: 'integer', example: 14),
-                            ]
-                        ),
-                    ]
-                )
-            ),
-        ]
-    )]
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
