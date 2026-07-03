@@ -46,7 +46,7 @@ services:
       - key: SESSION_LIFETIME
         value: 120
       - key: L5_SWAGGER_GENERATE_ALWAYS
-        value: false
+        value: true
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
