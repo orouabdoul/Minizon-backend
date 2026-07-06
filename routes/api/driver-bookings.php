@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Booking\BookingController;
+use App\Http\Controllers\Driver\DriverBookingsController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
@@ -9,13 +9,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(function () {
 
-    Route::get('bookings', [BookingController::class, 'driverBookings'])->name('driver.bookings.index');
+    Route::get('bookings', [DriverBookingsController::class, 'driverBookings'])->name('driver.bookings.index');
 
 });
 
 Route::middleware(['auth:sanctum', 'approved'])->group(function () {
 
-    Route::post('bookings/{uuid}/accept', [BookingController::class, 'accept'])->name('bookings.accept');
-    Route::post('bookings/{uuid}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
+    Route::post('bookings/{uuid}/accept', [DriverBookingsController::class, 'accept'])->name('bookings.accept');
+    Route::post('bookings/{uuid}/reject', [DriverBookingsController::class, 'reject'])->name('bookings.reject');
 
 });

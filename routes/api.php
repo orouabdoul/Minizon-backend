@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 // Healthcheck
 Route::get('ping', fn () => response()->json([
     'success' => true,
-    'message' => 'Minizon API is alive 🚀',
+    'message' => 'Minizon API is alive',
     'version' => '1.0.0',
     'env'     => app()->environment(),
 ]))->name('api.ping');
@@ -23,18 +23,10 @@ Route::get('ping', fn () => response()->json([
 // -----------------------------------------------------------------------
 
 require __DIR__ . '/api/auth.php';
-require __DIR__ . '/api/trips.php';
-require __DIR__ . '/api/vehicles.php';
-require __DIR__ . '/api/bookings.php';
-require __DIR__ . '/api/payments.php';
-require __DIR__ . '/api/withdrawals.php';
-require __DIR__ . '/api/notifications.php';
-require __DIR__ . '/api/chat.php';
-require __DIR__ . '/api/disputes.php';
-require __DIR__ . '/api/roles.php';
 
 
 // ── Driver (conducteur) — par page ────────────────────────────────────────
+require __DIR__ . '/api/driver-arrival.php';
 require __DIR__ . '/api/driver-home.php';
 require __DIR__ . '/api/driver-profile.php';
 require __DIR__ . '/api/driver-add-trip.php';
@@ -55,6 +47,21 @@ require __DIR__ . '/api/driver-vehicles.php';
 require __DIR__ . '/api/driver-withdraw.php';
 
 
+// ── Passenger (passager) — par page ──────────────────────────────────────
+require __DIR__ . '/api/passenger-home.php';
+require __DIR__ . '/api/passenger-profile.php';
+require __DIR__ . '/api/passenger-messager.php';
+require __DIR__ . '/api/passenger-notifications.php';
+require __DIR__ . '/api/passenger-refund.php';
+require __DIR__ . '/api/passenger-reservations.php';
+require __DIR__ . '/api/passenger-trip-detail.php';
+require __DIR__ . '/api/passenger-safety.php';
+require __DIR__ . '/api/passenger-search.php';
+require __DIR__ . '/api/passenger-support.php';
+require __DIR__ . '/api/passenger-trip-confirmation.php';
+require __DIR__ . '/api/passenger-trip-history.php';
+
+
 // ── Admin — gestion des conducteurs & passagers ───────────────────────────
 require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
@@ -71,7 +78,3 @@ require __DIR__ . '/api/admin-notifications.php';
 require __DIR__ . '/api/admin-settings.php';
 require __DIR__ . '/api/admin-vehicles.php';
 
-// Routes sandbox (jamais en production)
-if (! app()->environment('production')) {
-    require __DIR__ . '/api/sandbox.php';
-}
