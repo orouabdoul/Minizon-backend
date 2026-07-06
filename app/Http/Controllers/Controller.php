@@ -18,6 +18,15 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Server(url: 'https://minizon-api.onrender.com', description: 'Production')]
 #[OA\Server(url: 'http://localhost:8000', description: 'Local')]
+#[OA\Schema(
+    schema: 'ErrorResponse',
+    description: 'Réponse d\'erreur standard',
+    properties: [
+        new OA\Property(property: 'success', type: 'boolean', example: false),
+        new OA\Property(property: 'message', type: 'string',  example: 'Une erreur est survenue.'),
+        new OA\Property(property: 'body',    type: 'object'),
+    ]
+)]
 abstract class Controller
 {
     protected function apiResponse(bool $success, string $message, mixed $body = [], int $status = 200): \Illuminate\Http\JsonResponse
