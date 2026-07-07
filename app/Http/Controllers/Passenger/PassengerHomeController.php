@@ -272,7 +272,7 @@ class PassengerHomeController extends Controller
     {
         $completedBookings = Booking::where('passenger_id', $user->id)
             ->whereIn('status', ['accepted'])
-            ->whereHas('payment', fn ($q) => $q->whereIn('status', ['success', 'released']))
+            ->whereHas('payment', fn ($q) => $q->where('status', 'success'))
             ->with('payment')
             ->get();
 
@@ -327,12 +327,12 @@ class PassengerHomeController extends Controller
 
     private function recommendedDrivers(int $limit = 5): array
     {
-        return User::with(['profile', 'vehicles'])
+        return User::with(['profile', 'vehicle'])
             ->whereHas('role', fn ($q) => $q->where('name', 'driver'))
+            ->whereHas('reviewsReceived')
             ->where('is_verified', true)
             ->withCount(['reviewsReceived'])
             ->withAvg('reviewsReceived', 'rating')
-            ->having('reviews_received_count', '>', 0)
             ->orderByDesc('reviews_received_avg_rating')
             ->limit($limit)
             ->get()
@@ -340,7 +340,7 @@ class PassengerHomeController extends Controller
                 $profile    = $driver->profile;
                 $name       = $this->fullName($profile);
                 $driverTrips = Trip::where('user_id', $driver->id)->where('status', 'completed')->count();
-                $vehicle    = $driver->vehicles->first();
+                $vehicle    = $driver->vehicle;
                 $vehicleStr = $vehicle
                     ? trim(($vehicle->brand ?? '') . ' ' . ($vehicle->model ?? '') . ' ' . ($vehicle->color ?? ''))
                     : '';
