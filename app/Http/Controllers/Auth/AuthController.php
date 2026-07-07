@@ -35,7 +35,7 @@ class AuthController extends Controller
         path: '/api/auth/send-otp',
         operationId: 'sendOtp',
         summary: 'Demande d\'OTP',
-        description: 'Génère un code de vérification à 6 chiffres et l\'associe au numéro de téléphone. Le code expire après **2 minutes**.',
+        description: 'Génère un code de vérification à 6 chiffres et l\'associe au numéro de téléphone. Le code expire après **10 minutes**. Un délai de 60 secondes s\'applique entre deux demandes.',
         tags: ['🔓 Authentification & KYC'],
         requestBody: new OA\RequestBody(
             required: true,
@@ -63,8 +63,9 @@ class AuthController extends Controller
                             property: 'body',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'phone',    type: 'string', example: '+2290161165619'),
-                                new OA\Property(property: 'otp_code', type: 'string', example: '584291'),
+                                new OA\Property(property: 'phone',                type: 'string',  example: '+2290161165619'),
+                                new OA\Property(property: 'otp_code',            type: 'string',  example: '584291', description: 'Uniquement en environnement non-production'),
+                                new OA\Property(property: 'resend_available_in', type: 'integer', example: 60,       description: 'Secondes avant de pouvoir renvoyer un OTP'),
                             ]
                         ),
                     ]
@@ -73,6 +74,11 @@ class AuthController extends Controller
             new OA\Response(
                 response: 422,
                 description: 'Format de numéro invalide',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
+            new OA\Response(
+                response: 429,
+                description: 'Délai entre deux envois non respecté (60 secondes)',
                 content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
             ),
         ]
@@ -97,19 +103,37 @@ class AuthController extends Controller
             ]
         );
 
+        // Cooldown de 60 secondes entre deux envois d'OTP.
+        // Protège contre le double-appel (instance Render lente) qui écrasait
+        // l'OTP en base pendant que l'ancien était encore en transit vers le client.
+        $otpTtl        = 10; // minutes
+        $resendCooldown = 60; // secondes
+        $cooldownUntil = now()->addMinutes($otpTtl)->subSeconds($resendCooldown);
+
+        if ($user->otp_expires_at && $user->otp_expires_at->gt($cooldownUntil)) {
+            $secondsLeft = (int) now()->diffInSeconds($user->otp_expires_at->subMinutes($otpTtl)->addSeconds($resendCooldown), false);
+            $secondsLeft = max(1, $secondsLeft);
+
+            return $this->apiResponse(false, 'Un code OTP a déjà été envoyé. Veuillez patienter avant d\'en demander un nouveau.', [
+                'phone'               => $user->phone,
+                'resend_available_in' => $secondsLeft,
+            ], 429);
+        }
+
         $otpCode = (string) random_int(100000, 999999);
 
         $user->update([
             'otp_code'       => $otpCode,
-            'otp_expires_at' => now()->addMinutes(3),
+            'otp_expires_at' => now()->addMinutes($otpTtl),
         ]);
 
         // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
 
-        return $this->apiResponse(true, 'Code OTP généré avec succès.', [
-            'phone'    => $user->phone,
-            'otp_code' => $otpCode, // À retirer en production — uniquement pour le dev
-        ]);
+        return $this->apiResponse(true, 'Code OTP généré avec succès.', array_filter([
+            'phone'               => $user->phone,
+            'otp_code'            => app()->isProduction() ? null : $otpCode,
+            'resend_available_in' => $resendCooldown,
+        ]));
     }
 
     // -------------------------------------------------------------------------
@@ -167,7 +191,7 @@ class AuthController extends Controller
 
         $user = User::where('phone', $request->phone)
             ->where('otp_code', $request->otp_code)
-            ->where('otp_expires_at', '>', now())
+            ->where('otp_expires_at', '>', now('UTC'))
             ->first();
 
         if (! $user) {
