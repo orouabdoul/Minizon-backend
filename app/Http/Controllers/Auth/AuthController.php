@@ -64,8 +64,7 @@ class AuthController extends Controller
                             type: 'object',
                             properties: [
                                 new OA\Property(property: 'phone',                type: 'string',  example: '+2290161165619'),
-                                new OA\Property(property: 'otp_code',            type: 'string',  example: '584291', description: 'Uniquement en environnement non-production'),
-                                new OA\Property(property: 'resend_available_in', type: 'integer', example: 60,       description: 'Secondes avant de pouvoir renvoyer un OTP'),
+                                new OA\Property(property: 'resend_available_in', type: 'integer', example: 60, description: 'Secondes avant de pouvoir renvoyer un OTP'),
                             ]
                         ),
                     ]
