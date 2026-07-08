@@ -64,6 +64,7 @@ class AuthController extends Controller
                             type: 'object',
                             properties: [
                                 new OA\Property(property: 'phone',                type: 'string',  example: '+2290161165619'),
+                                new OA\Property(property: 'otp_code',            type: 'string',  example: '584291', description: 'Code OTP généré (visible pour les tests)'),
                                 new OA\Property(property: 'resend_available_in', type: 'integer', example: 60, description: 'Secondes avant de pouvoir renvoyer un OTP'),
                             ]
                         ),
@@ -128,11 +129,11 @@ class AuthController extends Controller
 
         // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
 
-        return $this->apiResponse(true, 'Code OTP généré avec succès.', array_filter([
+        return $this->apiResponse(true, 'Code OTP généré avec succès.', [
             'phone'               => $user->phone,
-            'otp_code'            => app()->isProduction() ? null : $otpCode,
+            'otp_code'            => $otpCode,
             'resend_available_in' => $resendCooldown,
-        ]));
+        ]);
     }
 
     // -------------------------------------------------------------------------
