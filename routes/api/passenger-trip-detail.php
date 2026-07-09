@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Controllers\Passenger\PassengerBookingController;
 use App\Http\Controllers\Passenger\PassengerConfirmationController;
 use App\Http\Controllers\Passenger\PassengerLiveTrackingController;
 use App\Http\Controllers\Passenger\PassengerTripDetailController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
-//  👤 PASSENGER — Détail trajet + Confirmation réservation
+//  👤 PASSENGER — Détail trajet + Confirmation + Réservation
 // ============================================================
 
 Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
@@ -25,12 +26,20 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
 
 });
 
-// Endpoints existants réutilisés par le Flutter depuis ces pages :
-//   bookNow              → POST /api/trips/{uuid}/bookings
-//   contactDriver        → POST /api/bookings/{uuid}/conversation
-//   cancelReservation    → POST /api/bookings/{uuid}/cancel
-//   onViewAllReviews     → GET  /api/trips/{uuid}/reviews
-// Depuis LiveTrackingView :
-//   triggerSOS           → POST /api/passenger/safety/sos
-//   sendQuickMessage     → messagerie existante (POST /api/bookings/{uuid}/conversation + messages)
-//   callDriver           → url_launcher tel: (pas d'API)
+// ── Réservation & Paiement ────────────────────────────────────────────────────
+
+Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
+
+    // Créer une réservation (bookNow)
+    Route::post('trips/{uuid}/bookings', [PassengerBookingController::class, 'store'])
+        ->name('passenger.bookings.store');
+
+    // Initier le paiement Mobile Money FedaPay
+    Route::post('bookings/{uuid}/pay', [PassengerBookingController::class, 'pay'])
+        ->name('passenger.bookings.pay');
+
+    // Annuler une réservation (depuis ReservationView ou DetailJourneyView)
+    Route::post('bookings/{uuid}/cancel', [PassengerBookingController::class, 'cancel'])
+        ->name('passenger.bookings.cancel');
+
+});

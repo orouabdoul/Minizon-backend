@@ -1,0 +1,320 @@
+<?php
+
+namespace App\Http\Controllers\Passenger;
+
+use App\Http\Controllers\Controller;
+use App\Models\Booking;
+use App\Models\Notification;
+use App\Models\Payment;
+use App\Models\Trip;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
+
+class PassengerBookingController extends Controller
+{
+    private const COMMISSION_RATE = 0.10;
+
+    // =========================================================================
+    //  POST /api/trips/{uuid}/bookings
+    //  Créer une réservation
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/trips/{uuid}/bookings',
+        operationId: 'passengerBookingStore',
+        summary: 'Réserver un trajet',
+        description: "Crée une réservation pour le passager authentifié. Retourne l'UUID de la réservation à transmettre à l'étape de paiement.\n\n**Flow :**\n1. Appeler cet endpoint → `booking_uuid`\n2. `POST /api/bookings/{uuid}/pay` → initier le paiement Mobile Money\n3. Naviguer vers `WaitingApprovalView`",
+        tags: ['👤 Passenger — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['seats_booked'],
+                properties: [
+                    new OA\Property(property: 'seats_booked', type: 'integer', minimum: 1, example: 1),
+                    new OA\Property(property: 'pickup_note',  type: 'string',  nullable: true, example: 'Face pharmacie du centre'),
+                    new OA\Property(property: 'dropoff_note', type: 'string',  nullable: true, example: 'Carrefour étoile rouge'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Réservation créée',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Réservation créée.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'booking_mode', type: 'string', enum: ['instant', 'approval'], example: 'approval'),
+                                new OA\Property(property: 'price_total',  type: 'integer', example: 1500),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: 'Trajet introuvable',                          content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'Réservation déjà existante sur ce trajet',   content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Places insuffisantes ou trajet non réservable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function store(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate([
+            'seats_booked' => ['required', 'integer', 'min:1', 'max:10'],
+            'pickup_note'  => ['nullable', 'string', 'max:500'],
+            'dropoff_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $trip = Trip::where('uuid', $uuid)->first();
+
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        if (! $trip->is_published || $trip->status !== 'pending') {
+            return $this->apiResponse(false, 'Ce trajet n\'est plus disponible à la réservation.', [], 422);
+        }
+
+        if ($trip->user_id === $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez pas réserver votre propre trajet.', [], 422);
+        }
+
+        $seatsRequested = (int) $validated['seats_booked'];
+
+        if ($trip->available_seats < $seatsRequested) {
+            return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
+        }
+
+        // Doublon — une réservation active existe déjà
+        $existing = Booking::where('trip_id', $trip->id)
+            ->where('passenger_id', $request->user()->id)
+            ->whereNotIn('status', ['rejected', 'cancelled'])
+            ->first();
+
+        if ($existing) {
+            return $this->apiResponse(false, 'Vous avez déjà une réservation active pour ce trajet.', [
+                'booking_uuid' => $existing->uuid,
+            ], 409);
+        }
+
+        $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested) {
+            $booking = Booking::create([
+                'trip_id'        => $trip->id,
+                'passenger_id'   => $request->user()->id,
+                'seats_booked'   => $seatsRequested,
+                'status'         => 'pending',
+                'payment_status' => 'pending',
+            ]);
+
+            // Bloquer les places immédiatement pour éviter la surréservation
+            $trip->decrement('available_seats', $seatsRequested);
+
+            return $booking;
+        });
+
+        // Notifier le conducteur d'une nouvelle demande
+        $this->notifyDriver($trip, $booking);
+
+        return $this->apiResponse(true, 'Réservation créée.', [
+            'booking_uuid' => $booking->uuid,
+            'booking_mode' => $trip->booking_mode ?? 'approval',
+            'price_total'  => (int) $trip->price_per_seat * $seatsRequested,
+        ], 201);
+    }
+
+    // =========================================================================
+    //  POST /api/bookings/{uuid}/pay
+    //  Initier le paiement Mobile Money (FedaPay)
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/bookings/{uuid}/pay',
+        operationId: 'passengerBookingPay',
+        summary: 'Initier le paiement Mobile Money',
+        description: 'Crée le paiement en escrow via FedaPay (MTN / Moov / Celtiis). La réservation passe en `escrow_locked` après succès.',
+        tags: ['👤 Passenger — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['provider', 'phone_number'],
+                properties: [
+                    new OA\Property(property: 'provider',     type: 'string',  enum: ['mtn', 'moov', 'celtiis'], example: 'mtn'),
+                    new OA\Property(property: 'phone_number', type: 'string',  example: '97000000', description: 'Numéro local béninois (8 chiffres sans indicatif)'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Paiement initié — escrow en attente de validation conducteur',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Paiement initié.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'payment_uuid', type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'amount',       type: 'integer', example: 1500),
+                                new OA\Property(property: 'status',       type: 'string',  example: 'locked'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: 'Réservation introuvable',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'Paiement déjà effectué',         content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Réservation non éligible au paiement', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function pay(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider'     => ['required', 'string', 'in:mtn,moov,celtiis'],
+            'phone_number' => ['required', 'string', 'regex:/^[0-9]{8,12}$/'],
+        ]);
+
+        $booking = Booking::with(['trip', 'payment'])
+            ->where('uuid', $uuid)
+            ->where('passenger_id', $request->user()->id)
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        if ($booking->payment_status === 'escrow_locked') {
+            return $this->apiResponse(false, 'Le paiement a déjà été effectué pour cette réservation.', [
+                'payment_uuid' => $booking->payment?->uuid,
+            ], 409);
+        }
+
+        if ($booking->status === 'rejected' || $booking->status === 'cancelled') {
+            return $this->apiResponse(false, 'Cette réservation a été annulée ou refusée.', [], 422);
+        }
+
+        $trip         = $booking->trip;
+        $grossAmount  = (int) $trip->price_per_seat * (int) $booking->seats_booked;
+        $commission   = (int) round($grossAmount * self::COMMISSION_RATE);
+        $netAmount    = $grossAmount - $commission;
+
+        $payment = DB::transaction(function () use ($booking, $validated, $grossAmount, $commission, $netAmount, $request) {
+            $payment = Payment::create([
+                'booking_id'        => $booking->id,
+                'user_id'           => $request->user()->id,
+                'provider'          => $validated['provider'],
+                'gross_amount'      => $grossAmount,
+                'commission_amount' => $commission,
+                'net_amount'        => $netAmount,
+                'status'            => 'locked',
+                'idempotency_key'   => 'booking_' . $booking->id . '_' . time(),
+            ]);
+
+            $booking->update(['payment_status' => 'escrow_locked']);
+
+            return $payment;
+        });
+
+        // TODO : appeler l'API FedaPay ici pour débit Mobile Money réel
+
+        return $this->apiResponse(true, 'Paiement initié.', [
+            'payment_uuid' => $payment->uuid,
+            'booking_uuid' => $booking->uuid,
+            'amount'       => $grossAmount,
+            'status'       => 'locked',
+        ]);
+    }
+
+    // =========================================================================
+    //  POST /api/bookings/{uuid}/cancel
+    //  Annuler une réservation (depuis le passager)
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/bookings/{uuid}/cancel',
+        operationId: 'passengerBookingCancel',
+        summary: 'Annuler une réservation',
+        tags: ['👤 Passenger — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Réservation annulée'),
+            new OA\Response(response: 404, description: 'Réservation introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Annulation impossible',   content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function cancel(Request $request, string $uuid): JsonResponse
+    {
+        $booking = Booking::with('trip')
+            ->where('uuid', $uuid)
+            ->where('passenger_id', $request->user()->id)
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        if (in_array($booking->status, ['cancelled', 'rejected'], true)) {
+            return $this->apiResponse(false, 'Cette réservation est déjà annulée.', [], 422);
+        }
+
+        if ($booking->trip?->status === 'completed') {
+            return $this->apiResponse(false, 'Impossible d\'annuler un trajet déjà terminé.', [], 422);
+        }
+
+        DB::transaction(function () use ($booking) {
+            // Remettre les places disponibles si la réservation était acceptée
+            if ($booking->status === 'accepted' && $booking->trip) {
+                $booking->trip->increment('available_seats', $booking->seats_booked);
+            }
+
+            $booking->update(['status' => 'cancelled']);
+        });
+
+        $this->notifyDriver($booking->trip, $booking, cancelled: true);
+
+        return $this->apiResponse(true, 'Réservation annulée.');
+    }
+
+    // -------------------------------------------------------------------------
+
+    private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
+    {
+        if (! $trip) return;
+
+        try {
+            $title = $cancelled ? 'Réservation annulée' : 'Nouvelle demande de réservation';
+            $body  = $cancelled
+                ? "Un passager a annulé sa réservation pour {$trip->departure_city} → {$trip->arrival_city}."
+                : "Un passager souhaite réserver {$booking->seats_booked} place(s) pour {$trip->departure_city} → {$trip->arrival_city}.";
+
+            Notification::create([
+                'user_id' => $trip->user_id,
+                'type'    => $cancelled ? 'booking_cancelled' : 'booking_request',
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => json_encode(['booking_uuid' => $booking->uuid, 'trip_uuid' => $trip->uuid]),
+            ]);
+        } catch (\Throwable) {
+            // non-bloquant
+        }
+    }
+}
