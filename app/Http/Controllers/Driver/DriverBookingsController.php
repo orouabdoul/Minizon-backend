@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\Notification;
 use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class DriverBookingsController extends Controller
@@ -178,14 +178,21 @@ class DriverBookingsController extends Controller
     {
         try {
             $label = $action === 'accepted' ? 'accepté' : 'refusé';
-            Notification::create([
-                'user_id' => $booking->passenger_id,
-                'type'    => 'booking_' . $action,
-                'title'   => 'Réservation ' . $label,
-                'body'    => 'Votre réservation pour le trajet ' .
-                             ($booking->trip?->origin ?? '') . ' → ' .
-                             ($booking->trip?->destination ?? '') . ' a été ' . $label . '.',
-                'data'    => json_encode(['booking_uuid' => $booking->uuid]),
+            DB::table('notifications')->insert([
+                'id'              => (string) Str::uuid(),
+                'type'            => 'booking_' . $action,
+                'notifiable_type' => 'App\Models\User',
+                'notifiable_id'   => $booking->passenger_id,
+                'data'            => json_encode([
+                    'title'        => 'Réservation ' . $label,
+                    'body'         => 'Votre réservation pour le trajet ' .
+                                     ($booking->trip?->departure_city ?? '') . ' → ' .
+                                     ($booking->trip?->arrival_city ?? '') . ' a été ' . $label . '.',
+                    'booking_uuid' => $booking->uuid,
+                ]),
+                'read_at'    => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         } catch (\Throwable) {
             // non-bloquant

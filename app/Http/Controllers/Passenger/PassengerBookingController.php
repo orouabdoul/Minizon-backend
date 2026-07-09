@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\Notification;
 use App\Models\Payment;
 use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class PassengerBookingController extends Controller
@@ -113,7 +113,7 @@ class PassengerBookingController extends Controller
                 'passenger_id'   => $request->user()->id,
                 'seats_booked'   => $seatsRequested,
                 'status'         => 'pending',
-                'payment_status' => 'pending',
+                'payment_status' => 'unpaid',
             ]);
 
             // Bloquer les places immédiatement pour éviter la surréservation
@@ -306,12 +306,20 @@ class PassengerBookingController extends Controller
                 ? "Un passager a annulé sa réservation pour {$trip->departure_city} → {$trip->arrival_city}."
                 : "Un passager souhaite réserver {$booking->seats_booked} place(s) pour {$trip->departure_city} → {$trip->arrival_city}.";
 
-            Notification::create([
-                'user_id' => $trip->user_id,
-                'type'    => $cancelled ? 'booking_cancelled' : 'booking_request',
-                'title'   => $title,
-                'body'    => $body,
-                'data'    => json_encode(['booking_uuid' => $booking->uuid, 'trip_uuid' => $trip->uuid]),
+            DB::table('notifications')->insert([
+                'id'              => (string) Str::uuid(),
+                'type'            => $cancelled ? 'booking_cancelled' : 'booking_request',
+                'notifiable_type' => 'App\Models\User',
+                'notifiable_id'   => $trip->user_id,
+                'data'            => json_encode([
+                    'title'        => $title,
+                    'body'         => $body,
+                    'booking_uuid' => $booking->uuid,
+                    'trip_uuid'    => $trip->uuid,
+                ]),
+                'read_at'    => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         } catch (\Throwable) {
             // non-bloquant

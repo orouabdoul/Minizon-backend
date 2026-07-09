@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\Notification;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -278,13 +279,20 @@ class DriverArrivalController extends Controller
         $origin   = $trip->origin ?? 'votre point de départ';
 
         try {
-            Notification::create([
-                'user_id' => $passengerId,
-                'type'    => 'driver_arrived',
-                'title'   => 'Votre conducteur est arrivé !',
-                'body'    => "Votre conducteur vous attend à {$origin}. Préparez-vous à embarquer.",
-                'data'    => json_encode(['booking_uuid' => $booking->uuid, 'trip_uuid' => $trip->uuid]),
-                'read'    => false,
+            DB::table('notifications')->insert([
+                'id'              => (string) Str::uuid(),
+                'type'            => 'driver_arrived',
+                'notifiable_type' => 'App\Models\User',
+                'notifiable_id'   => $passengerId,
+                'data'            => json_encode([
+                    'title'        => 'Votre conducteur est arrivé !',
+                    'body'         => "Votre conducteur vous attend à {$origin}. Préparez-vous à embarquer.",
+                    'booking_uuid' => $booking->uuid,
+                    'trip_uuid'    => $trip->uuid ?? null,
+                ]),
+                'read_at'    => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         } catch (\Throwable) {
             // Notification non bloquante — ne pas faire échouer la réponse
