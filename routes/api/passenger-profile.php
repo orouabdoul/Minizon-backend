@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Profil"
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Page profil complète (summary, metrics, trust, settings, payment_methods, recent_trips)
     Route::get('profile', [PassengerProfileController::class, 'show'])

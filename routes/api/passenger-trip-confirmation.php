@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 //    BottonNavController.goToTab(2)   → navigation locale (onglet réservations)
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Chargement des infos de résumé (TripSummary card)
     Route::get('bookings/{uuid}/trip-confirmation-context', [PassengerTripConfirmationController::class, 'context'])

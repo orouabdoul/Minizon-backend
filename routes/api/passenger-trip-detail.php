@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Détail trajet + Confirmation réservation
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // DetailJourneyView — SearchRide + métriques conducteur + 2 avis + statut réservation
     Route::get('trips/{uuid}/detail', [PassengerTripDetailController::class, 'show'])

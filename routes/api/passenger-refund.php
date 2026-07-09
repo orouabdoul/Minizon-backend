@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Remboursement"
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Contexte pour pré-remplir le formulaire (trajet, montant, transaction ref)
     Route::get('bookings/{uuid}/refund-context', [PassengerRefundController::class, 'context'])

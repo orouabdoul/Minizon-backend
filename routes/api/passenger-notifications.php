@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Notifications"
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Liste filtrée pour AppNotification Flutter
     Route::get('notifications', [PassengerNotificationsController::class, 'index'])

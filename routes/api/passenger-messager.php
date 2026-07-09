@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Messagerie
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Liste des threads formatés pour MessengerThread Flutter
     Route::get('messager', [PassengerMessagerController::class, 'inbox'])

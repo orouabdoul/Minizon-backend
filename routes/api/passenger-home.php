@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page d'accueil (Home)
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     Route::get('home', [PassengerHomeController::class, 'dashboard'])->name('passenger.home.dashboard');
 

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Route;
 //                      (POST /api/passenger/refunds — PassengerRefundController existant)
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     Route::get('trips/history', [PassengerTripHistoryController::class, 'index'])
         ->name('passenger.trips.history');

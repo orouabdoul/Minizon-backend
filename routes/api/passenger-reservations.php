@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Mes réservations" + "En attente"
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // Liste complète formatée (active_trip + status_tabs + items)
     Route::get('reservations', [PassengerReservationController::class, 'index'])

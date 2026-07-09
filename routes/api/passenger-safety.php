@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Sécurité" (SafetyView)
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // SafetyView — données initiales (sos_active + trip_share + contacts)
     Route::get('safety', [PassengerSafetyController::class, 'context'])

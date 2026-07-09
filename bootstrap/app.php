@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAccountApproved;
+use App\Http\Middleware\EnsureNotBlocked;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -21,7 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ForceJsonResponse::class,
         ]);
         $middleware->alias([
-            'approved' => EnsureAccountApproved::class,
+            'approved'    => EnsureAccountApproved::class,
+            'not_blocked' => EnsureNotBlocked::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

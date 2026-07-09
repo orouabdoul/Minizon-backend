@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👤 PASSENGER — Page "Centre d'aide" (SupportView)
 // ============================================================
 
-Route::middleware(['auth:sanctum'])->prefix('passenger')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(function () {
 
     // FAQ passager organisée par catégorie (statique serveur)
     Route::get('support/faq', [PassengerSupportController::class, 'faq'])

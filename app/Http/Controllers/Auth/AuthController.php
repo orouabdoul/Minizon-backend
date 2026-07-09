@@ -499,7 +499,16 @@ class AuthController extends Controller
     )]
     public function me(Request $request): JsonResponse
     {
-        return $this->apiResponse(true, 'Profil récupéré.', $this->getUserWithDetails($request->user()));
+        $user = $request->user();
+
+        if ($user->is_blocked) {
+            return $this->apiResponse(false, 'Votre compte a été suspendu. Contactez l\'assistance.', [
+                'account_status' => 'suspended',
+                'blocked_until'  => $user->blocked_until?->toIso8601String(),
+            ], 403);
+        }
+
+        return $this->apiResponse(true, 'Profil récupéré.', $this->getUserWithDetails($user));
     }
 
     // =========================================================================
@@ -914,12 +923,20 @@ class AuthController extends Controller
             ]);
         }
 
+        $accountStatus = match (true) {
+            (bool) $user->is_blocked  => 'suspended',
+            ! (bool) $user->is_verified => 'pending_approval',
+            default                   => 'active',
+        };
+
         return [
             'id'             => $user->id,
             'uuid'           => $user->uuid,
             'phone'          => $user->phone,
             'is_verified'    => (bool) $user->is_verified,
             'is_blocked'     => (bool) $user->is_blocked,
+            'account_status' => $accountStatus,
+            'blocked_until'  => $user->blocked_until?->toIso8601String(),
             'penalty_points' => (int) $user->penalty_points,
             'role'           => $role?->name ?? 'passenger',
             'profile'        => $profile?->toArray(),
