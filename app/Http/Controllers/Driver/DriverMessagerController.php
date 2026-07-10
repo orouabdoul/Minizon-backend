@@ -190,7 +190,7 @@ class DriverMessagerController extends Controller
             $isMe    = $lastMsg->sender_id === $userId;
             $prefix  = $isMe ? 'Vous : ' : '';
             $preview = $lastMsg->attachment_path && ! $lastMsg->body
-                ? $prefix . '📷 Image'
+                ? $prefix . ($lastMsg->attachment_type === 'document' ? '📄 Document' : '📷 Image')
                 : $prefix . ($lastMsg->body ?? '—');
         }
 
