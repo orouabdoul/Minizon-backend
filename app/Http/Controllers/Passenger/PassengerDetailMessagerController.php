@@ -193,7 +193,7 @@ class PassengerDetailMessagerController extends Controller
         if ($msg->attachment_path) {
             $attachment = [
                 'url'  => Storage::disk('public')->url($msg->attachment_path),
-                'type' => 'image',
+                'type' => $msg->attachment_type ?? 'image',
             ];
         }
 

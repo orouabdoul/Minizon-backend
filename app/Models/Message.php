@@ -16,6 +16,7 @@ class Message extends Model
         'sender_id',
         'body',
         'attachment_path',
+        'attachment_type',
         'read_at',
     ];
 

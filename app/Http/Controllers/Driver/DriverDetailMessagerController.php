@@ -208,8 +208,8 @@ class DriverDetailMessagerController extends Controller
                 type: 'object',
                 nullable: true,
                 properties: [
-                    new OA\Property(property: 'url',  type: 'string'),
-                    new OA\Property(property: 'type', type: 'string', enum: ['image']),
+                    new OA\Property(property: 'url',  type: 'string', example: 'https://…/chat/conv-uuid/photo.jpg'),
+                    new OA\Property(property: 'type', type: 'string', enum: ['image', 'document']),
                 ]
             ),
         ]
@@ -231,7 +231,7 @@ class DriverDetailMessagerController extends Controller
         if ($msg->attachment_path) {
             $attachment = [
                 'url'  => Storage::disk('public')->url($msg->attachment_path),
-                'type' => 'image',
+                'type' => $msg->attachment_type ?? 'image',
             ];
         }
 

@@ -23,6 +23,7 @@ Route::get('ping', fn () => response()->json([
 // -----------------------------------------------------------------------
 
 require __DIR__ . '/api/auth.php';
+require __DIR__ . '/api/chat.php';
 
 
 // ── Driver (conducteur) — par page ────────────────────────────────────────

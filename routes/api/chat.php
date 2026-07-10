@@ -3,7 +3,7 @@
 use App\Http\Controllers\Chat\ChatController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'approved'])->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
 
     // 📋 Liste des conversations de l'utilisateur
     Route::get('conversations', [ChatController::class, 'index'])->name('conversations.index');
