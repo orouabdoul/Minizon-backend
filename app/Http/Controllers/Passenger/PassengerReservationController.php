@@ -107,6 +107,7 @@ class PassengerReservationController extends Controller
             'trip.user.profile',
             'trip.vehicle',
             'payment',
+            'conversation',
         ])
         ->where('passenger_id', $user->id)
         ->orderByDesc('created_at')
@@ -126,9 +127,14 @@ class PassengerReservationController extends Controller
             ->get()
             ->keyBy('booking_id');
 
+        // Préchargement des conversations pour éviter N+1
+        $conversationByBooking = $bookings->mapWithKeys(fn ($b) => [
+            $b->id => $b->conversation?->uuid,
+        ]);
+
         // Formater tous les items
         $allFormatted = $bookings->map(fn ($b) => $this->formatBooking(
-            $b, $user->id, $myReviewedTripIds, $avgRatingByDriver, $cntByDriver, $disputesByBooking
+            $b, $user->id, $myReviewedTripIds, $avgRatingByDriver, $cntByDriver, $disputesByBooking, $conversationByBooking
         ));
 
         // Filtre serveur optionnel (le Flutter peut aussi filtrer côté client)
@@ -277,9 +283,10 @@ class PassengerReservationController extends Controller
         schema: 'PassengerReservationItem',
         description: 'Correspond au modèle Flutter `ReservationItem`.',
         properties: [
-            new OA\Property(property: 'uuid',             type: 'string',  format: 'uuid'),
-            new OA\Property(property: 'status',           type: 'string',  enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], description: 'Statut dérivé pour le Flutter — combinaison booking.status + trip.status.'),
-            new OA\Property(property: 'is_paid',          type: 'boolean', example: true),
+            new OA\Property(property: 'uuid',              type: 'string',  format: 'uuid'),
+            new OA\Property(property: 'conversation_uuid', type: 'string',  format: 'uuid', nullable: true, description: 'UUID de la conversation conducteur–passager liée à cette réservation. null si pas encore de conversation initiée.'),
+            new OA\Property(property: 'status',            type: 'string',  enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], description: 'Statut dérivé pour le Flutter — combinaison booking.status + trip.status.'),
+            new OA\Property(property: 'is_paid',           type: 'boolean', example: true),
             new OA\Property(property: 'cancel_reason',    type: 'string',  nullable: true),
             new OA\Property(property: 'time_ago',         type: 'string',  example: 'il y a 2h'),
             new OA\Property(property: 'driver_name',      type: 'string',  example: 'Koffi Adjovi'),
@@ -334,7 +341,8 @@ class PassengerReservationController extends Controller
         Collection $myReviewedTripIds,
         Collection $avgRatingByDriver,
         Collection $cntByDriver,
-        Collection $disputesByBooking
+        Collection $disputesByBooking,
+        Collection $conversationByBooking
     ): array {
         $trip    = $booking->trip;
         $driver  = $trip?->user;
@@ -399,10 +407,11 @@ class PassengerReservationController extends Controller
         }
 
         return [
-            'uuid'            => $booking->uuid,
-            'status'          => $flutterStatus,
-            'is_paid'         => $booking->payment_status === 'escrow_locked',
-            'cancel_reason'   => null,
+            'uuid'              => $booking->uuid,
+            'conversation_uuid' => $conversationByBooking->get($booking->id),
+            'status'            => $flutterStatus,
+            'is_paid'           => $booking->payment_status === 'escrow_locked',
+            'cancel_reason'     => null,
             'time_ago'        => $this->relativeTime($booking->created_at),
             'driver_name'     => $driverName,
             'driver_initials' => $initials ?: '??',

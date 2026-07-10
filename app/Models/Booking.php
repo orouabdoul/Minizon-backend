@@ -65,6 +65,11 @@ class Booking extends Model
         return $this->hasOne(Dispute::class);
     }
 
+    public function conversation()
+    {
+        return $this->hasOne(Conversation::class);
+    }
+
     // -----------------------------------------------------------------------
     // HELPERS
     // -----------------------------------------------------------------------
