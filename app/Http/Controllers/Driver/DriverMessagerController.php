@@ -117,7 +117,10 @@ class DriverMessagerController extends Controller
 
         // ── Filtres ───────────────────────────────────────────────────────────
         match ($filter) {
-            'unread'    => $query->having('unread_count', '>', 0),
+            'unread' => $query->whereHas('messages', fn ($q) => $q
+                ->where('sender_id', '!=', $userId)
+                ->whereNull('read_at')
+            ),
             'active'    => $query->whereHas('trip', fn ($q) => $q->where('status', 'active')),
             'completed' => $query->whereHas('trip', fn ($q) => $q->where('status', 'completed')),
             default     => null,
