@@ -175,7 +175,9 @@ class PassengerBookingController extends Controller
                                 new OA\Property(property: 'payment_uuid', type: 'string', format: 'uuid'),
                                 new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
                                 new OA\Property(property: 'amount',       type: 'integer', example: 1500),
-                                new OA\Property(property: 'status',       type: 'string',  example: 'locked'),
+                                new OA\Property(property: 'status',       type: 'string',  example: 'pending'),
+                                new OA\Property(property: 'payment_url',  type: 'string',  example: 'https://checkout.fedapay.com/payment-page/...', description: 'URL FedaPay à ouvrir en WebView Flutter pour que le passager valide sur son téléphone Mobile Money.'),
+                                new OA\Property(property: 'fedapay_id',   type: 'integer', nullable: true, example: 12345),
                             ]
                         ),
                     ]
@@ -253,44 +255,30 @@ class PassengerBookingController extends Controller
             return $this->apiResponse(false, 'Impossible d\'initier le paiement. Réessayez.', [], 502);
         }
 
-        // ── Déclencher le débit Mobile Money (push USSD sur le téléphone) ───────
-        $fedaMode    = config('fedapay.modes.' . $validated['provider']); // mtn_open | moov | sbin
-        $phoneParams = [
-            'phone_number' => [
-                'number'  => $validated['phone_number'],
-                'country' => 'bj',
-            ],
-        ];
-
+        // ── Générer le token de paiement FedaPay (URL checkout Mobile Money) ──
         try {
-            $fedaTx->sendNow($fedaMode, $phoneParams);
+            $tokenObj   = $fedaTx->generateToken();
+            $paymentUrl = $tokenObj->url;
         } catch (\FedaPay\Error\Base $e) {
-            Log::error('FedaPay sendNow failed', [
+            Log::error('FedaPay generateToken failed', [
                 'booking_uuid'  => $booking->uuid,
                 'fedapay_id'    => $fedaTx->id ?? null,
-                'provider'      => $validated['provider'],
-                'mode'          => $fedaMode,
-                'phone'         => $validated['phone_number'],
                 'http_status'   => $e->getHttpStatus(),
                 'feda_message'  => $e->getErrorMessage(),
                 'feda_errors'   => $e->getErrors(),
-                'http_body'     => $e->getHttpBody(),
             ]);
-            return $this->apiResponse(false, 'La demande de paiement Mobile Money a échoué. Vérifiez votre numéro et réessayez.', [
+            return $this->apiResponse(false, 'Impossible de générer le lien de paiement. Réessayez.', [
                 'detail' => $e->getErrorMessage() ?: $e->getMessage(),
             ], 502);
         } catch (\Throwable $e) {
-            Log::error('FedaPay sendNow unexpected error', [
+            Log::error('FedaPay generateToken unexpected error', [
                 'booking_uuid' => $booking->uuid,
                 'error'        => $e->getMessage(),
-                'trace'        => substr($e->getTraceAsString(), 0, 500),
             ]);
-            return $this->apiResponse(false, 'Erreur inattendue lors du paiement. Réessayez.', [
-                'detail' => $e->getMessage(),
-            ], 502);
+            return $this->apiResponse(false, 'Erreur inattendue lors de la génération du paiement.', [], 502);
         }
 
-        // ── Persister le paiement en base ─────────────────────────────────────
+        // ── Persister le paiement en base (pending jusqu'au webhook) ─────────
         $txnRef = 'TXN-' . strtoupper(substr(str_replace('-', '', (string) Str::uuid()), 0, 12));
 
         $payment = DB::transaction(function () use (
@@ -304,23 +292,25 @@ class PassengerBookingController extends Controller
                 'gross_amount'          => $grossAmount,
                 'commission_amount'     => $commission,
                 'net_amount'            => $netAmount,
-                'status'                => 'locked',
+                'status'                => 'pending',
                 'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
                 'transaction_reference' => $txnRef,
                 'provider_reference'    => (string) ($fedaTx->id ?? ''),
             ]);
 
-            $booking->update(['payment_status' => 'escrow_locked']);
+            // Le booking passe en escrow_locked seulement après confirmation webhook
+            // Pour l'instant on garde unpaid — le webhook mettra à jour
 
             return $payment;
         });
 
-        return $this->apiResponse(true, 'Paiement initié. Confirmez sur votre téléphone.', [
-            'payment_uuid'   => $payment->uuid,
-            'booking_uuid'   => $booking->uuid,
-            'amount'         => $grossAmount,
-            'status'         => 'locked',
-            'fedapay_id'     => $fedaTx->id ?? null,
+        return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
+            'payment_uuid' => $payment->uuid,
+            'booking_uuid' => $booking->uuid,
+            'amount'       => $grossAmount,
+            'status'       => 'pending',
+            'payment_url'  => $paymentUrl,
+            'fedapay_id'   => $fedaTx->id ?? null,
         ]);
     }
 
