@@ -219,11 +219,13 @@ class PassengerBookingController extends Controller
                 'booking_id'        => $booking->id,
                 'user_id'           => $request->user()->id,
                 'provider'          => $validated['provider'],
+                'phone_number'      => $validated['phone_number'],
                 'gross_amount'      => $grossAmount,
                 'commission_amount' => $commission,
                 'net_amount'        => $netAmount,
                 'status'            => 'locked',
                 'idempotency_key'   => 'booking_' . $booking->id . '_' . time(),
+                'transaction_reference' => 'TXN-' . strtoupper(substr(str_replace('-', '', (string) \Illuminate\Support\Str::uuid()), 0, 12)),
             ]);
 
             $booking->update(['payment_status' => 'escrow_locked']);

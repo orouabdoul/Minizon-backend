@@ -18,6 +18,7 @@ class Payment extends Model
         'commission_amount',
         'net_amount',
         'provider',
+        'phone_number',
         'idempotency_key',
         'transaction_reference',
         'provider_reference',
