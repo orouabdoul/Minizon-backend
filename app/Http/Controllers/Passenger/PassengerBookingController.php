@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Trip;
+use FedaPay\FedaPay;
+use FedaPay\Transaction as FedaTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
@@ -209,23 +212,80 @@ class PassengerBookingController extends Controller
             return $this->apiResponse(false, 'Cette réservation a été annulée ou refusée.', [], 422);
         }
 
-        $trip         = $booking->trip;
-        $grossAmount  = (int) $trip->price_per_seat * (int) $booking->seats_booked;
-        $commission   = (int) round($grossAmount * self::COMMISSION_RATE);
-        $netAmount    = $grossAmount - $commission;
+        $trip        = $booking->trip;
+        $grossAmount = (int) $trip->price_per_seat * (int) $booking->seats_booked;
+        $commission  = (int) round($grossAmount * self::COMMISSION_RATE);
+        $netAmount   = $grossAmount - $commission;
 
-        $payment = DB::transaction(function () use ($booking, $validated, $grossAmount, $commission, $netAmount, $request) {
+        // ── Profil du passager pour FedaPay ──────────────────────────────────
+        $passenger = $request->user()->load('profile');
+        $profile   = $passenger->profile;
+        $firstName = $profile?->first_name ?? 'Passager';
+        $lastName  = $profile?->last_name  ?? '';
+        $email     = $profile?->email      ?? ($passenger->phone . '@minizon.app');
+
+        // ── Initialiser FedaPay ───────────────────────────────────────────────
+        FedaPay::setApiKey(config('fedapay.secret_key'));
+        FedaPay::setEnvironment(config('fedapay.environment'));
+
+        // ── Créer la transaction FedaPay ──────────────────────────────────────
+        try {
+            $fedaTx = FedaTransaction::create([
+                'description'  => "Réservation Minizon — {$trip->departure_city} → {$trip->arrival_city}",
+                'amount'       => $grossAmount,
+                'currency'     => ['iso' => 'XOF'],
+                'callback_url' => config('fedapay.callback_url'),
+                'customer'     => [
+                    'firstname'    => $firstName,
+                    'lastname'     => $lastName,
+                    'email'        => $email,
+                    'phone_number' => [
+                        'number'  => $validated['phone_number'],
+                        'country' => 'bj',
+                    ],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('FedaPay transaction create failed', [
+                'booking_uuid' => $booking->uuid,
+                'error'        => $e->getMessage(),
+            ]);
+            return $this->apiResponse(false, 'Impossible d\'initier le paiement. Réessayez.', [], 502);
+        }
+
+        // ── Déclencher le débit Mobile Money ─────────────────────────────────
+        $fedaMode = config('fedapay.modes.' . $validated['provider']); // mtn_open | moov | sbin
+
+        try {
+            $fedaTx->sendNow($fedaMode);
+        } catch (\Throwable $e) {
+            Log::error('FedaPay sendNow failed', [
+                'booking_uuid'  => $booking->uuid,
+                'fedapay_id'    => $fedaTx->id ?? null,
+                'provider'      => $validated['provider'],
+                'error'         => $e->getMessage(),
+            ]);
+            return $this->apiResponse(false, 'La demande de paiement Mobile Money a échoué. Vérifiez votre numéro et réessayez.', [], 502);
+        }
+
+        // ── Persister le paiement en base ─────────────────────────────────────
+        $txnRef = 'TXN-' . strtoupper(substr(str_replace('-', '', (string) Str::uuid()), 0, 12));
+
+        $payment = DB::transaction(function () use (
+            $booking, $validated, $grossAmount, $commission, $netAmount, $request, $fedaTx, $txnRef
+        ) {
             $payment = Payment::create([
-                'booking_id'        => $booking->id,
-                'user_id'           => $request->user()->id,
-                'provider'          => $validated['provider'],
-                'phone_number'      => $validated['phone_number'],
-                'gross_amount'      => $grossAmount,
-                'commission_amount' => $commission,
-                'net_amount'        => $netAmount,
-                'status'            => 'locked',
-                'idempotency_key'   => 'booking_' . $booking->id . '_' . time(),
-                'transaction_reference' => 'TXN-' . strtoupper(substr(str_replace('-', '', (string) \Illuminate\Support\Str::uuid()), 0, 12)),
+                'booking_id'            => $booking->id,
+                'user_id'               => $request->user()->id,
+                'provider'              => $validated['provider'],
+                'phone_number'          => $validated['phone_number'],
+                'gross_amount'          => $grossAmount,
+                'commission_amount'     => $commission,
+                'net_amount'            => $netAmount,
+                'status'                => 'locked',
+                'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
+                'transaction_reference' => $txnRef,
+                'provider_reference'    => (string) ($fedaTx->id ?? ''),
             ]);
 
             $booking->update(['payment_status' => 'escrow_locked']);
@@ -233,13 +293,12 @@ class PassengerBookingController extends Controller
             return $payment;
         });
 
-        // TODO : appeler l'API FedaPay ici pour débit Mobile Money réel
-
-        return $this->apiResponse(true, 'Paiement initié.', [
-            'payment_uuid' => $payment->uuid,
-            'booking_uuid' => $booking->uuid,
-            'amount'       => $grossAmount,
-            'status'       => 'locked',
+        return $this->apiResponse(true, 'Paiement initié. Confirmez sur votre téléphone.', [
+            'payment_uuid'   => $payment->uuid,
+            'booking_uuid'   => $booking->uuid,
+            'amount'         => $grossAmount,
+            'status'         => 'locked',
+            'fedapay_id'     => $fedaTx->id ?? null,
         ]);
     }
 
