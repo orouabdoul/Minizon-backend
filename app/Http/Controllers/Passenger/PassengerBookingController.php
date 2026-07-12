@@ -253,19 +253,41 @@ class PassengerBookingController extends Controller
             return $this->apiResponse(false, 'Impossible d\'initier le paiement. Réessayez.', [], 502);
         }
 
-        // ── Déclencher le débit Mobile Money ─────────────────────────────────
-        $fedaMode = config('fedapay.modes.' . $validated['provider']); // mtn_open | moov | sbin
+        // ── Déclencher le débit Mobile Money (push USSD sur le téléphone) ───────
+        $fedaMode    = config('fedapay.modes.' . $validated['provider']); // mtn_open | moov | sbin
+        $phoneParams = [
+            'phone_number' => [
+                'number'  => $validated['phone_number'],
+                'country' => 'bj',
+            ],
+        ];
 
         try {
-            $fedaTx->sendNow($fedaMode);
-        } catch (\Throwable $e) {
+            $fedaTx->sendNow($fedaMode, $phoneParams);
+        } catch (\FedaPay\Error\Base $e) {
             Log::error('FedaPay sendNow failed', [
                 'booking_uuid'  => $booking->uuid,
                 'fedapay_id'    => $fedaTx->id ?? null,
                 'provider'      => $validated['provider'],
-                'error'         => $e->getMessage(),
+                'mode'          => $fedaMode,
+                'phone'         => $validated['phone_number'],
+                'http_status'   => $e->getHttpStatus(),
+                'feda_message'  => $e->getErrorMessage(),
+                'feda_errors'   => $e->getErrors(),
+                'http_body'     => $e->getHttpBody(),
             ]);
-            return $this->apiResponse(false, 'La demande de paiement Mobile Money a échoué. Vérifiez votre numéro et réessayez.', [], 502);
+            return $this->apiResponse(false, 'La demande de paiement Mobile Money a échoué. Vérifiez votre numéro et réessayez.', [
+                'detail' => $e->getErrorMessage() ?: $e->getMessage(),
+            ], 502);
+        } catch (\Throwable $e) {
+            Log::error('FedaPay sendNow unexpected error', [
+                'booking_uuid' => $booking->uuid,
+                'error'        => $e->getMessage(),
+                'trace'        => substr($e->getTraceAsString(), 0, 500),
+            ]);
+            return $this->apiResponse(false, 'Erreur inattendue lors du paiement. Réessayez.', [
+                'detail' => $e->getMessage(),
+            ], 502);
         }
 
         // ── Persister le paiement en base ─────────────────────────────────────
