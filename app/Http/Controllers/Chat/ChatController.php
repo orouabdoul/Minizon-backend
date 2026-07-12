@@ -367,6 +367,133 @@ class ChatController extends Controller
     }
 
     // =========================================================================
+    //  PATCH /api/messages/{uuid}
+    //  Modifier le texte d'un message (expéditeur uniquement)
+    // =========================================================================
+
+    #[OA\Patch(
+        path: '/api/messages/{uuid}',
+        operationId: 'messageEdit',
+        summary: 'Modifier un message',
+        description: "Modifie le texte d'un message. Seul l'expéditeur peut modifier son propre message. Un message composé uniquement d'un fichier (sans texte) ne peut pas être édité.",
+        tags: ['💬 Chat'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['body'],
+                properties: [
+                    new OA\Property(property: 'body', type: 'string', maxLength: 4000, example: 'Message corrigé.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Message modifié',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Message modifié.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'uuid',       type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'body',       type: 'string'),
+                                new OA\Property(property: 'edited_at',  type: 'string', example: '2026-07-12T10:30:00+01:00'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé — pas l\'expéditeur', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Message introuvable',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Corps vide ou message sans texte',  content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function editMessage(Request $request, string $uuid): JsonResponse
+    {
+        $message = Message::where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez modifier que vos propres messages.', [], 403);
+        }
+
+        // Un message sans texte (fichier seul) ne peut pas être édité
+        if ($message->body === null && $message->attachment_path) {
+            return $this->apiResponse(false, 'Un message sans texte ne peut pas être modifié.', [], 422);
+        }
+
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:4000'],
+        ]);
+
+        $newBody = trim($validated['body']);
+
+        if ($newBody === '') {
+            return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
+        }
+
+        $message->update(['body' => $newBody]);
+
+        return $this->apiResponse(true, 'Message modifié.', [
+            'uuid'      => $message->uuid,
+            'body'      => $message->body,
+            'edited_at' => $message->updated_at->toIso8601String(),
+        ]);
+    }
+
+    // =========================================================================
+    //  DELETE /api/messages/{uuid}
+    //  Supprimer un message (expéditeur uniquement)
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/messages/{uuid}',
+        operationId: 'messageDelete',
+        summary: 'Supprimer un message',
+        description: 'Supprime définitivement un message. Seul l\'expéditeur peut supprimer son propre message. Si un fichier est attaché, il est également supprimé du stockage.',
+        tags: ['💬 Chat'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Message supprimé'),
+            new OA\Response(response: 403, description: 'Accès refusé — pas l\'expéditeur', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Message introuvable',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function deleteMessage(Request $request, string $uuid): JsonResponse
+    {
+        $message = Message::where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez supprimer que vos propres messages.', [], 403);
+        }
+
+        if ($message->attachment_path) {
+            Storage::disk('public')->delete($message->attachment_path);
+        }
+
+        $message->delete();
+
+        return $this->apiResponse(true, 'Message supprimé.');
+    }
+
+    // =========================================================================
     //  ADMIN — Modération
     // =========================================================================
 

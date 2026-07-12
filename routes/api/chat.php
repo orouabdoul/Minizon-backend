@@ -20,6 +20,12 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
     // ✅ Marquer tous les messages comme lus
     Route::post('conversations/{uuid}/read', [ChatController::class, 'markRead'])->name('conversations.read');
 
+    // ✏️  Modifier le texte d'un message (expéditeur uniquement)
+    Route::patch('messages/{uuid}', [ChatController::class, 'editMessage'])->name('messages.edit');
+
+    // 🗑️  Supprimer un message (expéditeur uniquement)
+    Route::delete('messages/{uuid}', [ChatController::class, 'deleteMessage'])->name('messages.delete');
+
     // -----------------------------------------------------------------------
     // 👑 ADMIN — Modération des conversations
     // -----------------------------------------------------------------------
