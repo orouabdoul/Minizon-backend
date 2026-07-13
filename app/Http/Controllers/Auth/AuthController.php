@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmergencyContact;
 use App\Models\Profile;
 use App\Models\Role;
 use App\Models\User;
@@ -267,6 +268,21 @@ class AuthController extends Controller
                         new OA\Property(property: 'insurance_doc',          type: 'string', format: 'binary',       description: '[driver] Assurance'),
                         new OA\Property(property: 'tvm_doc',                type: 'string', format: 'binary',       description: '[driver] TVM (optionnel)', nullable: true),
                         new OA\Property(property: 'technical_control_doc',  type: 'string', format: 'binary',       description: '[driver] Visite technique (optionnel)', nullable: true),
+                        // — Contacts d'urgence (optionnel, max 5)
+                        new OA\Property(
+                            property: 'emergency_contacts',
+                            type: 'array',
+                            nullable: true,
+                            description: 'Contacts d\'urgence (famille, amis). Max 5. Envoyer en JSON encodé ou format indexé emergency_contacts[0][name]=...',
+                            items: new OA\Items(
+                                required: ['name', 'relationship', 'phone'],
+                                properties: [
+                                    new OA\Property(property: 'name',         type: 'string', example: 'Mama Adèle'),
+                                    new OA\Property(property: 'relationship', type: 'string', example: 'maman', description: 'maman, papa, femme, mari, ami, frère, sœur, etc.'),
+                                    new OA\Property(property: 'phone',        type: 'string', example: '+22997000000'),
+                                ]
+                            )
+                        ),
                     ]
                 )
             )
@@ -281,20 +297,24 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $rules = [
-            'user_uuid'       => ['required', 'uuid', 'exists:users,uuid'],
-            'role_name'       => ['required', 'string', 'in:passenger,driver'],
-            'first_name'      => ['required', 'string', 'max:100'],
-            'last_name'       => ['required', 'string', 'max:100'],
-            'gender'          => ['required', 'in:M,F'],
-            'email'           => ['nullable', 'email', 'unique:profiles,email'],
-            'city'            => ['required', 'string'],
-            'neighborhood'    => ['required', 'string'],
-            'address_details' => ['nullable', 'string'],
-            'selfie_front'    => ['required', 'image', 'max:5120'],
-            'selfie_left'     => ['required', 'image', 'max:5120'],
-            'selfie_right'    => ['required', 'image', 'max:5120'],
-            'id_card_front'   => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
-            'id_card_back'    => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+            'user_uuid'                          => ['required', 'uuid', 'exists:users,uuid'],
+            'role_name'                          => ['required', 'string', 'in:passenger,driver'],
+            'first_name'                         => ['required', 'string', 'max:100'],
+            'last_name'                          => ['required', 'string', 'max:100'],
+            'gender'                             => ['required', 'in:M,F'],
+            'email'                              => ['nullable', 'email', 'unique:profiles,email'],
+            'city'                               => ['required', 'string'],
+            'neighborhood'                       => ['required', 'string'],
+            'address_details'                    => ['nullable', 'string'],
+            'selfie_front'                       => ['required', 'image', 'max:5120'],
+            'selfie_left'                        => ['required', 'image', 'max:5120'],
+            'selfie_right'                       => ['required', 'image', 'max:5120'],
+            'id_card_front'                      => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+            'id_card_back'                       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+            'emergency_contacts'                 => ['nullable', 'array', 'max:5'],
+            'emergency_contacts.*.name'          => ['required_with:emergency_contacts', 'string', 'max:80'],
+            'emergency_contacts.*.relationship'  => ['required_with:emergency_contacts', 'string', 'max:40'],
+            'emergency_contacts.*.phone'         => ['required_with:emergency_contacts', 'string', 'max:20'],
         ];
 
         if ($request->input('role_name') === 'driver') {
@@ -357,6 +377,17 @@ class AuthController extends Controller
             }
 
             Profile::create($profileData);
+
+            if ($request->filled('emergency_contacts')) {
+                foreach ($request->emergency_contacts as $contact) {
+                    EmergencyContact::create([
+                        'user_id'      => $user->id,
+                        'name'         => $contact['name'],
+                        'relationship' => $contact['relationship'],
+                        'phone'        => $contact['phone'],
+                    ]);
+                }
+            }
 
             if ($request->role_name === 'driver') {
                 $vType = VehicleType::where('slug', $request->vehicle_type)->firstOrFail();
@@ -910,9 +941,13 @@ class AuthController extends Controller
      */
     private function getUserWithDetails(User $user): array
     {
-        $role    = Role::find($user->role_id);
-        $profile = Profile::where('user_id', $user->id)->first();
-        $vehicle = Vehicle::where('user_id', $user->id)->first();
+        $role              = Role::find($user->role_id);
+        $profile           = Profile::where('user_id', $user->id)->first();
+        $vehicle           = Vehicle::where('user_id', $user->id)->first();
+        $emergencyContacts = EmergencyContact::where('user_id', $user->id)
+            ->orderBy('created_at')
+            ->get(['id', 'name', 'relationship', 'phone'])
+            ->toArray();
 
         $vehicleDetails = null;
         if ($vehicle) {
@@ -930,17 +965,18 @@ class AuthController extends Controller
         };
 
         return [
-            'id'             => $user->id,
-            'uuid'           => $user->uuid,
-            'phone'          => $user->phone,
-            'is_verified'    => (bool) $user->is_verified,
-            'is_blocked'     => (bool) $user->is_blocked,
-            'account_status' => $accountStatus,
-            'blocked_until'  => $user->blocked_until?->toIso8601String(),
-            'penalty_points' => (int) $user->penalty_points,
-            'role'           => $role?->name ?? 'passenger',
-            'profile'        => $profile?->toArray(),
-            'vehicle'        => $vehicleDetails,
+            'id'                 => $user->id,
+            'uuid'               => $user->uuid,
+            'phone'              => $user->phone,
+            'is_verified'        => (bool) $user->is_verified,
+            'is_blocked'         => (bool) $user->is_blocked,
+            'account_status'     => $accountStatus,
+            'blocked_until'      => $user->blocked_until?->toIso8601String(),
+            'penalty_points'     => (int) $user->penalty_points,
+            'role'               => $role?->name ?? 'passenger',
+            'profile'            => $profile?->toArray(),
+            'vehicle'            => $vehicleDetails,
+            'emergency_contacts' => $emergencyContacts,
         ];
     }
 }
