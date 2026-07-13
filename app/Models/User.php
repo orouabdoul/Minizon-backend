@@ -79,6 +79,11 @@ class User extends Authenticatable
         return $this->hasOne(Profile::class);
     }
 
+    public function emergencyContacts()
+    {
+        return $this->hasMany(EmergencyContact::class);
+    }
+
     public function vehicle()
     {
         return $this->hasOne(Vehicle::class);

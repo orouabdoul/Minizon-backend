@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Passenger\EmergencyContactController;
 use App\Http\Controllers\Passenger\PassengerMyReviewsController;
 use App\Http\Controllers\Passenger\PassengerProfileController;
 use App\Http\Controllers\Passenger\PassengerStatsController;
@@ -26,5 +27,13 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     // Statistiques passager
     Route::get('stats', [PassengerStatsController::class, 'index'])
         ->name('passenger.stats');
+
+    // Contacts d'urgence
+    Route::prefix('emergency-contacts')->name('passenger.emergency.')->group(function () {
+        Route::get('/',      [EmergencyContactController::class, 'index'])  ->name('index');
+        Route::post('/',     [EmergencyContactController::class, 'store'])  ->name('store');
+        Route::put('{id}',   [EmergencyContactController::class, 'update']) ->name('update');
+        Route::delete('{id}',[EmergencyContactController::class, 'destroy'])->name('destroy');
+    });
 
 });

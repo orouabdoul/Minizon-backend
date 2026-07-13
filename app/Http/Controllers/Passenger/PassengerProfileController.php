@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\EmergencyContact;
 use App\Models\Payment;
 use App\Models\Profile;
 use App\Models\Trip;
@@ -122,12 +123,13 @@ class PassengerProfileController extends Controller
         $profile = $user->profile;
 
         return $this->apiResponse(true, 'Profil passager.', [
-            'summary'         => $this->buildSummary($user, $profile),
-            'metrics'         => $this->buildMetrics($user),
-            'trust'           => $this->buildTrust($user, $profile),
-            'settings'        => $this->buildSettings(),
-            'payment_methods' => $this->buildPaymentMethods($user),
-            'recent_trips'    => $this->buildRecentTrips($user),
+            'summary'            => $this->buildSummary($user, $profile),
+            'metrics'            => $this->buildMetrics($user),
+            'trust'              => $this->buildTrust($user, $profile),
+            'settings'           => $this->buildSettings(),
+            'payment_methods'    => $this->buildPaymentMethods($user),
+            'recent_trips'       => $this->buildRecentTrips($user),
+            'emergency_contacts' => $this->buildEmergencyContacts($user),
         ]);
     }
 
@@ -379,6 +381,14 @@ class PassengerProfileController extends Controller
                     'driver'       => $driverName ?: '—',
                 ];
             })
+            ->toArray();
+    }
+
+    private function buildEmergencyContacts(\App\Models\User $user): array
+    {
+        return $user->emergencyContacts()
+            ->orderBy('created_at')
+            ->get(['id', 'name', 'relationship', 'phone'])
             ->toArray();
     }
 
