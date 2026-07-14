@@ -126,16 +126,25 @@ class ChatController extends Controller
             return $this->apiResponse(false, 'Accès refusé.', [], 403);
         }
 
-        $conversation = Conversation::firstOrCreate(
-            ['booking_id' => $booking->id],
-            ['trip_id'    => $booking->trip_id]
-        );
+        // WhatsApp style : une seule conversation par paire driver–passager,
+        // indépendamment du nombre de réservations.
+        $conversation = Conversation::whereHas('participants', fn ($q) => $q->where('users.id', $driverId))
+            ->whereHas('participants', fn ($q) => $q->where('users.id', $passengerId))
+            ->latest('updated_at')
+            ->first();
 
-        // Attacher les deux participants si manquants
-        $existing = $conversation->participants()->pluck('user_id')->toArray();
-        $toAttach = array_diff(array_filter([$driverId, $passengerId]), $existing);
-        if (! empty($toAttach)) {
-            $conversation->participants()->attach($toAttach);
+        if ($conversation) {
+            // Mettre à jour le contexte (booking/trip courant) sans changer l'historique
+            $conversation->update([
+                'booking_id' => $booking->id,
+                'trip_id'    => $booking->trip_id,
+            ]);
+        } else {
+            $conversation = Conversation::create([
+                'booking_id' => $booking->id,
+                'trip_id'    => $booking->trip_id,
+            ]);
+            $conversation->participants()->attach(array_filter([$driverId, $passengerId]));
         }
 
         return $this->apiResponse(true, 'Conversation prête.', [
@@ -608,6 +617,7 @@ class ChatController extends Controller
             'kind'       => $myUserId > 0 && $msg->sender_id === $myUserId ? 'outgoing' : 'incoming',
             'body'       => $msg->body,
             'time'       => $msg->created_at->setTimezone($tz)->format('H:i'),
+            'raw_date'   => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
             'read_at'    => $msg->read_at?->toIso8601String(),
             'attachment' => $attachment,
         ];
