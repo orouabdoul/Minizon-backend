@@ -18,6 +18,14 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     Route::get('conversations/{uuid}/thread', [PassengerDetailMessagerController::class, 'thread'])
         ->name('passenger.messager.thread');
 
+    // ✏️  Modifier un message (expéditeur uniquement)
+    Route::patch('messages/{uuid}', [PassengerDetailMessagerController::class, 'editMessage'])
+        ->name('passenger.messages.edit');
+
+    // 🗑️  Supprimer un message (expéditeur uniquement)
+    Route::delete('messages/{uuid}', [PassengerDetailMessagerController::class, 'deleteMessage'])
+        ->name('passenger.messages.delete');
+
     // ℹ️ Les actions de chat restent dans ChatController :
     //    POST /api/bookings/{uuid}/conversation     → ouvrir/créer une conversation
     //    POST /api/conversations/{uuid}/messages    → envoyer un message

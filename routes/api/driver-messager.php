@@ -18,6 +18,14 @@ Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(functio
     Route::get('conversations/{uuid}/thread', [DriverDetailMessagerController::class, 'thread'])
         ->name('driver.messager.thread');
 
+    // ✏️  Modifier un message (expéditeur uniquement)
+    Route::patch('messages/{uuid}', [DriverDetailMessagerController::class, 'editMessage'])
+        ->name('driver.messages.edit');
+
+    // 🗑️  Supprimer un message (expéditeur uniquement)
+    Route::delete('messages/{uuid}', [DriverDetailMessagerController::class, 'deleteMessage'])
+        ->name('driver.messages.delete');
+
     // ℹ️ Les actions de chat restent dans ChatController :
     //    POST /api/bookings/{uuid}/conversation     → ouvrir/créer une conversation
     //    GET  /api/conversations/{uuid}/messages    → messages du thread

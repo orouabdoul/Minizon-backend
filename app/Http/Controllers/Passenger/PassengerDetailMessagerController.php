@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Page "Conversation" — vue détaillée pour le passager.
@@ -178,6 +179,127 @@ class PassengerDetailMessagerController extends Controller
             'next_before_id' => $rawMessages->first()?->id,
             'send_endpoint'  => 'POST /api/conversations/' . $conversation->uuid . '/messages',
         ]);
+    }
+
+    // =========================================================================
+    //  PATCH /api/passenger/messages/{uuid}
+    // =========================================================================
+
+    #[OA\Patch(
+        path: '/api/passenger/messages/{uuid}',
+        operationId: 'passengerMessageEdit',
+        summary: 'Modifier un message (passager)',
+        description: "Modifie le texte d'un message. Seul l'expéditeur peut modifier son propre message.",
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['body'],
+                properties: [
+                    new OA\Property(property: 'body', type: 'string', maxLength: 4000, example: 'Message corrigé.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Message modifié',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success',  type: 'boolean', example: true),
+                        new OA\Property(property: 'message',  type: 'string',  example: 'Message modifié.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'uuid',      type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'body',      type: 'string'),
+                                new OA\Property(property: 'edited_at', type: 'string', example: '2026-07-14T09:15:00+01:00'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé — pas l\'expéditeur', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Message introuvable',              content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Corps vide ou message sans texte', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function editMessage(Request $request, string $uuid): JsonResponse
+    {
+        $message = Message::where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez modifier que vos propres messages.', [], 403);
+        }
+
+        if ($message->body === null && $message->attachment_path) {
+            return $this->apiResponse(false, 'Un message sans texte ne peut pas être modifié.', [], 422);
+        }
+
+        $validated = $request->validate(['body' => ['required', 'string', 'max:4000']]);
+        $newBody   = trim($validated['body']);
+
+        if ($newBody === '') {
+            return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
+        }
+
+        $message->update(['body' => $newBody]);
+
+        return $this->apiResponse(true, 'Message modifié.', [
+            'uuid'      => $message->uuid,
+            'body'      => $message->body,
+            'edited_at' => $message->updated_at->toIso8601String(),
+        ]);
+    }
+
+    // =========================================================================
+    //  DELETE /api/passenger/messages/{uuid}
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/passenger/messages/{uuid}',
+        operationId: 'passengerMessageDelete',
+        summary: 'Supprimer un message (passager)',
+        description: 'Supprime définitivement un message. Seul l\'expéditeur peut supprimer son propre message. Si un fichier est attaché, il est également supprimé du stockage.',
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Message supprimé'),
+            new OA\Response(response: 403, description: 'Accès refusé — pas l\'expéditeur', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Message introuvable',              content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function deleteMessage(Request $request, string $uuid): JsonResponse
+    {
+        $message = Message::where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Vous ne pouvez supprimer que vos propres messages.', [], 403);
+        }
+
+        if ($message->attachment_path) {
+            Storage::disk('public')->delete($message->attachment_path);
+        }
+
+        $message->delete();
+
+        return $this->apiResponse(true, 'Message supprimé.');
     }
 
     // =========================================================================
