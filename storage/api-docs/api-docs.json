@@ -7187,9 +7187,17 @@
                                                                 "type": "string",
                                                                 "format": "date-time"
                                                             },
+                                                            "pickup_city": {
+                                                                "type": "string",
+                                                                "example": "Cotonou"
+                                                            },
+                                                            "pickup_neighborhood": {
+                                                                "type": "string",
+                                                                "example": "Akpakpa"
+                                                            },
                                                             "pickup_address": {
                                                                 "type": "string",
-                                                                "example": "Face pharmacie du centre, Cotonou"
+                                                                "example": "Face pharmacie du centre"
                                                             },
                                                             "pickup_latitude": {
                                                                 "type": "number",
@@ -7201,9 +7209,17 @@
                                                                 "format": "float",
                                                                 "example": 2.4183
                                                             },
+                                                            "dropoff_city": {
+                                                                "type": "string",
+                                                                "example": "Parakou"
+                                                            },
+                                                            "dropoff_neighborhood": {
+                                                                "type": "string",
+                                                                "example": "Zongo"
+                                                            },
                                                             "dropoff_address": {
                                                                 "type": "string",
-                                                                "example": "Carrefour étoile rouge, Parakou"
+                                                                "example": "Carrefour étoile rouge"
                                                             },
                                                             "dropoff_latitude": {
                                                                 "type": "number",
@@ -7214,6 +7230,15 @@
                                                                 "type": "number",
                                                                 "format": "float",
                                                                 "example": 2.628
+                                                            },
+                                                            "passenger_distance_km": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 127.4
+                                                            },
+                                                            "calculated_price": {
+                                                                "type": "integer",
+                                                                "example": 950
                                                             }
                                                         },
                                                         "type": "object"
@@ -11165,9 +11190,13 @@
                             "schema": {
                                 "required": [
                                     "seats_booked",
+                                    "pickup_city",
+                                    "pickup_neighborhood",
                                     "pickup_address",
                                     "pickup_latitude",
                                     "pickup_longitude",
+                                    "dropoff_city",
+                                    "dropoff_neighborhood",
                                     "dropoff_address",
                                     "dropoff_latitude",
                                     "dropoff_longitude"
@@ -11178,9 +11207,17 @@
                                         "example": 1,
                                         "minimum": 1
                                     },
+                                    "pickup_city": {
+                                        "type": "string",
+                                        "example": "Cotonou"
+                                    },
+                                    "pickup_neighborhood": {
+                                        "type": "string",
+                                        "example": "Akpakpa"
+                                    },
                                     "pickup_address": {
                                         "type": "string",
-                                        "example": "Face pharmacie du centre, Cotonou"
+                                        "example": "Face pharmacie du centre"
                                     },
                                     "pickup_latitude": {
                                         "type": "number",
@@ -11192,9 +11229,17 @@
                                         "format": "float",
                                         "example": 2.4183
                                     },
+                                    "dropoff_city": {
+                                        "type": "string",
+                                        "example": "Parakou"
+                                    },
+                                    "dropoff_neighborhood": {
+                                        "type": "string",
+                                        "example": "Zongo"
+                                    },
                                     "dropoff_address": {
                                         "type": "string",
-                                        "example": "Carrefour étoile rouge, Parakou"
+                                        "example": "Carrefour étoile rouge"
                                     },
                                     "dropoff_latitude": {
                                         "type": "number",
@@ -11242,8 +11287,26 @@
                                                     ]
                                                 },
                                                 "price_total": {
+                                                    "description": "Prix total conducteur (seats × price_per_seat)",
                                                     "type": "integer",
                                                     "example": 1500
+                                                },
+                                                "calculated_price": {
+                                                    "description": "Prix automatique calculé selon la distance du passager (XOF)",
+                                                    "type": "integer",
+                                                    "example": 950
+                                                },
+                                                "passenger_distance_km": {
+                                                    "description": "Distance passager calculée par Haversine (km)",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 127.4
+                                                },
+                                                "trip_distance_km": {
+                                                    "description": "Distance totale du trajet principal (km)",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 420
                                                 }
                                             },
                                             "type": "object"

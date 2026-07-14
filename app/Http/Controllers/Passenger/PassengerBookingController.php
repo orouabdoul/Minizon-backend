@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Passenger;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
@@ -37,15 +38,23 @@ class PassengerBookingController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['seats_booked', 'pickup_address', 'pickup_latitude', 'pickup_longitude', 'dropoff_address', 'dropoff_latitude', 'dropoff_longitude'],
+                required: [
+                    'seats_booked',
+                    'pickup_city', 'pickup_neighborhood', 'pickup_address', 'pickup_latitude', 'pickup_longitude',
+                    'dropoff_city', 'dropoff_neighborhood', 'dropoff_address', 'dropoff_latitude', 'dropoff_longitude',
+                ],
                 properties: [
-                    new OA\Property(property: 'seats_booked',      type: 'integer', minimum: 1, example: 1),
-                    new OA\Property(property: 'pickup_address',     type: 'string',  example: 'Face pharmacie du centre, Cotonou'),
-                    new OA\Property(property: 'pickup_latitude',    type: 'number',  format: 'float', example: 6.3654),
-                    new OA\Property(property: 'pickup_longitude',   type: 'number',  format: 'float', example: 2.4183),
-                    new OA\Property(property: 'dropoff_address',    type: 'string',  example: 'Carrefour étoile rouge, Parakou'),
-                    new OA\Property(property: 'dropoff_latitude',   type: 'number',  format: 'float', example: 9.3370),
-                    new OA\Property(property: 'dropoff_longitude',  type: 'number',  format: 'float', example: 2.6280),
+                    new OA\Property(property: 'seats_booked',          type: 'integer', minimum: 1, example: 1),
+                    new OA\Property(property: 'pickup_city',           type: 'string',  example: 'Cotonou'),
+                    new OA\Property(property: 'pickup_neighborhood',   type: 'string',  example: 'Akpakpa'),
+                    new OA\Property(property: 'pickup_address',        type: 'string',  example: 'Face pharmacie du centre'),
+                    new OA\Property(property: 'pickup_latitude',       type: 'number',  format: 'float', example: 6.3654),
+                    new OA\Property(property: 'pickup_longitude',      type: 'number',  format: 'float', example: 2.4183),
+                    new OA\Property(property: 'dropoff_city',          type: 'string',  example: 'Parakou'),
+                    new OA\Property(property: 'dropoff_neighborhood',  type: 'string',  example: 'Zongo'),
+                    new OA\Property(property: 'dropoff_address',       type: 'string',  example: 'Carrefour étoile rouge'),
+                    new OA\Property(property: 'dropoff_latitude',      type: 'number',  format: 'float', example: 9.3370),
+                    new OA\Property(property: 'dropoff_longitude',     type: 'number',  format: 'float', example: 2.6280),
                 ]
             )
         ),
@@ -61,9 +70,12 @@ class PassengerBookingController extends Controller
                             property: 'body',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
-                                new OA\Property(property: 'booking_mode', type: 'string', enum: ['instant', 'approval'], example: 'approval'),
-                                new OA\Property(property: 'price_total',  type: 'integer', example: 1500),
+                                new OA\Property(property: 'booking_uuid',           type: 'string',  format: 'uuid'),
+                                new OA\Property(property: 'booking_mode',           type: 'string',  enum: ['instant', 'approval'], example: 'approval'),
+                                new OA\Property(property: 'price_total',            type: 'integer', example: 1500, description: 'Prix total conducteur (seats × price_per_seat)'),
+                                new OA\Property(property: 'calculated_price',       type: 'integer', example: 950,  description: 'Prix automatique calculé selon la distance du passager (XOF)'),
+                                new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4, description: 'Distance passager calculée par Haversine (km)'),
+                                new OA\Property(property: 'trip_distance_km',       type: 'number',  format: 'float', example: 420.0, description: 'Distance totale du trajet principal (km)'),
                             ]
                         ),
                     ]
@@ -77,13 +89,17 @@ class PassengerBookingController extends Controller
     public function store(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'seats_booked'     => ['required', 'integer', 'min:1', 'max:10'],
-            'pickup_address'   => ['required', 'string', 'max:500'],
-            'pickup_latitude'  => ['required', 'numeric', 'between:-90,90'],
-            'pickup_longitude' => ['required', 'numeric', 'between:-180,180'],
-            'dropoff_address'  => ['required', 'string', 'max:500'],
-            'dropoff_latitude' => ['required', 'numeric', 'between:-90,90'],
-            'dropoff_longitude'=> ['required', 'numeric', 'between:-180,180'],
+            'seats_booked'         => ['required', 'integer', 'min:1', 'max:10'],
+            'pickup_city'          => ['required', 'string', 'max:100'],
+            'pickup_neighborhood'  => ['required', 'string', 'max:100'],
+            'pickup_address'       => ['required', 'string', 'max:500'],
+            'pickup_latitude'      => ['required', 'numeric', 'between:-90,90'],
+            'pickup_longitude'     => ['required', 'numeric', 'between:-180,180'],
+            'dropoff_city'         => ['required', 'string', 'max:100'],
+            'dropoff_neighborhood' => ['required', 'string', 'max:100'],
+            'dropoff_address'      => ['required', 'string', 'max:500'],
+            'dropoff_latitude'     => ['required', 'numeric', 'between:-90,90'],
+            'dropoff_longitude'    => ['required', 'numeric', 'between:-180,180'],
         ]);
 
         $trip = Trip::where('uuid', $uuid)->first();
@@ -118,19 +134,42 @@ class PassengerBookingController extends Controller
             ], 409);
         }
 
-        $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested) {
+        // ── Calcul de la distance et du prix automatique ─────────────────────
+        $passengerDistanceKm = GeoHelper::haversineKm(
+            $validated['pickup_latitude'],  $validated['pickup_longitude'],
+            $validated['dropoff_latitude'], $validated['dropoff_longitude']
+        );
+
+        $tripDistanceKm = GeoHelper::haversineKm(
+            (float) $trip->departure_latitude, (float) $trip->departure_longitude,
+            (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
+        );
+
+        $calculatedPrice = GeoHelper::calculatePassengerPrice(
+            $passengerDistanceKm,
+            $tripDistanceKm,
+            (int) $trip->price_per_seat
+        );
+
+        $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested, $passengerDistanceKm, $calculatedPrice) {
             $booking = Booking::create([
-                'trip_id'          => $trip->id,
-                'passenger_id'     => $request->user()->id,
-                'seats_booked'     => $seatsRequested,
-                'pickup_address'   => $validated['pickup_address'],
-                'pickup_latitude'  => $validated['pickup_latitude'],
-                'pickup_longitude' => $validated['pickup_longitude'],
-                'dropoff_address'  => $validated['dropoff_address'],
-                'dropoff_latitude' => $validated['dropoff_latitude'],
-                'dropoff_longitude'=> $validated['dropoff_longitude'],
-                'status'           => 'pending',
-                'payment_status'   => 'unpaid',
+                'trip_id'              => $trip->id,
+                'passenger_id'         => $request->user()->id,
+                'seats_booked'         => $seatsRequested,
+                'pickup_city'          => $validated['pickup_city'],
+                'pickup_neighborhood'  => $validated['pickup_neighborhood'],
+                'pickup_address'       => $validated['pickup_address'],
+                'pickup_latitude'      => $validated['pickup_latitude'],
+                'pickup_longitude'     => $validated['pickup_longitude'],
+                'dropoff_city'         => $validated['dropoff_city'],
+                'dropoff_neighborhood' => $validated['dropoff_neighborhood'],
+                'dropoff_address'      => $validated['dropoff_address'],
+                'dropoff_latitude'     => $validated['dropoff_latitude'],
+                'dropoff_longitude'    => $validated['dropoff_longitude'],
+                'passenger_distance_km'=> round($passengerDistanceKm, 2),
+                'calculated_price'     => $calculatedPrice,
+                'status'               => 'pending',
+                'payment_status'       => 'unpaid',
             ]);
 
             // Bloquer les places immédiatement pour éviter la surréservation
@@ -143,9 +182,12 @@ class PassengerBookingController extends Controller
         $this->notifyDriver($trip, $booking);
 
         return $this->apiResponse(true, 'Réservation créée.', [
-            'booking_uuid' => $booking->uuid,
-            'booking_mode' => $trip->booking_mode ?? 'approval',
-            'price_total'  => (int) $trip->price_per_seat * $seatsRequested,
+            'booking_uuid'          => $booking->uuid,
+            'booking_mode'          => $trip->booking_mode ?? 'approval',
+            'price_total'           => (int) $trip->price_per_seat * $seatsRequested,
+            'calculated_price'      => $calculatedPrice,
+            'passenger_distance_km' => round($passengerDistanceKm, 2),
+            'trip_distance_km'      => round($tripDistanceKm, 2),
         ], 201);
     }
 

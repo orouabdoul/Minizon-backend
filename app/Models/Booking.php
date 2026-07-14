@@ -17,14 +17,22 @@ class Booking extends Model
         'seats_booked',
 
         // Point de montée du passager
+        'pickup_city',
+        'pickup_neighborhood',
         'pickup_address',
         'pickup_latitude',
         'pickup_longitude',
 
         // Point de descente du passager
+        'dropoff_city',
+        'dropoff_neighborhood',
         'dropoff_address',
         'dropoff_latitude',
         'dropoff_longitude',
+
+        // Prix calculé automatiquement (Haversine)
+        'passenger_distance_km',
+        'calculated_price',
 
         'status',
         'payment_status',
@@ -32,12 +40,14 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'seats_booked'     => 'integer',
-        'picked_up_at'     => 'datetime',
-        'pickup_latitude'  => 'float',
-        'pickup_longitude' => 'float',
-        'dropoff_latitude' => 'float',
-        'dropoff_longitude'=> 'float',
+        'seats_booked'           => 'integer',
+        'picked_up_at'           => 'datetime',
+        'pickup_latitude'        => 'float',
+        'pickup_longitude'       => 'float',
+        'dropoff_latitude'       => 'float',
+        'dropoff_longitude'      => 'float',
+        'passenger_distance_km'  => 'float',
+        'calculated_price'       => 'integer',
     ];
 
     protected static function boot(): void
