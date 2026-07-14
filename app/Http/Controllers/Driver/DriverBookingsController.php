@@ -40,15 +40,21 @@ class DriverBookingsController extends Controller
                                     type: 'array',
                                     items: new OA\Items(
                                         properties: [
-                                            new OA\Property(property: 'uuid',             type: 'string', format: 'uuid'),
-                                            new OA\Property(property: 'status',           type: 'string', enum: ['pending', 'accepted', 'rejected', 'cancelled']),
-                                            new OA\Property(property: 'seats_booked',     type: 'integer'),
-                                            new OA\Property(property: 'passenger_name',   type: 'string'),
-                                            new OA\Property(property: 'passenger_phone',  type: 'string', nullable: true),
-                                            new OA\Property(property: 'trip_uuid',        type: 'string', format: 'uuid'),
-                                            new OA\Property(property: 'origin',           type: 'string'),
-                                            new OA\Property(property: 'destination',      type: 'string'),
-                                            new OA\Property(property: 'departure_time',   type: 'string', format: 'date-time'),
+                                                                new OA\Property(property: 'uuid',              type: 'string',  format: 'uuid'),
+                                            new OA\Property(property: 'status',            type: 'string',  enum: ['pending', 'accepted', 'rejected', 'cancelled']),
+                                            new OA\Property(property: 'seats_booked',      type: 'integer'),
+                                            new OA\Property(property: 'passenger_name',    type: 'string'),
+                                            new OA\Property(property: 'passenger_phone',   type: 'string',  nullable: true),
+                                            new OA\Property(property: 'trip_uuid',         type: 'string',  format: 'uuid'),
+                                            new OA\Property(property: 'origin',            type: 'string'),
+                                            new OA\Property(property: 'destination',       type: 'string'),
+                                            new OA\Property(property: 'departure_time',    type: 'string',  format: 'date-time'),
+                                            new OA\Property(property: 'pickup_address',    type: 'string',  example: 'Face pharmacie du centre, Cotonou'),
+                                            new OA\Property(property: 'pickup_latitude',   type: 'number',  format: 'float', example: 6.3654),
+                                            new OA\Property(property: 'pickup_longitude',  type: 'number',  format: 'float', example: 2.4183),
+                                            new OA\Property(property: 'dropoff_address',   type: 'string',  example: 'Carrefour étoile rouge, Parakou'),
+                                            new OA\Property(property: 'dropoff_latitude',  type: 'number',  format: 'float', example: 9.3370),
+                                            new OA\Property(property: 'dropoff_longitude', type: 'number',  format: 'float', example: 2.6280),
                                         ],
                                         type: 'object'
                                     )
@@ -77,15 +83,21 @@ class DriverBookingsController extends Controller
                 $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Passager';
 
                 return [
-                    'uuid'            => $b->uuid,
-                    'status'          => $b->status,
-                    'seats_booked'    => $b->seats_booked,
-                    'passenger_name'  => $name,
-                    'passenger_phone' => $b->passenger?->phone ?? null,
-                    'trip_uuid'       => $b->trip?->uuid,
-                    'origin'          => $b->trip?->origin,
-                    'destination'     => $b->trip?->destination,
-                    'departure_time'  => $b->trip?->departure_time,
+                    'uuid'             => $b->uuid,
+                    'status'           => $b->status,
+                    'seats_booked'     => $b->seats_booked,
+                    'passenger_name'   => $name,
+                    'passenger_phone'  => $b->passenger?->phone ?? null,
+                    'trip_uuid'        => $b->trip?->uuid,
+                    'origin'           => $b->trip?->departure_city,
+                    'destination'      => $b->trip?->arrival_city,
+                    'departure_time'   => $b->trip?->departure_time,
+                    'pickup_address'   => $b->pickup_address,
+                    'pickup_latitude'  => $b->pickup_latitude,
+                    'pickup_longitude' => $b->pickup_longitude,
+                    'dropoff_address'  => $b->dropoff_address,
+                    'dropoff_latitude' => $b->dropoff_latitude,
+                    'dropoff_longitude'=> $b->dropoff_longitude,
                 ];
             });
 

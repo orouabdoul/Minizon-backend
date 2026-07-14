@@ -15,14 +15,29 @@ class Booking extends Model
         'trip_id',
         'passenger_id',
         'seats_booked',
+
+        // Point de montée du passager
+        'pickup_address',
+        'pickup_latitude',
+        'pickup_longitude',
+
+        // Point de descente du passager
+        'dropoff_address',
+        'dropoff_latitude',
+        'dropoff_longitude',
+
         'status',
         'payment_status',
         'picked_up_at',
     ];
 
     protected $casts = [
-        'seats_booked' => 'integer',
-        'picked_up_at' => 'datetime',
+        'seats_booked'     => 'integer',
+        'picked_up_at'     => 'datetime',
+        'pickup_latitude'  => 'float',
+        'pickup_longitude' => 'float',
+        'dropoff_latitude' => 'float',
+        'dropoff_longitude'=> 'float',
     ];
 
     protected static function boot(): void

@@ -37,11 +37,15 @@ class PassengerBookingController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['seats_booked'],
+                required: ['seats_booked', 'pickup_address', 'pickup_latitude', 'pickup_longitude', 'dropoff_address', 'dropoff_latitude', 'dropoff_longitude'],
                 properties: [
-                    new OA\Property(property: 'seats_booked', type: 'integer', minimum: 1, example: 1),
-                    new OA\Property(property: 'pickup_note',  type: 'string',  nullable: true, example: 'Face pharmacie du centre'),
-                    new OA\Property(property: 'dropoff_note', type: 'string',  nullable: true, example: 'Carrefour étoile rouge'),
+                    new OA\Property(property: 'seats_booked',      type: 'integer', minimum: 1, example: 1),
+                    new OA\Property(property: 'pickup_address',     type: 'string',  example: 'Face pharmacie du centre, Cotonou'),
+                    new OA\Property(property: 'pickup_latitude',    type: 'number',  format: 'float', example: 6.3654),
+                    new OA\Property(property: 'pickup_longitude',   type: 'number',  format: 'float', example: 2.4183),
+                    new OA\Property(property: 'dropoff_address',    type: 'string',  example: 'Carrefour étoile rouge, Parakou'),
+                    new OA\Property(property: 'dropoff_latitude',   type: 'number',  format: 'float', example: 9.3370),
+                    new OA\Property(property: 'dropoff_longitude',  type: 'number',  format: 'float', example: 2.6280),
                 ]
             )
         ),
@@ -73,9 +77,13 @@ class PassengerBookingController extends Controller
     public function store(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'seats_booked' => ['required', 'integer', 'min:1', 'max:10'],
-            'pickup_note'  => ['nullable', 'string', 'max:500'],
-            'dropoff_note' => ['nullable', 'string', 'max:500'],
+            'seats_booked'     => ['required', 'integer', 'min:1', 'max:10'],
+            'pickup_address'   => ['required', 'string', 'max:500'],
+            'pickup_latitude'  => ['required', 'numeric', 'between:-90,90'],
+            'pickup_longitude' => ['required', 'numeric', 'between:-180,180'],
+            'dropoff_address'  => ['required', 'string', 'max:500'],
+            'dropoff_latitude' => ['required', 'numeric', 'between:-90,90'],
+            'dropoff_longitude'=> ['required', 'numeric', 'between:-180,180'],
         ]);
 
         $trip = Trip::where('uuid', $uuid)->first();
@@ -112,11 +120,17 @@ class PassengerBookingController extends Controller
 
         $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested) {
             $booking = Booking::create([
-                'trip_id'        => $trip->id,
-                'passenger_id'   => $request->user()->id,
-                'seats_booked'   => $seatsRequested,
-                'status'         => 'pending',
-                'payment_status' => 'unpaid',
+                'trip_id'          => $trip->id,
+                'passenger_id'     => $request->user()->id,
+                'seats_booked'     => $seatsRequested,
+                'pickup_address'   => $validated['pickup_address'],
+                'pickup_latitude'  => $validated['pickup_latitude'],
+                'pickup_longitude' => $validated['pickup_longitude'],
+                'dropoff_address'  => $validated['dropoff_address'],
+                'dropoff_latitude' => $validated['dropoff_latitude'],
+                'dropoff_longitude'=> $validated['dropoff_longitude'],
+                'status'           => 'pending',
+                'payment_status'   => 'unpaid',
             ]);
 
             // Bloquer les places immédiatement pour éviter la surréservation

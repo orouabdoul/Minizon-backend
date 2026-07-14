@@ -7186,6 +7186,34 @@
                                                             "departure_time": {
                                                                 "type": "string",
                                                                 "format": "date-time"
+                                                            },
+                                                            "pickup_address": {
+                                                                "type": "string",
+                                                                "example": "Face pharmacie du centre, Cotonou"
+                                                            },
+                                                            "pickup_latitude": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 6.3654
+                                                            },
+                                                            "pickup_longitude": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 2.4183
+                                                            },
+                                                            "dropoff_address": {
+                                                                "type": "string",
+                                                                "example": "Carrefour étoile rouge, Parakou"
+                                                            },
+                                                            "dropoff_latitude": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 9.337
+                                                            },
+                                                            "dropoff_longitude": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 2.628
                                                             }
                                                         },
                                                         "type": "object"
@@ -11136,7 +11164,13 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "seats_booked"
+                                    "seats_booked",
+                                    "pickup_address",
+                                    "pickup_latitude",
+                                    "pickup_longitude",
+                                    "dropoff_address",
+                                    "dropoff_latitude",
+                                    "dropoff_longitude"
                                 ],
                                 "properties": {
                                     "seats_booked": {
@@ -11144,15 +11178,33 @@
                                         "example": 1,
                                         "minimum": 1
                                     },
-                                    "pickup_note": {
+                                    "pickup_address": {
                                         "type": "string",
-                                        "example": "Face pharmacie du centre",
-                                        "nullable": true
+                                        "example": "Face pharmacie du centre, Cotonou"
                                     },
-                                    "dropoff_note": {
+                                    "pickup_latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 6.3654
+                                    },
+                                    "pickup_longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.4183
+                                    },
+                                    "dropoff_address": {
                                         "type": "string",
-                                        "example": "Carrefour étoile rouge",
-                                        "nullable": true
+                                        "example": "Carrefour étoile rouge, Parakou"
+                                    },
+                                    "dropoff_latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 9.337
+                                    },
+                                    "dropoff_longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.628
                                     }
                                 },
                                 "type": "object"
