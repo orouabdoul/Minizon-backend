@@ -14,14 +14,6 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Page "Conversation" — vue détaillée pour le passager.
- *
- * Ce contrôleur ne duplique PAS les actions de chat — elles restent dans ChatController :
- *   POST /api/conversations/{uuid}/messages → envoyer un message
- *   POST /api/conversations/{uuid}/read     → marquer comme lu
- *
- * Retourne en un seul appel le contexte du thread (interlocuteur, infos du trajet)
- * + les messages paginés formatés en DetailMessage Flutter
- * (kind: incoming | outgoing | reminder).
  */
 class PassengerDetailMessagerController extends Controller
 {
@@ -180,6 +172,166 @@ class PassengerDetailMessagerController extends Controller
             'send_endpoint'  => 'POST /api/conversations/' . $conversation->uuid . '/messages',
         ]);
     }
+
+    // =========================================================================
+    //  POST /api/passenger/bookings/{uuid}/conversation
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/passenger/bookings/{uuid}/conversation',
+        operationId: 'passengerConversationGetOrCreate',
+        summary: 'Ouvrir ou récupérer la conversation d\'une réservation (passager)',
+        description: 'Retourne l\'UUID de la conversation existante entre passager et conducteur, ou en crée une nouvelle (style WhatsApp — une seule conversation par paire).',
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'UUID de la conversation',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Conversation prête.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'conversation_uuid', type: 'string', format: 'uuid'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé',           content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Réservation introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+
+    // =========================================================================
+    //  GET /api/passenger/conversations/{uuid}/messages
+    // =========================================================================
+
+    #[OA\Get(
+        path: '/api/passenger/conversations/{uuid}/messages',
+        operationId: 'passengerConversationMessages',
+        summary: 'Messages paginés d\'une conversation (passager)',
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid',      in: 'path',  required: true,  schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'per_page',  in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 50)),
+            new OA\Parameter(name: 'before_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Curseur pour charger les messages plus anciens'),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Messages',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Messages.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'items',          type: 'array', items: new OA\Items(ref: '#/components/schemas/DetailMessage')),
+                                new OA\Property(property: 'has_more',       type: 'boolean'),
+                                new OA\Property(property: 'next_before_id', type: 'integer', nullable: true),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé',           content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Conversation introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+
+    // =========================================================================
+    //  POST /api/passenger/conversations/{uuid}/messages
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/passenger/conversations/{uuid}/messages',
+        operationId: 'passengerConversationSend',
+        summary: 'Envoyer un message (passager)',
+        description: "Envoie un message texte, un fichier (image ou document), ou les deux.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n\n**Content-Type : `multipart/form-data`** — requis dès qu'un fichier est joint.",
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: [
+                new OA\MediaType(
+                    mediaType: 'multipart/form-data',
+                    schema: new OA\Schema(
+                        properties: [
+                            new OA\Property(property: 'body',       type: 'string', nullable: true, description: 'Texte du message', example: 'Je serai là dans 5 minutes.'),
+                            new OA\Property(property: 'attachment', type: 'string', format: 'binary', nullable: true, description: 'Fichier à joindre'),
+                        ]
+                    )
+                ),
+            ]
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Message envoyé',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Message envoyé.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id',       type: 'integer'),
+                                new OA\Property(property: 'uuid',     type: 'string', format: 'uuid'),
+                                new OA\Property(property: 'kind',     type: 'string', enum: ['outgoing']),
+                                new OA\Property(property: 'body',     type: 'string', nullable: true),
+                                new OA\Property(property: 'time',     type: 'string', example: '09:15'),
+                                new OA\Property(property: 'raw_date', type: 'string', format: 'date', example: '2026-07-14'),
+                                new OA\Property(property: 'attachment', type: 'object', nullable: true,
+                                    properties: [
+                                        new OA\Property(property: 'url',  type: 'string'),
+                                        new OA\Property(property: 'type', type: 'string', enum: ['image', 'document']),
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé',                   content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Conversation introuvable',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 422, description: 'Message vide ou fichier invalide', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+
+    // =========================================================================
+    //  POST /api/passenger/conversations/{uuid}/read
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/passenger/conversations/{uuid}/read',
+        operationId: 'passengerConversationMarkRead',
+        summary: 'Marquer les messages comme lus (passager)',
+        tags: ['👤 Passenger — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Messages marqués comme lus'),
+            new OA\Response(response: 404, description: 'Conversation introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    private function oaPlaceholderChat(): void {}
 
     // =========================================================================
     //  PATCH /api/passenger/messages/{uuid}

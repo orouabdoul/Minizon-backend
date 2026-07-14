@@ -6284,574 +6284,6 @@
                 ]
             }
         },
-        "/api/conversations": {
-            "get": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Mes conversations",
-                "operationId": "conversationIndex",
-                "responses": {
-                    "200": {
-                        "description": "Liste des conversations",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Conversations."
-                                        },
-                                        "body": {
-                                            "properties": {
-                                                "items": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "properties": {
-                                                            "uuid": {
-                                                                "type": "string",
-                                                                "format": "uuid"
-                                                            },
-                                                            "other_name": {
-                                                                "type": "string",
-                                                                "example": "Koffi Adjovi"
-                                                            },
-                                                            "last_message": {
-                                                                "type": "string",
-                                                                "example": "Je suis en route",
-                                                                "nullable": true
-                                                            },
-                                                            "last_time": {
-                                                                "type": "string",
-                                                                "example": "09:15",
-                                                                "nullable": true
-                                                            },
-                                                            "unread_count": {
-                                                                "type": "integer",
-                                                                "example": 2
-                                                            },
-                                                            "trip_route": {
-                                                                "type": "string",
-                                                                "example": "Cotonou → Parakou",
-                                                                "nullable": true
-                                                            }
-                                                        },
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/bookings/{uuid}/conversation": {
-            "post": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Ouvrir ou récupérer la conversation d'une réservation",
-                "description": "Crée la conversation conducteur–passager si elle n'existe pas encore, ou retourne l'UUID de la conversation existante.",
-                "operationId": "conversationGetOrCreate",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "UUID de la conversation",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Conversation prête."
-                                        },
-                                        "body": {
-                                            "properties": {
-                                                "conversation_uuid": {
-                                                    "type": "string",
-                                                    "format": "uuid"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Accès refusé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Réservation introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/conversations/{uuid}/messages": {
-            "get": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Messages paginés d'une conversation",
-                "operationId": "conversationMessages",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 20,
-                            "maximum": 50
-                        }
-                    },
-                    {
-                        "name": "before_id",
-                        "in": "query",
-                        "description": "Curseur pour charger les messages plus anciens",
-                        "required": false,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Messages"
-                    },
-                    "403": {
-                        "description": "Accès refusé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Conversation introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Envoyer un message (texte ou fichier)",
-                "description": "Envoie un message texte, un fichier (image ou document), ou les deux.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n\n**Content-Type : `multipart/form-data`** — requis dès qu'un fichier est joint.",
-                "operationId": "conversationSend",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {
-                                "properties": {
-                                    "body": {
-                                        "description": "Texte du message (requis si pas de fichier)",
-                                        "type": "string",
-                                        "example": "Je serai là dans 5 minutes.",
-                                        "nullable": true
-                                    },
-                                    "attachment": {
-                                        "description": "Fichier à joindre — image (jpeg/png/webp/gif, max 5 Mo) ou document (pdf/doc/docx, max 10 Mo)",
-                                        "type": "string",
-                                        "format": "binary",
-                                        "nullable": true
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Message envoyé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Message envoyé."
-                                        },
-                                        "body": {
-                                            "properties": {
-                                                "id": {
-                                                    "type": "integer"
-                                                },
-                                                "uuid": {
-                                                    "type": "string",
-                                                    "format": "uuid"
-                                                },
-                                                "kind": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "outgoing"
-                                                    ]
-                                                },
-                                                "body": {
-                                                    "type": "string",
-                                                    "nullable": true
-                                                },
-                                                "time": {
-                                                    "type": "string",
-                                                    "example": "09:15"
-                                                },
-                                                "attachment": {
-                                                    "properties": {
-                                                        "url": {
-                                                            "type": "string",
-                                                            "example": "https://…/chat/conv-uuid/file.jpg"
-                                                        },
-                                                        "type": {
-                                                            "type": "string",
-                                                            "enum": [
-                                                                "image",
-                                                                "document"
-                                                            ]
-                                                        }
-                                                    },
-                                                    "type": "object",
-                                                    "nullable": true
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Accès refusé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Conversation introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Message vide ou fichier invalide",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/conversations/{uuid}/read": {
-            "post": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Marquer les messages comme lus",
-                "operationId": "conversationMarkRead",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Messages marqués comme lus"
-                    },
-                    "404": {
-                        "description": "Conversation introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/messages/{uuid}": {
-            "delete": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Supprimer un message",
-                "description": "Supprime définitivement un message. Seul l'expéditeur peut supprimer son propre message. Si un fichier est attaché, il est également supprimé du stockage.",
-                "operationId": "messageDelete",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Message supprimé"
-                    },
-                    "403": {
-                        "description": "Accès refusé — pas l'expéditeur",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Message introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            },
-            "patch": {
-                "tags": [
-                    "💬 Chat"
-                ],
-                "summary": "Modifier un message",
-                "description": "Modifie le texte d'un message. Seul l'expéditeur peut modifier son propre message. Un message composé uniquement d'un fichier (sans texte) ne peut pas être édité.",
-                "operationId": "messageEdit",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "body"
-                                ],
-                                "properties": {
-                                    "body": {
-                                        "type": "string",
-                                        "example": "Message corrigé.",
-                                        "maxLength": 4000
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Message modifié",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Message modifié."
-                                        },
-                                        "body": {
-                                            "properties": {
-                                                "uuid": {
-                                                    "type": "string",
-                                                    "format": "uuid"
-                                                },
-                                                "body": {
-                                                    "type": "string"
-                                                },
-                                                "edited_at": {
-                                                    "type": "string",
-                                                    "example": "2026-07-12T10:30:00+01:00"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Accès refusé — pas l'expéditeur",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Message introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Corps vide ou message sans texte",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
         "/api/driver/trips/{uuid}/pre-departure": {
             "get": {
                 "tags": [
@@ -8008,6 +7440,374 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/bookings/{uuid}/conversation": {
+            "post": {
+                "tags": [
+                    "💬 Driver — Messagerie"
+                ],
+                "summary": "Ouvrir ou récupérer la conversation d'une réservation (conducteur)",
+                "description": "Retourne l'UUID de la conversation existante entre conducteur et passager, ou en crée une nouvelle (style WhatsApp — une seule conversation par paire).",
+                "operationId": "driverConversationGetOrCreate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UUID de la conversation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Conversation prête."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "conversation_uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/conversations/{uuid}/messages": {
+            "get": {
+                "tags": [
+                    "💬 Driver — Messagerie"
+                ],
+                "summary": "Messages paginés d'une conversation (conducteur)",
+                "operationId": "driverConversationMessages",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20,
+                            "maximum": 50
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "description": "Curseur pour charger les messages plus anciens",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Messages."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DetailMessage"
+                                                    }
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean"
+                                                },
+                                                "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "💬 Driver — Messagerie"
+                ],
+                "summary": "Envoyer un message (conducteur)",
+                "description": "Envoie un message texte, un fichier (image ou document), ou les deux.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n\n**Content-Type : `multipart/form-data`** — requis dès qu'un fichier est joint.",
+                "operationId": "driverConversationSend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "body": {
+                                        "description": "Texte du message",
+                                        "type": "string",
+                                        "example": "Je serai là dans 5 minutes.",
+                                        "nullable": true
+                                    },
+                                    "attachment": {
+                                        "description": "Fichier à joindre",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message envoyé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Message envoyé."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "outgoing"
+                                                    ]
+                                                },
+                                                "body": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "time": {
+                                                    "type": "string",
+                                                    "example": "09:15"
+                                                },
+                                                "raw_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-07-14"
+                                                },
+                                                "attachment": {
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string"
+                                                        },
+                                                        "type": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "image",
+                                                                "document"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Message vide ou fichier invalide",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/conversations/{uuid}/read": {
+            "post": {
+                "tags": [
+                    "💬 Driver — Messagerie"
+                ],
+                "summary": "Marquer les messages comme lus (conducteur)",
+                "operationId": "driverConversationMarkRead",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages marqués comme lus"
                     },
                     "404": {
                         "description": "Conversation introuvable",
@@ -11930,6 +11730,374 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/passenger/bookings/{uuid}/conversation": {
+            "post": {
+                "tags": [
+                    "👤 Passenger — Messagerie"
+                ],
+                "summary": "Ouvrir ou récupérer la conversation d'une réservation (passager)",
+                "description": "Retourne l'UUID de la conversation existante entre passager et conducteur, ou en crée une nouvelle (style WhatsApp — une seule conversation par paire).",
+                "operationId": "passengerConversationGetOrCreate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UUID de la conversation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Conversation prête."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "conversation_uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/passenger/conversations/{uuid}/messages": {
+            "get": {
+                "tags": [
+                    "👤 Passenger — Messagerie"
+                ],
+                "summary": "Messages paginés d'une conversation (passager)",
+                "operationId": "passengerConversationMessages",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20,
+                            "maximum": 50
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "description": "Curseur pour charger les messages plus anciens",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Messages."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DetailMessage"
+                                                    }
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean"
+                                                },
+                                                "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "👤 Passenger — Messagerie"
+                ],
+                "summary": "Envoyer un message (passager)",
+                "description": "Envoie un message texte, un fichier (image ou document), ou les deux.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n\n**Content-Type : `multipart/form-data`** — requis dès qu'un fichier est joint.",
+                "operationId": "passengerConversationSend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "body": {
+                                        "description": "Texte du message",
+                                        "type": "string",
+                                        "example": "Je serai là dans 5 minutes.",
+                                        "nullable": true
+                                    },
+                                    "attachment": {
+                                        "description": "Fichier à joindre",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message envoyé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Message envoyé."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "outgoing"
+                                                    ]
+                                                },
+                                                "body": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "time": {
+                                                    "type": "string",
+                                                    "example": "09:15"
+                                                },
+                                                "raw_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-07-14"
+                                                },
+                                                "attachment": {
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string"
+                                                        },
+                                                        "type": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "image",
+                                                                "document"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Conversation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Message vide ou fichier invalide",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/passenger/conversations/{uuid}/read": {
+            "post": {
+                "tags": [
+                    "👤 Passenger — Messagerie"
+                ],
+                "summary": "Marquer les messages comme lus (passager)",
+                "operationId": "passengerConversationMarkRead",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages marqués comme lus"
                     },
                     "404": {
                         "description": "Conversation introuvable",
@@ -16411,10 +16579,6 @@
         {
             "name": "👤 Utilisateurs",
             "description": "👤 Utilisateurs"
-        },
-        {
-            "name": "💬 Chat",
-            "description": "💬 Chat"
         },
         {
             "name": "🚗 Driver — Active Trip",
