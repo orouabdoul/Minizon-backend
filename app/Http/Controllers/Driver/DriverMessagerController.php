@@ -16,8 +16,8 @@ use OpenApi\Attributes as OA;
  * Retourne les threads formatés directement en MessengerThread Flutter :
  * couleurs ARGB prêtes pour Color(int), labels traduits, temps relatif.
  *
- * Ouvrir une conversation : POST /api/bookings/{uuid}/conversation (ChatController)
- * Envoyer un message      : POST /api/conversations/{uuid}/messages (ChatController)
+ * Ouvrir une conversation : POST /api/driver/bookings/{uuid}/conversation
+ * Envoyer un message      : POST /api/driver/conversations/{uuid}/messages
  */
 class DriverMessagerController extends Controller
 {

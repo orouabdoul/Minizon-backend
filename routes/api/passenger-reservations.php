@@ -34,4 +34,4 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
 // Le paiement utilise :
 //   POST /api/bookings/{uuid}/pay     (PaymentController@initiate)
 // Le chat utilise :
-//   POST /api/bookings/{uuid}/conversation  (ChatController@getOrCreate)
+//   POST /api/passenger/bookings/{uuid}/conversation  (PassengerDetailMessagerController@getOrCreate)

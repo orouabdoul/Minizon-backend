@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Traits\HandlesConversationChat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,8 @@ use OpenApi\Attributes as OA;
  */
 class DriverDetailMessagerController extends Controller
 {
+    use HandlesConversationChat;
+
     // =========================================================================
     //  GET /api/driver/conversations/{uuid}/thread
     // =========================================================================

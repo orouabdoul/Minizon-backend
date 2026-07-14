@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Chat;
+namespace App\Traits;
 
-use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -12,13 +11,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class ChatController extends Controller
+trait HandlesConversationChat
 {
-    // =========================================================================
-    //  POST /api/passenger/bookings/{uuid}/conversation
-    //  POST /api/driver/bookings/{uuid}/conversation
+    // -------------------------------------------------------------------------
     //  Ouvrir / récupérer la conversation d'une réservation (WhatsApp style)
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     public function getOrCreate(Request $request, string $uuid): JsonResponse
     {
@@ -36,15 +33,13 @@ class ChatController extends Controller
             return $this->apiResponse(false, 'Accès refusé.', [], 403);
         }
 
-        // WhatsApp style : une seule conversation par paire driver–passager,
-        // indépendamment du nombre de réservations.
+        // Une seule conversation par paire driver–passager, quel que soit le nombre de réservations.
         $conversation = Conversation::whereHas('participants', fn ($q) => $q->where('users.id', $driverId))
             ->whereHas('participants', fn ($q) => $q->where('users.id', $passengerId))
             ->latest('updated_at')
             ->first();
 
         if ($conversation) {
-            // Mettre à jour le contexte (booking/trip courant) sans changer l'historique
             $conversation->update([
                 'booking_id' => $booking->id,
                 'trip_id'    => $booking->trip_id,
@@ -62,11 +57,9 @@ class ChatController extends Controller
         ]);
     }
 
-    // =========================================================================
-    //  GET /api/passenger/conversations/{uuid}/messages
-    //  GET /api/driver/conversations/{uuid}/messages
-    //  Messages paginés d'une conversation (scroll infini)
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    //  Messages paginés (scroll infini)
+    // -------------------------------------------------------------------------
 
     public function messages(Request $request, string $uuid): JsonResponse
     {
@@ -96,17 +89,15 @@ class ChatController extends Controller
             ->exists();
 
         return $this->apiResponse(true, 'Messages.', [
-            'items'          => $raw->map(fn ($m) => $this->formatMessage($m, $userId))->values(),
+            'items'          => $raw->map(fn ($m) => $this->formatChatMessage($m, $userId))->values(),
             'has_more'       => $hasMore,
             'next_before_id' => $raw->first()?->id,
         ]);
     }
 
-    // =========================================================================
-    //  POST /api/passenger/conversations/{uuid}/messages
-    //  POST /api/driver/conversations/{uuid}/messages
-    //  Envoyer un message texte ou un fichier (image / document)
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    //  Envoyer un message (texte ou fichier)
+    // -------------------------------------------------------------------------
 
     public function send(Request $request, string $uuid): JsonResponse
     {
@@ -159,14 +150,12 @@ class ChatController extends Controller
             return $msg;
         });
 
-        return $this->apiResponse(true, 'Message envoyé.', $this->formatMessage($msg, $userId), 201);
+        return $this->apiResponse(true, 'Message envoyé.', $this->formatChatMessage($msg, $userId), 201);
     }
 
-    // =========================================================================
-    //  POST /api/passenger/conversations/{uuid}/read
-    //  POST /api/driver/conversations/{uuid}/read
+    // -------------------------------------------------------------------------
     //  Marquer tous les messages reçus comme lus
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     public function markRead(Request $request, string $uuid): JsonResponse
     {
@@ -185,103 +174,11 @@ class ChatController extends Controller
         return $this->apiResponse(true, 'Messages marqués comme lus.');
     }
 
-    // =========================================================================
-    //  ADMIN — Modération
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    //  Helper — formatage d'un message pour les réponses JSON
+    // -------------------------------------------------------------------------
 
-    public function adminIndex(Request $request): JsonResponse
-    {
-        if (! $request->user()?->isAdmin()) {
-            return $this->apiResponse(false, 'Accès refusé.', [], 403);
-        }
-
-        $conversations = Conversation::with(['participants.profile', 'lastMessage', 'trip'])
-            ->orderByDesc('updated_at')
-            ->paginate(20);
-
-        return $this->apiResponse(true, 'Conversations.', [
-            'items' => collect($conversations->items())->map(
-                fn ($c) => $this->formatConversation($c, 0)
-            ),
-            'total' => $conversations->total(),
-            'page'  => $conversations->currentPage(),
-        ]);
-    }
-
-    public function adminMessages(Request $request, string $uuid): JsonResponse
-    {
-        if (! $request->user()?->isAdmin()) {
-            return $this->apiResponse(false, 'Accès refusé.', [], 403);
-        }
-
-        $conversation = Conversation::where('uuid', $uuid)->first();
-
-        if (! $conversation) {
-            return $this->apiResponse(false, 'Conversation introuvable.', [], 404);
-        }
-
-        $messages = $conversation->messages()
-            ->with('sender.profile')
-            ->orderBy('id')
-            ->get()
-            ->map(fn ($m) => $this->formatMessage($m, 0));
-
-        return $this->apiResponse(true, 'Messages.', ['items' => $messages]);
-    }
-
-    public function adminDeleteMessage(Request $request, string $uuid, int $id): JsonResponse
-    {
-        if (! $request->user()?->isAdmin()) {
-            return $this->apiResponse(false, 'Accès refusé.', [], 403);
-        }
-
-        $conversation = Conversation::where('uuid', $uuid)->first();
-
-        if (! $conversation) {
-            return $this->apiResponse(false, 'Conversation introuvable.', [], 404);
-        }
-
-        $message = $conversation->messages()->find($id);
-
-        if (! $message) {
-            return $this->apiResponse(false, 'Message introuvable.', [], 404);
-        }
-
-        if ($message->attachment_path) {
-            Storage::disk('public')->delete($message->attachment_path);
-        }
-
-        $message->delete();
-
-        return $this->apiResponse(true, 'Message supprimé.');
-    }
-
-    public function adminDelete(Request $request, string $uuid): JsonResponse
-    {
-        if (! $request->user()?->isAdmin()) {
-            return $this->apiResponse(false, 'Accès refusé.', [], 403);
-        }
-
-        $conversation = Conversation::where('uuid', $uuid)->first();
-
-        if (! $conversation) {
-            return $this->apiResponse(false, 'Conversation introuvable.', [], 404);
-        }
-
-        $conversation->messages()
-            ->whereNotNull('attachment_path')
-            ->each(fn ($m) => Storage::disk('public')->delete($m->attachment_path));
-
-        $conversation->delete();
-
-        return $this->apiResponse(true, 'Conversation supprimée.');
-    }
-
-    // =========================================================================
-    //  HELPERS PRIVÉS
-    // =========================================================================
-
-    private function formatMessage(Message $msg, int $myUserId): array
+    private function formatChatMessage(Message $msg, int $myUserId): array
     {
         $tz         = 'Africa/Porto-Novo';
         $attachment = null;
@@ -302,35 +199,6 @@ class ChatController extends Controller
             'raw_date'   => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
             'read_at'    => $msg->read_at?->toIso8601String(),
             'attachment' => $attachment,
-        ];
-    }
-
-    private function formatConversation(Conversation $conv, int $myUserId): array
-    {
-        $other = $myUserId > 0
-            ? $conv->participants->first(fn ($p) => $p->id !== $myUserId)
-            : $conv->participants->first();
-
-        $profile = $other?->profile;
-        $last    = $conv->lastMessage;
-        $tz      = 'Africa/Porto-Novo';
-
-        $lastText = $last?->body
-            ?? ($last?->attachment_path
-                ? ($last->attachment_type === 'image' ? '📷 Photo' : '📄 Document')
-                : null);
-
-        return [
-            'uuid'         => $conv->uuid,
-            'other_name'   => $profile
-                ? trim("{$profile->first_name} {$profile->last_name}")
-                : ($other?->phone ?? '—'),
-            'last_message' => $lastText,
-            'last_time'    => $last?->created_at->setTimezone($tz)->format('H:i'),
-            'unread_count' => $myUserId > 0 ? $conv->unreadCountFor($myUserId) : 0,
-            'trip_route'   => $conv->trip
-                ? ($conv->trip->departure_city . ' → ' . $conv->trip->arrival_city)
-                : null,
         ];
     }
 }

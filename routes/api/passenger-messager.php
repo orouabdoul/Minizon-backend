@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Chat\ChatController;
 use App\Http\Controllers\Passenger\PassengerDetailMessagerController;
 use App\Http\Controllers\Passenger\PassengerMessagerController;
 use Illuminate\Support\Facades\Route;
@@ -28,19 +27,19 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
         ->name('passenger.messages.delete');
 
     // 💬 Ouvrir / récupérer la conversation d'une réservation
-    Route::post('bookings/{uuid}/conversation', [ChatController::class, 'getOrCreate'])
+    Route::post('bookings/{uuid}/conversation', [PassengerDetailMessagerController::class, 'getOrCreate'])
         ->name('passenger.conversations.getOrCreate');
 
     // 📨 Messages paginés (scroll infini)
-    Route::get('conversations/{uuid}/messages', [ChatController::class, 'messages'])
+    Route::get('conversations/{uuid}/messages', [PassengerDetailMessagerController::class, 'messages'])
         ->name('passenger.conversations.messages');
 
     // ✉️  Envoyer un message (texte ou fichier)
-    Route::post('conversations/{uuid}/messages', [ChatController::class, 'send'])
+    Route::post('conversations/{uuid}/messages', [PassengerDetailMessagerController::class, 'send'])
         ->name('passenger.conversations.send');
 
     // ✅ Marquer tous les messages comme lus
-    Route::post('conversations/{uuid}/read', [ChatController::class, 'markRead'])
+    Route::post('conversations/{uuid}/read', [PassengerDetailMessagerController::class, 'markRead'])
         ->name('passenger.conversations.read');
 
 });

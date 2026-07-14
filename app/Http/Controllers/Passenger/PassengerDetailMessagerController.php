@@ -6,17 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Trip;
+use App\Traits\HandlesConversationChat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Page "Conversation" — vue détaillée pour le passager.
  */
 class PassengerDetailMessagerController extends Controller
 {
+    use HandlesConversationChat;
+
     // =========================================================================
     //  GET /api/passenger/conversations/{uuid}/thread
     // =========================================================================

@@ -17,8 +17,8 @@ use OpenApi\Attributes as OA;
  * Même format que DriverMessagerController ; le rôle de l'interlocuteur
  * est déterminé dynamiquement (conducteur si autre participant = trip.user_id).
  *
- * Ouvrir une conversation : POST /api/bookings/{uuid}/conversation (ChatController)
- * Envoyer un message      : POST /api/conversations/{uuid}/messages (ChatController)
+ * Ouvrir une conversation : POST /api/passenger/bookings/{uuid}/conversation
+ * Envoyer un message      : POST /api/passenger/conversations/{uuid}/messages
  */
 class PassengerMessagerController extends Controller
 {

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Chat\ChatController;
+use App\Http\Controllers\Admin\AdminConversationController;
 use Illuminate\Support\Facades\Route;
 
 // -----------------------------------------------------------------------
@@ -9,14 +9,14 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('admin')->name('admin.conversations.')->group(function () {
 
     Route::get('conversations',
-        [ChatController::class, 'adminIndex'])->name('index');
+        [AdminConversationController::class, 'index'])->name('index');
 
     Route::get('conversations/{uuid}/messages',
-        [ChatController::class, 'adminMessages'])->name('messages');
+        [AdminConversationController::class, 'messages'])->name('messages');
 
     Route::delete('conversations/{uuid}/messages/{id}',
-        [ChatController::class, 'adminDeleteMessage'])->name('message.delete');
+        [AdminConversationController::class, 'deleteMessage'])->name('message.delete');
 
     Route::delete('conversations/{uuid}',
-        [ChatController::class, 'adminDelete'])->name('delete');
+        [AdminConversationController::class, 'destroy'])->name('delete');
 });

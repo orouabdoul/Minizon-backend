@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Chat\ChatController;
 use App\Http\Controllers\Driver\DriverDetailMessagerController;
 use App\Http\Controllers\Driver\DriverMessagerController;
 use Illuminate\Support\Facades\Route;
@@ -28,19 +27,19 @@ Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(functio
         ->name('driver.messages.delete');
 
     // 💬 Ouvrir / récupérer la conversation d'une réservation
-    Route::post('bookings/{uuid}/conversation', [ChatController::class, 'getOrCreate'])
+    Route::post('bookings/{uuid}/conversation', [DriverDetailMessagerController::class, 'getOrCreate'])
         ->name('driver.conversations.getOrCreate');
 
     // 📨 Messages paginés (scroll infini)
-    Route::get('conversations/{uuid}/messages', [ChatController::class, 'messages'])
+    Route::get('conversations/{uuid}/messages', [DriverDetailMessagerController::class, 'messages'])
         ->name('driver.conversations.messages');
 
     // ✉️  Envoyer un message (texte ou fichier)
-    Route::post('conversations/{uuid}/messages', [ChatController::class, 'send'])
+    Route::post('conversations/{uuid}/messages', [DriverDetailMessagerController::class, 'send'])
         ->name('driver.conversations.send');
 
     // ✅ Marquer tous les messages comme lus
-    Route::post('conversations/{uuid}/read', [ChatController::class, 'markRead'])
+    Route::post('conversations/{uuid}/read', [DriverDetailMessagerController::class, 'markRead'])
         ->name('driver.conversations.read');
 
 });
