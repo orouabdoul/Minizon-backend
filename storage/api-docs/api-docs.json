@@ -3343,7 +3343,7 @@
                 ]
             }
         },
-        "/api/admin/tracking": {
+        "/api/admin/tracking/trips": {
             "get": {
                 "tags": [
                     "👑 Admin — Suivi temps réel"

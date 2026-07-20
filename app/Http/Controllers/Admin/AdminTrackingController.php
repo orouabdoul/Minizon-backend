@@ -26,7 +26,7 @@ class AdminTrackingController extends Controller
     // =========================================================================
 
     #[OA\Get(
-        path: '/api/admin/tracking',
+        path: '/api/admin/tracking/trips',
         operationId: 'adminTrackingList',
         summary: 'Suivi temps réel — liste des trajets actifs',
         description: 'Retourne tous les trajets avec status=active, enrichis de la position GPS actuelle du conducteur et de l\'incident actif éventuel. Polling recommandé toutes les 15 secondes.',

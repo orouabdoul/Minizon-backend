@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 //  👑 ADMIN — Suivi des trajets en temps réel
 //
 //  Flux frontend (polling toutes les 15s) :
-//    GET  /api/admin/tracking           → liste des TrackedTrip actifs
+//    GET  /api/admin/tracking/trips     → liste des TrackedTrip actifs
 //    GET  /api/admin/tracking/stats     → KPIs (barre en haut)
 //    GET  /api/admin/tracking/{uuid}    → détail + passagers + historique incidents
 //    POST /api/admin/tracking/{uuid}/incident          → signaler incident
@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/tracking')->group(function () {
 
-    Route::get('/',           [AdminTrackingController::class, 'activeTrips']);
-    Route::get('stats',       [AdminTrackingController::class, 'stats']);
+    // Routes nommées AVANT le wildcard {uuid} pour éviter la capture
+    Route::get('trips',  [AdminTrackingController::class, 'activeTrips']);
+    Route::get('stats',  [AdminTrackingController::class, 'stats']);
+
+    // Wildcard — doit rester APRÈS les routes nommées
     Route::get('{uuid}',      [AdminTrackingController::class, 'show']);
 
     Route::post('{uuid}/incident',          [AdminTrackingController::class, 'reportIncident']);
