@@ -18,10 +18,13 @@ class Review extends Model
         'rating',
         'comment',
         'driver_reply',
+        'status',
+        'report_count',
     ];
 
     protected $casts = [
-        'rating' => 'integer',
+        'rating'       => 'integer',
+        'report_count' => 'integer',
     ];
 
     protected static function boot(): void
