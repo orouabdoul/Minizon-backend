@@ -11,12 +11,16 @@
     },
     "servers": [
         {
-            "url": "https://minizon-api.onrender.com",
+            "url": "https://minizon-api-iubm.onrender.com",
             "description": "Production"
         },
         {
+            "url": "http://localhost/project-minizon-backend/public",
+            "description": "Local (XAMPP)"
+        },
+        {
             "url": "http://localhost:8000",
-            "description": "Local"
+            "description": "Local (artisan serve)"
         }
     ],
     "paths": {
@@ -3330,6 +3334,255 @@
                     },
                     "422": {
                         "description": "Ticket déjà résolu ou clôturé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Suivi temps réel — liste des trajets actifs",
+                "description": "Retourne tous les trajets avec status=active, enrichis de la position GPS actuelle du conducteur et de l'incident actif éventuel. Polling recommandé toutes les 15 secondes.",
+                "operationId": "adminTrackingList",
+                "parameters": [
+                    {
+                        "name": "filter",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "actif",
+                                "incident"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des trajets tracés",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Trajets actifs."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "trips": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/TrackedTrip"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/stats": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "KPIs du suivi temps réel",
+                "description": "Retourne les compteurs de la barre de statistiques : trajets actifs, incidents en cours, conducteurs en ligne, trajets du jour.",
+                "operationId": "adminTrackingStats",
+                "responses": {
+                    "200": {
+                        "description": "KPIs tracking",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "activeTrips": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "incidents": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "driversOnline": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "tripsToday": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/{uuid}/incident": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Signaler un incident sur un trajet actif",
+                "operationId": "adminReportIncident",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "example": "panne",
+                                        "enum": [
+                                            "panne",
+                                            "urgence",
+                                            "autre"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Crevaison signalée par le conducteur",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Incident créé"
+                    },
+                    "409": {
+                        "description": "Un incident actif existe déjà"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/{uuid}/incident/resolve": {
+            "patch": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Résoudre l'incident actif d'un trajet",
+                "operationId": "adminResolveIncident",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Incident résolu"
+                    },
+                    "404": {
+                        "description": "Aucun incident actif trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/{uuid}": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Détail d'un trajet tracé",
+                "operationId": "adminTrackingDetail",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détail du trajet"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
                     }
                 },
                 "security": [
@@ -15242,10 +15495,273 @@
                     }
                 ]
             }
+        },
+        "/api/trips/{uuid}/start": {
+            "post": {
+                "tags": [
+                    "🚗 Driver — Trajets"
+                ],
+                "summary": "Démarrer un trajet",
+                "operationId": "tripStart",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet démarré"
+                    },
+                    "403": {
+                        "description": "Non autorisé"
+                    },
+                    "422": {
+                        "description": "Statut invalide"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/end": {
+            "post": {
+                "tags": [
+                    "🚗 Driver — Trajets"
+                ],
+                "summary": "Terminer un trajet",
+                "operationId": "tripEnd",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet terminé"
+                    },
+                    "403": {
+                        "description": "Non autorisé"
+                    },
+                    "422": {
+                        "description": "Trajet non actif"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/location": {
+            "post": {
+                "tags": [
+                    "🚗 Driver — Trajets"
+                ],
+                "summary": "Mettre à jour la position GPS du conducteur",
+                "description": "Appelé par le device conducteur toutes les 5–10 secondes pendant un trajet actif. Met à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.",
+                "operationId": "tripUpdateLocation",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "latitude",
+                                    "longitude"
+                                ],
+                                "properties": {
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 7.1234
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.3456
+                                    },
+                                    "speed": {
+                                        "description": "Vitesse en km/h (optionnel)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 72.5,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Position enregistrée"
+                    },
+                    "403": {
+                        "description": "Non autorisé ou trajet non actif"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/trips/{uuid}/tracking": {
+            "get": {
+                "tags": [
+                    "👤 Passenger — Réservations"
+                ],
+                "summary": "Position en temps réel du conducteur (accès public)",
+                "operationId": "tripGetTracking",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Position du conducteur"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "TrackedTrip": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "tripId": {
+                        "type": "string",
+                        "example": "CF304AE1"
+                    },
+                    "from": {
+                        "type": "string",
+                        "example": "Cotonou"
+                    },
+                    "to": {
+                        "type": "string",
+                        "example": "Parakou"
+                    },
+                    "driverName": {
+                        "type": "string",
+                        "example": "Koffi Mensah"
+                    },
+                    "driverPhone": {
+                        "type": "string",
+                        "example": "+22997000000"
+                    },
+                    "driverAvatar": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "passengerCount": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "estimatedArrival": {
+                        "type": "string",
+                        "example": "14:30"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "actif",
+                            "incident"
+                        ]
+                    },
+                    "position": {
+                        "properties": {
+                            "lat": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            },
+                            "lng": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            },
+                            "speed": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "incident": {
+                        "properties": {
+                            "uuid": {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "panne",
+                                    "urgence",
+                                    "autre"
+                                ]
+                            },
+                            "notes": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "resolved": {
+                                "type": "boolean"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
             "ErrorResponse": {
                 "description": "Réponse d'erreur standard",
                 "properties": {
@@ -16678,6 +17194,10 @@
         {
             "name": "👥 Admin — Utilisateurs",
             "description": "CRUD complet des comptes utilisateurs (Back-Office)"
+        },
+        {
+            "name": "👑 Admin — Suivi temps réel",
+            "description": "👑 Admin — Suivi temps réel"
         },
         {
             "name": "👑 Administration",

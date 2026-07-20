@@ -16,8 +16,9 @@ use OpenApi\Attributes as OA;
     scheme: 'bearer',
     bearerFormat: 'JWT',
 )]
-#[OA\Server(url: 'https://minizon-api.onrender.com', description: 'Production')]
-#[OA\Server(url: 'http://localhost:8000', description: 'Local')]
+#[OA\Server(url: 'https://minizon-api-iubm.onrender.com', description: 'Production')]
+#[OA\Server(url: 'http://localhost/project-minizon-backend/public', description: 'Local (XAMPP)')]
+#[OA\Server(url: 'http://localhost:8000', description: 'Local (artisan serve)')]
 #[OA\Schema(
     schema: 'ErrorResponse',
     description: 'Réponse d\'erreur standard',
