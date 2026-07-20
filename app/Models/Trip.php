@@ -69,6 +69,8 @@ class Trip extends Model
         // GPS temps réel (télémétrie pendant le voyage)
         'current_latitude',
         'current_longitude',
+        'current_speed',
+        'location_updated_at',
 
         // Modération
         'is_flagged',
@@ -84,6 +86,7 @@ class Trip extends Model
         'published_at'               => 'datetime',
         'started_at'                 => 'datetime',
         'completed_at'               => 'datetime',
+        'location_updated_at'        => 'datetime',
         'recurring_end_date'         => 'date',
         'price_per_seat'             => 'integer',
         'total_seats'                => 'integer',
@@ -104,6 +107,7 @@ class Trip extends Model
         'arrival_longitude'          => 'float',
         'current_latitude'           => 'float',
         'current_longitude'          => 'float',
+        'current_speed'              => 'float',
     ];
 
     // -----------------------------------------------------------------------
@@ -153,6 +157,16 @@ class Trip extends Model
     public function tripValidations()
     {
         return $this->hasMany(TripValidation::class);
+    }
+
+    public function incidents()
+    {
+        return $this->hasMany(TripIncident::class);
+    }
+
+    public function activeIncident()
+    {
+        return $this->hasOne(TripIncident::class)->whereNull('resolved_at')->latest();
     }
 
     // -----------------------------------------------------------------------

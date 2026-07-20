@@ -24,6 +24,7 @@ Route::get('ping', fn () => response()->json([
 
 require __DIR__ . '/api/auth.php';
 require __DIR__ . '/api/chat.php';
+require __DIR__ . '/api/trips.php';
 
 
 // ── Driver (conducteur) — par page ────────────────────────────────────────
@@ -67,10 +68,12 @@ require __DIR__ . '/api/passenger-trip-history.php';
 require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
 
+
 // Routes pour l'administration (protégées par auth:admin)
 require __DIR__ . '/api/admin.php';
 require __DIR__ . '/api/admin-users.php';
 require __DIR__ . '/api/admin-trips.php';
+require __DIR__ . '/api/admin-tracking.php';
 require __DIR__ . '/api/admin-reservations.php';
 require __DIR__ . '/api/admin-payments.php';
 require __DIR__ . '/api/admin-disputes.php';
@@ -78,4 +81,3 @@ require __DIR__ . '/api/admin-support.php';
 require __DIR__ . '/api/admin-notifications.php';
 require __DIR__ . '/api/admin-settings.php';
 require __DIR__ . '/api/admin-vehicles.php';
-
