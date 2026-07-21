@@ -26,7 +26,7 @@ class AdminAuditController extends Controller
 
     #[OA\Get(
         path: '/api/admin/audit/logs',
-        operationId: 'adminAuditLogs',
+        operationId: 'adminAuditLogsFull',
         summary: 'Journal d\'audit — liste des entrées',
         description: 'Retourne les entrées du journal d\'audit, filtrables par sévérité, type d\'action, administrateur et recherche texte. Triées par date décroissante.',
         tags: ['👑 Admin — Audit & Sécurité'],

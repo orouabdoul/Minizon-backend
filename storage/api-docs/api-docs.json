@@ -24,6 +24,273 @@
         }
     ],
     "paths": {
+        "/api/admin/audit/logs": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Audit & Sécurité"
+                ],
+                "summary": "Journal d'audit — liste des entrées",
+                "description": "Retourne les entrées du journal d'audit, filtrables par sévérité, type d'action, administrateur et recherche texte. Triées par date décroissante.",
+                "operationId": "adminAuditLogsFull",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "info",
+                                "avertissement",
+                                "critique"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "action_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all"
+                        }
+                    },
+                    {
+                        "name": "admin_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all"
+                        }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entrées du journal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "logs": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AuditLogEntry"
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 230
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/audit/admins": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Audit & Sécurité"
+                ],
+                "summary": "Liste des administrateurs (filtre du journal)",
+                "operationId": "adminAuditAdmins",
+                "responses": {
+                    "200": {
+                        "description": "Administrateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "admins": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Ali Yarou"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "format": "uri"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/audit/export": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Audit & Sécurité"
+                ],
+                "summary": "Exporter le journal d'audit (CSV/PDF)",
+                "description": "Retourne un fichier CSV (compatible Excel) ou PDF. Les mêmes filtres que /logs sont supportés. Le format PDF retourne également un CSV — générer un vrai PDF nécessite une librairie dédiée.",
+                "operationId": "adminAuditExport",
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "excel",
+                            "enum": [
+                                "excel",
+                                "pdf"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "action_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "admin_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier CSV téléchargeable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/disputes/metrics": {
             "get": {
                 "tags": [
@@ -739,16 +1006,245 @@
                 ]
             }
         },
+        "/api/admin/messaging/conversations": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "Liste des conversations admin ↔ conducteur",
+                "description": "Retourne toutes les conversations directes entre l'admin et des conducteurs, triées par non-lus puis par date. Filtre optionnel par statut conducteur.",
+                "operationId": "adminMessagingList",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filtrer par statut conducteur",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "tous",
+                            "enum": [
+                                "tous",
+                                "en_ligne",
+                                "en_trajet",
+                                "hors_ligne"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des conversations",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "conversations": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AdminConversation"
+                                                    }
+                                                },
+                                                "totalUnread": {
+                                                    "type": "integer",
+                                                    "example": 4
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/messaging/conversations/{uuid}": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "Ouvrir une conversation — messages + marquer lu",
+                "operationId": "adminMessagingShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation et ses messages"
+                    },
+                    "404": {
+                        "description": "Conversation introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/messaging/conversations/{uuid}/messages": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "Envoyer un message à un conducteur",
+                "operationId": "adminMessagingSend",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "example": "Votre passager vous attend.",
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message envoyé"
+                    },
+                    "404": {
+                        "description": "Conversation introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/messaging/broadcast": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "Diffuser un message à plusieurs conducteurs",
+                "description": "Envoie le message dans la conversation admin-driver de chaque conducteur correspondant au filtre. Crée la conversation si elle n'existe pas encore.",
+                "operationId": "adminMessagingBroadcast",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "content",
+                                    "target"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "example": "Nouveau point de ramassage disponible.",
+                                        "maxLength": 2000
+                                    },
+                                    "target": {
+                                        "type": "string",
+                                        "example": "en_ligne",
+                                        "enum": [
+                                            "tous",
+                                            "en_ligne",
+                                            "en_trajet"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Broadcast effectué",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "sent_to": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "target": {
+                                                    "type": "string",
+                                                    "example": "en_ligne"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/notifications/metrics": {
             "get": {
                 "tags": [
                     "🔔 Admin — Notifications"
                 ],
-                "summary": "Compteurs pour les onglets du centre de notifications",
-                "operationId": "5e606cc885c2f3c6f6159f4b65a779d9",
+                "summary": "KPIs + compteurs par onglet",
+                "description": "Retourne les compteurs utilisés par les cartes KPI et les badges d'onglets de la NotificationsScreen.",
+                "operationId": "adminNotifMetrics",
                 "responses": {
                     "200": {
-                        "description": "Compteurs par onglet",
+                        "description": "Compteurs",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -778,7 +1274,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -788,14 +1284,15 @@
                 "tags": [
                     "🔔 Admin — Notifications"
                 ],
-                "summary": "Liste paginée des notifications admin avec filtres",
-                "operationId": "1570f51a230083bd6bc6bdd86e827c13",
+                "summary": "Liste filtrée des notifications admin",
+                "operationId": "adminNotifIndex",
                 "parameters": [
                     {
                         "name": "tab",
                         "in": "query",
                         "schema": {
                             "type": "string",
+                            "default": "all",
                             "enum": [
                                 "all",
                                 "unread",
@@ -830,18 +1327,18 @@
                         "in": "query",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 50
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Liste des notifications admin"
+                        "description": "Liste des notifications"
                     }
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -852,7 +1349,7 @@
                     "🔔 Admin — Notifications"
                 ],
                 "summary": "Marquer une notification comme lue",
-                "operationId": "863453eef333a6bc557f089afd540b14",
+                "operationId": "adminNotifMarkRead",
                 "parameters": [
                     {
                         "name": "uuid",
@@ -874,7 +1371,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -885,7 +1382,7 @@
                     "🔔 Admin — Notifications"
                 ],
                 "summary": "Marquer toutes les notifications non lues comme lues",
-                "operationId": "163c644f8025d1fadc860fa1bae6281a",
+                "operationId": "adminNotifMarkAllRead",
                 "responses": {
                     "200": {
                         "description": "Toutes les notifications marquées comme lues"
@@ -893,7 +1390,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -904,7 +1401,7 @@
                     "🔔 Admin — Notifications"
                 ],
                 "summary": "Marquer une notification comme traitée",
-                "operationId": "dfa14ff1e3486e82ae80fc81959054c7",
+                "operationId": "adminNotifHandle",
                 "parameters": [
                     {
                         "name": "uuid",
@@ -926,7 +1423,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -937,7 +1434,7 @@
                     "🔔 Admin — Notifications"
                 ],
                 "summary": "Supprimer une notification",
-                "operationId": "e04eedf69958bdd6e555f62e68a9f756",
+                "operationId": "adminNotifDelete",
                 "parameters": [
                     {
                         "name": "uuid",
@@ -959,7 +1456,95 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/notifications/send": {
+            "post": {
+                "tags": [
+                    "🔔 Admin — Notifications"
+                ],
+                "summary": "Envoyer une notification push aux utilisateurs",
+                "description": "Diffuse une notification FCM vers les appareils des utilisateurs ciblés (all / drivers / passengers). Requiert FCM_SERVER_KEY dans les variables d'environnement.",
+                "operationId": "adminNotifSend",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "title",
+                                    "body",
+                                    "target",
+                                    "type"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "example": "Maintenance planifiée",
+                                        "maxLength": 65
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "example": "La plateforme sera indisponible de 02h00 à 04h00.",
+                                        "maxLength": 200
+                                    },
+                                    "target": {
+                                        "type": "string",
+                                        "example": "all",
+                                        "enum": [
+                                            "all",
+                                            "drivers",
+                                            "passengers"
+                                        ]
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "example": "info",
+                                        "enum": [
+                                            "info",
+                                            "warning",
+                                            "promo",
+                                            "system"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Push envoyé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "sent_count": {
+                                            "type": "integer",
+                                            "example": 42
+                                        },
+                                        "target": {
+                                            "type": "string",
+                                            "example": "drivers"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -1556,6 +2141,647 @@
                 ]
             }
         },
+        "/api/admin/payouts/summary": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "KPIs des virements conducteurs",
+                "operationId": "adminPayoutsSummary",
+                "responses": {
+                    "200": {
+                        "description": "KPIs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "totalPending": {
+                                                    "description": "Montant total en attente (FCFA)",
+                                                    "type": "integer",
+                                                    "example": 850000
+                                                },
+                                                "pendingAmount": {
+                                                    "description": "Nombre de virements en attente",
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "totalPaid": {
+                                                    "description": "Montant total payé ce mois",
+                                                    "type": "integer",
+                                                    "example": 3200000
+                                                },
+                                                "totalDrivers": {
+                                                    "description": "Conducteurs actifs",
+                                                    "type": "integer",
+                                                    "example": 24
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Liste des virements conducteurs",
+                "operationId": "adminPayoutsList",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "en_attente",
+                                "en_traitement",
+                                "payé",
+                                "échoué"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des virements"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/generate": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Générer les fiches de paiement depuis les gains non payés",
+                "description": "Calcule pour chaque conducteur les paiements de la période en cours et crée une fiche driver_payout si elle n'existe pas encore.",
+                "operationId": "adminPayoutsGenerate",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "period": {
+                                        "description": "Période de calcul",
+                                        "type": "string",
+                                        "example": "month",
+                                        "enum": [
+                                            "month",
+                                            "week"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Fiches générées"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/{uuid}/process": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Déclencher un virement (→ en traitement)",
+                "operationId": "adminPayoutsProcess",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "method"
+                                ],
+                                "properties": {
+                                    "method": {
+                                        "type": "string",
+                                        "example": "MTN Mobile Money",
+                                        "enum": [
+                                            "MTN Mobile Money",
+                                            "Moov Money",
+                                            "Virement bancaire"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Virement déclenché"
+                    },
+                    "409": {
+                        "description": "Statut incompatible"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/{uuid}/mark-paid": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Confirmer qu'un virement a été effectué (→ payé)",
+                "operationId": "adminPayoutsMarkPaid",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Virement marqué comme payé"
+                    },
+                    "409": {
+                        "description": "Statut incompatible"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/{uuid}/retry": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Réessayer un virement échoué (→ en_attente)",
+                "operationId": "adminPayoutsRetry",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Virement remis en attente"
+                    },
+                    "409": {
+                        "description": "Statut incompatible"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/batch-process": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Traiter plusieurs virements en attente en une fois",
+                "operationId": "adminPayoutsBatchProcess",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "uuids",
+                                    "method"
+                                ],
+                                "properties": {
+                                    "uuids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        }
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "example": "MTN Mobile Money",
+                                        "enum": [
+                                            "MTN Mobile Money",
+                                            "Moov Money",
+                                            "Virement bancaire"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Virements déclenchés"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payouts/export": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Virements"
+                ],
+                "summary": "Exporter les virements en CSV",
+                "operationId": "adminPayoutsExport",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier CSV"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/tariffs": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Liste des règles tarifaires",
+                "operationId": "adminPricingTariffs",
+                "responses": {
+                    "200": {
+                        "description": "Règles tarifaires",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "tariffs": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/TariffRule"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/tariffs/{uuid}": {
+            "patch": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Modifier la valeur d'un tarif",
+                "operationId": "adminPricingUpdateTariff",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "value"
+                                ],
+                                "properties": {
+                                    "value": {
+                                        "type": "number",
+                                        "example": 60
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tarif mis à jour"
+                    },
+                    "404": {
+                        "description": "Tarif introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/tariffs/{uuid}/toggle": {
+            "patch": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Activer ou désactiver une règle tarifaire",
+                "operationId": "adminPricingToggleTariff",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statut basculé"
+                    },
+                    "404": {
+                        "description": "Tarif introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/promos": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Liste des codes promo",
+                "operationId": "adminPricingPromos",
+                "responses": {
+                    "200": {
+                        "description": "Codes promo",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "promos": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/PromoCode"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Créer un code promo",
+                "operationId": "adminPricingCreatePromo",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "discount",
+                                    "expires_at"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "example": "ETE2026"
+                                    },
+                                    "discount": {
+                                        "type": "integer",
+                                        "example": 20,
+                                        "maximum": 100,
+                                        "minimum": 1
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Promo été 2026",
+                                        "nullable": true
+                                    },
+                                    "expires_at": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-08-31"
+                                    },
+                                    "usage_limit": {
+                                        "type": "integer",
+                                        "example": 500,
+                                        "minimum": 1
+                                    },
+                                    "active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Code promo créé"
+                    },
+                    "422": {
+                        "description": "Code déjà existant ou données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/promos/{uuid}/toggle": {
+            "patch": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Activer ou désactiver un code promo",
+                "operationId": "adminPricingTogglePromo",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statut basculé"
+                    },
+                    "404": {
+                        "description": "Code promo introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/pricing/promos/{uuid}": {
+            "delete": {
+                "tags": [
+                    "👑 Admin — Tarifs & Promotions"
+                ],
+                "summary": "Supprimer un code promo",
+                "operationId": "adminPricingDeletePromo",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Code promo supprimé"
+                    },
+                    "404": {
+                        "description": "Code promo introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/reservations/metrics": {
             "get": {
                 "tags": [
@@ -2039,6 +3265,234 @@
                     },
                     "404": {
                         "description": "Réservation introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reviews/stats": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Modération des avis"
+                ],
+                "summary": "KPIs des évaluations",
+                "operationId": "adminReviewStats",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 248
+                                                },
+                                                "avgRating": {
+                                                    "type": "string",
+                                                    "example": "4.2"
+                                                },
+                                                "signalé": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "masqué": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reviews": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Modération des avis"
+                ],
+                "summary": "Liste filtrée des évaluations",
+                "description": "Retourne tous les avis avec info auteur, cible, trajet. Filtrable par statut, direction (rôle de l'auteur) et note.",
+                "operationId": "adminReviewList",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "visible",
+                                "masqué",
+                                "signalé"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "direction",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "passager_vers_conducteur",
+                                "conducteur_vers_passager"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "rating",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "1",
+                                "2",
+                                "3",
+                                "4",
+                                "5"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des avis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reviews/{uuid}/status": {
+            "patch": {
+                "tags": [
+                    "👑 Admin — Modération des avis"
+                ],
+                "summary": "Changer le statut de modération d'un avis",
+                "operationId": "adminReviewSetStatus",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "masqué",
+                                        "enum": [
+                                            "visible",
+                                            "masqué",
+                                            "signalé"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut mis à jour"
+                    },
+                    "404": {
+                        "description": "Avis introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reviews/{uuid}": {
+            "delete": {
+                "tags": [
+                    "👑 Admin — Modération des avis"
+                ],
+                "summary": "Supprimer définitivement un avis",
+                "operationId": "adminReviewDelete",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Avis supprimé"
+                    },
+                    "404": {
+                        "description": "Avis introuvable"
                     }
                 },
                 "security": [
@@ -15669,6 +17123,180 @@
     },
     "components": {
         "schemas": {
+            "AuditLogEntry": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "adminName": {
+                        "type": "string",
+                        "example": "Ali Yarou"
+                    },
+                    "adminAvatar": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "actionType": {
+                        "type": "string",
+                        "example": "approbation_conducteur"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Conducteur Koffi Mensah approuvé"
+                    },
+                    "targetName": {
+                        "type": "string",
+                        "example": "Koffi Mensah",
+                        "nullable": true
+                    },
+                    "ipAddress": {
+                        "type": "string",
+                        "example": "102.188.45.12"
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": [
+                            "info",
+                            "avertissement",
+                            "critique"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "AdminConversation": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "driverName": {
+                        "type": "string",
+                        "example": "Koffi Mensah"
+                    },
+                    "driverAvatar": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "driverPhone": {
+                        "type": "string",
+                        "example": "+22997000000"
+                    },
+                    "driverStatus": {
+                        "type": "string",
+                        "enum": [
+                            "en_ligne",
+                            "en_trajet",
+                            "hors_ligne"
+                        ]
+                    },
+                    "activeTripId": {
+                        "type": "string",
+                        "example": "CF304AE1",
+                        "nullable": true
+                    },
+                    "unreadCount": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "lastMessage": {
+                        "type": "string",
+                        "example": "Bonjour, problème sur l'autoroute"
+                    },
+                    "lastMessageAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "",
+                            "panne",
+                            "urgence",
+                            "retard"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "TariffRule": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "key": {
+                        "type": "string",
+                        "example": "base_rate_per_km"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Tarif de base"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Prix par kilomètre parcouru"
+                    },
+                    "value": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 50
+                    },
+                    "unit": {
+                        "type": "string",
+                        "example": "FCFA/km"
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "PromoCode": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "code": {
+                        "type": "string",
+                        "example": "ETE2026"
+                    },
+                    "discount": {
+                        "type": "integer",
+                        "example": 20
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-08-31"
+                    },
+                    "usageLimit": {
+                        "type": "integer",
+                        "example": 500
+                    },
+                    "usageCount": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
             "TrackedTrip": {
                 "properties": {
                     "id": {
@@ -17157,7 +18785,7 @@
         },
         {
             "name": "🔔 Admin — Notifications",
-            "description": "Supervision du centre de notifications back-office"
+            "description": "Centre de notifications back-office + push vers les utilisateurs"
         },
         {
             "name": "💳 Admin — Paiements",
@@ -17194,6 +18822,26 @@
         {
             "name": "👥 Admin — Utilisateurs",
             "description": "CRUD complet des comptes utilisateurs (Back-Office)"
+        },
+        {
+            "name": "👑 Admin — Audit & Sécurité",
+            "description": "👑 Admin — Audit & Sécurité"
+        },
+        {
+            "name": "👑 Admin — Messagerie",
+            "description": "👑 Admin — Messagerie"
+        },
+        {
+            "name": "👑 Admin — Virements",
+            "description": "👑 Admin — Virements"
+        },
+        {
+            "name": "👑 Admin — Tarifs & Promotions",
+            "description": "👑 Admin — Tarifs & Promotions"
+        },
+        {
+            "name": "👑 Admin — Modération des avis",
+            "description": "👑 Admin — Modération des avis"
         },
         {
             "name": "👑 Admin — Suivi temps réel",
