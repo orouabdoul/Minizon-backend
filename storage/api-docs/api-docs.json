@@ -7991,6 +7991,51 @@
                 ]
             }
         },
+        "/api/auth/fcm-token": {
+            "post": {
+                "tags": [
+                    "🔐 Authentification"
+                ],
+                "summary": "Enregistrer / mettre à jour le token FCM",
+                "description": "Appelé côté client après authentification pour stocker le token FCM de l'appareil. Utilisé pour l'envoi de notifications push.",
+                "operationId": "registerFcmToken",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "fcm_token"
+                                ],
+                                "properties": {
+                                    "fcm_token": {
+                                        "type": "string",
+                                        "example": "dGhpcyBpcyBhIHNhbXBsZSB0b2tlbg=="
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token FCM enregistré"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "422": {
+                        "description": "Token manquant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/driver/trips/{uuid}/pre-departure": {
             "get": {
                 "tags": [
@@ -18862,6 +18907,10 @@
         {
             "name": "👤 Utilisateurs",
             "description": "👤 Utilisateurs"
+        },
+        {
+            "name": "🔐 Authentification",
+            "description": "🔐 Authentification"
         },
         {
             "name": "🚗 Driver — Active Trip",

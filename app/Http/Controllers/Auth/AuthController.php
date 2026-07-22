@@ -979,4 +979,43 @@ class AuthController extends Controller
             'emergency_contacts' => $emergencyContacts,
         ];
     }
+
+    // =========================================================================
+    //  POST /api/auth/fcm-token
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/auth/fcm-token',
+        operationId: 'registerFcmToken',
+        summary: 'Enregistrer / mettre à jour le token FCM',
+        description: 'Appelé côté client après authentification pour stocker le token FCM de l\'appareil. Utilisé pour l\'envoi de notifications push.',
+        tags: ['🔐 Authentification'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['fcm_token'],
+                properties: [
+                    new OA\Property(property: 'fcm_token', type: 'string', example: 'dGhpcyBpcyBhIHNhbXBsZSB0b2tlbg=='),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Token FCM enregistré'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+            new OA\Response(response: 422, description: 'Token manquant'),
+        ]
+    )]
+    public function registerFcmToken(Request $request): JsonResponse
+    {
+        $request->validate([
+            'fcm_token' => ['required', 'string', 'max:512'],
+        ]);
+
+        $request->user()->update([
+            'fcm_token' => $request->fcm_token,
+        ]);
+
+        return $this->apiResponse(true, 'Token FCM enregistré.');
+    }
 }

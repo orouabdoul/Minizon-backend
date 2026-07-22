@@ -20,6 +20,7 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',         [AuthController::class, 'logout'])->name('auth.logout');
+        Route::post('fcm-token',      [AuthController::class, 'registerFcmToken'])->name('auth.fcm-token');
         Route::get('me',              [AuthController::class, 'me'])->name('auth.me');
         Route::get('users/{uuid}',    [AuthController::class, 'show'])->name('auth.users.show');
         Route::put('users/{uuid}',    [AuthController::class, 'update'])->name('auth.users.update');
