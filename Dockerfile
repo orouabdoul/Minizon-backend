@@ -39,5 +39,4 @@ CMD php artisan config:cache && \
     php artisan migrate --force && \
     (php artisan db:seed --force || true) && \
     (php artisan storage:link || true) && \
-    (php artisan l5-swagger:generate || true) && \
     apache2-foreground
