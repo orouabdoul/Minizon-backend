@@ -311,6 +311,11 @@ class DriverProfileController extends Controller
             $documents[] = ['key' => 'technical_control',  'title' => 'Visite technique',     'subtitle' => $vehicle->technical_control_doc ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->technical_control_doc), 'url' => $vehicle->technical_control_doc ? asset('storage/' . $vehicle->technical_control_doc) : null];
         }
 
+        $emergencyContacts = $user->emergencyContacts()
+            ->orderBy('created_at')
+            ->get(['id', 'name', 'relationship', 'phone'])
+            ->toArray();
+
         return $this->apiResponse(true, 'Profil conducteur.', [
             'hero' => [
                 'full_name'     => $profile?->fullName() ?? '',
@@ -342,6 +347,7 @@ class DriverProfileController extends Controller
                 'auto_availability'     => (bool) $user->auto_availability,
                 'notifications_enabled' => (bool) ($user->notifications_enabled ?? true),
             ],
+            'emergency_contacts' => $emergencyContacts,
         ]);
     }
 

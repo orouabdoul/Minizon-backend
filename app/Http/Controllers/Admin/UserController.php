@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmergencyContact;
 use App\Models\Profile;
 use App\Models\Role;
 use App\Models\Trip;
@@ -88,10 +89,19 @@ class UserController extends Controller
                 'tvm'             => ['status' => $this->docStatus($vehicle?->tvm_doc, $kycStatus),               'url' => $this->fileUrl($vehicle?->tvm_doc)],
                 'visiteTechnique' => ['status' => $this->docStatus($vehicle?->technical_control_doc, $kycStatus), 'url' => $this->fileUrl($vehicle?->technical_control_doc)],
             ] : null,
-            'score'        => $profile?->kyc_matching_score ?? 0,
-            'status'       => $this->userStatus($user),
-            'verification' => $this->verificationLabel($profile?->kyc_status),
-            'lastActivity' => $user->updated_at?->diffForHumans(),
+            'score'              => $profile?->kyc_matching_score ?? 0,
+            'status'             => $this->userStatus($user),
+            'verification'       => $this->verificationLabel($profile?->kyc_status),
+            'lastActivity'       => $user->updated_at?->diffForHumans(),
+            'emergency_contacts' => $user->emergencyContacts
+                ->map(fn ($c) => [
+                    'id'           => $c->id,
+                    'name'         => $c->name,
+                    'relationship' => $c->relationship,
+                    'phone'        => $c->phone,
+                ])
+                ->values()
+                ->toArray(),
         ];
     }
 
@@ -99,7 +109,7 @@ class UserController extends Controller
     {
         return User::query()
             ->whereHas('role', fn ($q) => $q->whereIn('name', ['passenger', 'driver']))
-            ->with(['role', 'profile', 'vehicle']);
+            ->with(['role', 'profile', 'vehicle', 'emergencyContacts']);
     }
 
     // =========================================================================
