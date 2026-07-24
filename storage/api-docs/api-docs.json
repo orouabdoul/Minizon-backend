@@ -12505,7 +12505,34 @@
                 "operationId": "driverVehicles",
                 "responses": {
                     "200": {
-                        "description": "Véhicules récupérés"
+                        "description": "Véhicules récupérés",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "vehicles": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DriverVehicle"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -12519,23 +12546,131 @@
                     "🚗 Driver — Véhicules"
                 ],
                 "summary": "Enregistrer un nouveau véhicule",
+                "description": "Crée un véhicule avec ses documents. Utiliser `multipart/form-data`. Le type de véhicule est identifié par son slug (ex: `voiture`, `moto`, `minibus`).",
                 "operationId": "driverAddVehicle",
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "required": [
+                                    "vehicle_type",
                                     "brand",
                                     "model",
                                     "color",
-                                    "year",
                                     "license_plate",
                                     "available_seats"
                                 ],
                                 "properties": {
-                                    "vehicle_type_id": {
-                                        "type": "integer"
+                                    "vehicle_type": {
+                                        "description": "[driver] Slug du type de véhicule",
+                                        "type": "string",
+                                        "example": "voiture"
+                                    },
+                                    "brand": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Toyota"
+                                    },
+                                    "model": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Corolla"
+                                    },
+                                    "color": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "Blanc"
+                                    },
+                                    "year": {
+                                        "description": "[driver] Optionnel",
+                                        "type": "integer",
+                                        "example": 2019
+                                    },
+                                    "license_plate": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "example": "BJ-1234-AA"
+                                    },
+                                    "available_seats": {
+                                        "description": "[driver]",
+                                        "type": "integer",
+                                        "example": 4
+                                    },
+                                    "vehicle_photo": {
+                                        "description": "[driver]",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "registration_doc": {
+                                        "description": "[driver] Carte grise",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "insurance_doc": {
+                                        "description": "[driver] Assurance",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "tvm_doc": {
+                                        "description": "[driver] TVM (optionnel)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "technical_control_doc": {
+                                        "description": "[driver] Visite technique (optionnel)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Véhicule enregistré"
+                    },
+                    "422": {
+                        "description": "Validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/vehicles/{uuid}": {
+            "put": {
+                "tags": [
+                    "🚗 Driver — Véhicules"
+                ],
+                "summary": "Mettre à jour un véhicule",
+                "description": "Met à jour les infos et/ou les documents d'un véhicule. Utiliser `multipart/form-data`. Seuls les champs envoyés sont modifiés.",
+                "operationId": "driverUpdateVehicle",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "vehicle_type": {
+                                        "description": "Slug du type de véhicule",
+                                        "type": "string",
+                                        "example": "voiture"
                                     },
                                     "brand": {
                                         "type": "string",
@@ -12561,9 +12696,29 @@
                                         "type": "integer",
                                         "example": 4
                                     },
-                                    "fuel_type": {
+                                    "vehicle_photo": {
                                         "type": "string",
-                                        "example": "Essence"
+                                        "format": "binary"
+                                    },
+                                    "registration_doc": {
+                                        "description": "Carte grise",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "insurance_doc": {
+                                        "description": "Assurance",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "tvm_doc": {
+                                        "description": "TVM",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "technical_control_doc": {
+                                        "description": "Visite technique",
+                                        "type": "string",
+                                        "format": "binary"
                                     }
                                 },
                                 "type": "object"
@@ -12571,38 +12726,6 @@
                         }
                     }
                 },
-                "responses": {
-                    "200": {
-                        "description": "Véhicule enregistré"
-                    },
-                    "422": {
-                        "description": "Validation"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/driver/vehicles/{uuid}": {
-            "put": {
-                "tags": [
-                    "🚗 Driver — Véhicules"
-                ],
-                "summary": "Mettre à jour un véhicule",
-                "operationId": "driverUpdateVehicle",
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Véhicule mis à jour"
@@ -12642,6 +12765,12 @@
                     },
                     "403": {
                         "description": "Non autorisé"
+                    },
+                    "422": {
+                        "description": "Trajet en cours"
+                    },
+                    "404": {
+                        "description": "Véhicule introuvable"
                     }
                 },
                 "security": [
@@ -18233,6 +18362,85 @@
                     "booked_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverVehicle": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "brand": {
+                        "type": "string",
+                        "example": "Toyota"
+                    },
+                    "model": {
+                        "type": "string",
+                        "example": "Corolla"
+                    },
+                    "color": {
+                        "type": "string",
+                        "example": "Blanc"
+                    },
+                    "year": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "license_plate": {
+                        "type": "string",
+                        "example": "BJ-1234-AA"
+                    },
+                    "available_seats": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "vehicle_type": {
+                        "type": "string",
+                        "example": "Voiture",
+                        "nullable": true
+                    },
+                    "vehicle_type_slug": {
+                        "type": "string",
+                        "example": "voiture",
+                        "nullable": true
+                    },
+                    "verification_status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "is_approved": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "rejection_reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "example": "Toyota Corolla — Blanc"
+                    },
+                    "vehicle_photo_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "registration_doc_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "insurance_doc_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "tvm_doc_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "technical_control_doc_url": {
+                        "type": "string",
+                        "nullable": true
                     }
                 },
                 "type": "object"
