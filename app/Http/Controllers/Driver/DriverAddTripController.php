@@ -391,17 +391,31 @@ class DriverAddTripController extends Controller
         }
 
         // ── Calculs dérivés ───────────────────────────────────────────────────
-        $totalSeats   = $validated['total_seats'] ?? $vehicle->available_seats;
+        $totalSeats    = $validated['total_seats'] ?? $vehicle->available_seats;
         $maxPerBooking = min($validated['max_per_booking'] ?? $totalSeats, $totalSeats);
-        $isPublished  = $validated['is_published'] ?? true;
+        $isPublished   = $validated['is_published'] ?? true;
 
-        $estimatedArrival = isset($validated['estimated_duration_minutes'])
-            ? $departureAt->copy()->addMinutes($validated['estimated_duration_minutes'])
+        // Distance auto-calculée
+        $distanceKm = $this->resolveDistance(
+            $validated['departure_city']      ?? null,
+            $validated['arrival_city']        ?? null,
+            $validated['departure_latitude']  ?? null,
+            $validated['departure_longitude'] ?? null,
+            $validated['arrival_latitude']    ?? null,
+            $validated['arrival_longitude']   ?? null,
+        );
+
+        // Durée estimée : priorité à la valeur du frontend, sinon on calcule depuis la distance
+        $durationMinutes = $validated['estimated_duration_minutes']
+            ?? ($distanceKm ? $this->estimateDuration($distanceKm) : null);
+
+        $estimatedArrival = $durationMinutes
+            ? $departureAt->copy()->addMinutes($durationMinutes)
             : null;
 
         // ── Créer le trajet ───────────────────────────────────────────────────
         $trip = Trip::create([
-            'user_id'  => $request->user()->id,
+            'user_id'    => $request->user()->id,
             'vehicle_id' => $vehicle->id,
 
             'departure_city'         => ucfirst(strtolower($validated['departure_city'])),
@@ -418,22 +432,23 @@ class DriverAddTripController extends Controller
 
             'price_per_seat'             => $validated['price_per_seat'],
             'departure_time'             => $departureAt,
-            'estimated_duration_minutes' => $validated['estimated_duration_minutes'] ?? null,
+            'distance_km'                => $distanceKm,
+            'estimated_duration_minutes' => $durationMinutes,
             'estimated_arrival_time'     => $estimatedArrival,
 
-            'total_seats'    => $totalSeats,
-            'available_seats'=> $totalSeats,
-            'booking_mode'   => $validated['booking_mode'] ?? 'instant',
-            'max_per_booking'=> $maxPerBooking,
+            'total_seats'     => $totalSeats,
+            'available_seats' => $totalSeats,
+            'booking_mode'    => $validated['booking_mode'] ?? 'instant',
+            'max_per_booking' => $maxPerBooking,
 
             'description'         => $validated['description'] ?? null,
             'waypoints'           => $validated['waypoints'] ?? null,
             'preferences'         => array_values(array_unique($validated['preferences'] ?? [])) ?: null,
             'cancellation_policy' => $validated['cancellation_policy'] ?? 'flexible',
 
-            'is_recurring'      => $validated['is_recurring'] ?? false,
-            'recurring_days'    => ($validated['is_recurring'] ?? false) ? ($validated['recurring_days'] ?? null) : null,
-            'recurring_end_date'=> ($validated['is_recurring'] ?? false) ? ($validated['recurring_end_date'] ?? null) : null,
+            'is_recurring'       => $validated['is_recurring'] ?? false,
+            'recurring_days'     => ($validated['is_recurring'] ?? false) ? ($validated['recurring_days'] ?? null) : null,
+            'recurring_end_date' => ($validated['is_recurring'] ?? false) ? ($validated['recurring_end_date'] ?? null) : null,
 
             'commission_rate' => self::DEFAULT_COMMISSION,
 
@@ -452,6 +467,7 @@ class DriverAddTripController extends Controller
             'departure_time'             => $trip->departure_time,
             'estimated_arrival_time'     => $trip->estimated_arrival_time,
             'estimated_duration_minutes' => $trip->estimated_duration_minutes,
+            'distance_km'                => $trip->distance_km,
             'price_per_seat'             => $trip->price_per_seat,
             'total_seats'                => $trip->total_seats,
             'max_per_booking'            => $trip->max_per_booking,
@@ -463,6 +479,97 @@ class DriverAddTripController extends Controller
             'is_recurring'               => $trip->is_recurring,
             'recurring_days'             => $trip->recurring_days ?? [],
         ], 201);
+    }
+
+    // =========================================================================
+    //  POST /api/driver/trip-estimate
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/driver/trip-estimate',
+        operationId: 'driverTripEstimate',
+        summary: "Estimer la distance et la durée d'un trajet",
+        description: "Retourne la distance en km et la durée estimée en minutes entre deux points. Accepte des coordonnées GPS (prioritaires) ou des noms de villes.",
+        tags: ['🚗 Driver — Ajouter un trajet'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'departure_city',      type: 'string',  example: 'Cotonou'),
+                    new OA\Property(property: 'arrival_city',        type: 'string',  example: 'Parakou'),
+                    new OA\Property(property: 'departure_latitude',  type: 'number',  example: 6.3703,  nullable: true),
+                    new OA\Property(property: 'departure_longitude', type: 'number',  example: 2.3912,  nullable: true),
+                    new OA\Property(property: 'arrival_latitude',    type: 'number',  example: 9.3370,  nullable: true),
+                    new OA\Property(property: 'arrival_longitude',   type: 'number',  example: 2.6280,  nullable: true),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Estimation calculée',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success',    type: 'boolean', example: true),
+                        new OA\Property(property: 'message',    type: 'string'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'distance_km',                type: 'number',  nullable: true, example: 405.0),
+                                new OA\Property(property: 'estimated_duration_minutes', type: 'integer', nullable: true, example: 347),
+                                new OA\Property(property: 'estimated_duration_label',   type: 'string',  nullable: true, example: '5h 47min'),
+                                new OA\Property(property: 'source',                     type: 'string',  example: 'gps', description: 'gps | city_table | unknown'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function estimate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'departure_city'      => ['nullable', 'string', 'max:100'],
+            'arrival_city'        => ['nullable', 'string', 'max:100'],
+            'departure_latitude'  => ['nullable', 'numeric', 'between:-90,90'],
+            'departure_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'arrival_latitude'    => ['nullable', 'numeric', 'between:-90,90'],
+            'arrival_longitude'   => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        $source     = 'unknown';
+        $distanceKm = null;
+
+        // 1. GPS précis
+        if ($request->filled(['departure_latitude', 'departure_longitude', 'arrival_latitude', 'arrival_longitude'])) {
+            $distanceKm = $this->haversine(
+                (float) $request->departure_latitude,
+                (float) $request->departure_longitude,
+                (float) $request->arrival_latitude,
+                (float) $request->arrival_longitude,
+            );
+            $source = 'gps';
+        }
+
+        // 2. Fallback sur table de distances
+        if ($distanceKm === null && $request->filled(['departure_city', 'arrival_city'])) {
+            $distanceKm = $this->cityDistance(
+                ucfirst(strtolower($request->departure_city)),
+                ucfirst(strtolower($request->arrival_city)),
+            );
+            if ($distanceKm !== null) $source = 'city_table';
+        }
+
+        $durationMin = $distanceKm ? $this->estimateDuration($distanceKm) : null;
+
+        return $this->apiResponse(true, 'Estimation calculée.', [
+            'distance_km'                => $distanceKm ? round($distanceKm, 1) : null,
+            'estimated_duration_minutes' => $durationMin,
+            'estimated_duration_label'   => $durationMin ? $this->formatDuration($durationMin) : null,
+            'source'                     => $source,
+        ]);
     }
 
     // =========================================================================
@@ -514,5 +621,87 @@ class DriverAddTripController extends Controller
             'moto'  => 'Moto',
             default => $vehicle->vehicleType?->name ?? 'Autre',
         };
+    }
+
+    // ── Distance & durée ─────────────────────────────────────────────────────
+
+    private function resolveDistance(
+        ?string $depCity, ?string $arrCity,
+        ?float $depLat, ?float $depLng,
+        ?float $arrLat, ?float $arrLng,
+    ): ?float {
+        if ($depLat && $depLng && $arrLat && $arrLng) {
+            return $this->haversine($depLat, $depLng, $arrLat, $arrLng);
+        }
+        if ($depCity && $arrCity) {
+            return $this->cityDistance(
+                ucfirst(strtolower($depCity)),
+                ucfirst(strtolower($arrCity)),
+            );
+        }
+        return null;
+    }
+
+    /** Distance orthodromique (vol d'oiseau × 1.3 pour les routes). */
+    private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $R    = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a    = sin($dLat / 2) ** 2
+              + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+        $bird = $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        // Coefficient 1.3 pour approximer les routes béninoises (sinuosité + déviation)
+        return round($bird * 1.3, 1);
+    }
+
+    /** Table des distances routières (km) entre les grandes villes du Bénin. */
+    private function cityDistance(string $from, string $to): ?float
+    {
+        // Distances approximatives en km sur route
+        $table = [
+            'Cotonou'        => ['Porto-novo' => 35,  'Abomey-calavi' => 20,  'Ouidah' => 40,  'Allada' => 55,  'Sèmè-kpodji' => 20,  'Kpomassè' => 60,  'Bohicon' => 110, 'Abomey' => 130, 'Lokossa' => 110, 'Comè' => 100, 'Aplahoué' => 130, 'Dogbo' => 140, 'Athiémé' => 120, 'Azovè' => 145, 'Dassa-zoumé' => 195, 'Glazoué' => 215, 'Savalou' => 200, 'Bantè' => 230, 'Djougou' => 380, 'Natitingou' => 440, 'Tanguiéta' => 510, 'Parakou' => 400, 'N\'dali' => 450, 'Nikki' => 480, 'Bembèrèkè' => 460, 'Kandi' => 540, 'Gogounou' => 560, 'Sinendé' => 490, 'Banikoara' => 580, 'Malanville' => 650, 'Zagnanado' => 150, 'Covè' => 140, 'Adjohoun' => 55,  'Pobè' => 100, 'Kétou' => 130, 'Sakété' => 65,  'Tchaourou' => 340],
+            'Porto-novo'     => ['Cotonou' => 35,  'Abomey-calavi' => 30,  'Bohicon' => 130, 'Parakou' => 430, 'Pobè' => 80,  'Kétou' => 115, 'Sakété' => 45,  'Adjohoun' => 50,  'Zagnanado' => 160],
+            'Abomey-calavi'  => ['Cotonou' => 20,  'Porto-novo' => 30,  'Ouidah' => 45,  'Bohicon' => 105, 'Parakou' => 390],
+            'Parakou'        => ['Cotonou' => 400, 'Djougou' => 100, 'N\'dali' => 50,  'Kandi' => 145, 'Nikki' => 95,  'Bembèrèkè' => 65,  'Natitingou' => 150, 'Tchaourou' => 60,  'Sinendé' => 100, 'Gogounou' => 165, 'Banikoara' => 185, 'Malanville' => 255],
+            'Bohicon'        => ['Cotonou' => 110, 'Abomey' => 20,  'Parakou' => 300, 'Dassa-zoumé' => 85,  'Savalou' => 95,  'Zagnanado' => 55],
+            'Abomey'         => ['Cotonou' => 130, 'Bohicon' => 20,  'Lokossa' => 80,  'Aplahoué' => 70,  'Dogbo' => 70,  'Kétou' => 110],
+            'Djougou'        => ['Cotonou' => 380, 'Parakou' => 100, 'Natitingou' => 80,  'Tanguiéta' => 150],
+            'Natitingou'     => ['Cotonou' => 440, 'Parakou' => 150, 'Djougou' => 80,  'Tanguiéta' => 70,  'Malanville' => 360],
+            'Kandi'          => ['Cotonou' => 540, 'Parakou' => 145, 'Malanville' => 110, 'Banikoara' => 80,  'Gogounou' => 45],
+            'Dassa-zoumé'    => ['Cotonou' => 195, 'Bohicon' => 85,  'Savalou' => 50,  'Glazoué' => 20,  'Parakou' => 215],
+            'Lokossa'        => ['Cotonou' => 110, 'Abomey' => 80,  'Aplahoué' => 50,  'Dogbo' => 60,  'Athiémé' => 25],
+        ];
+
+        $fromN = ucfirst(strtolower($from));
+        $toN   = ucfirst(strtolower($to));
+
+        if (isset($table[$fromN][$toN])) return (float) $table[$fromN][$toN];
+        if (isset($table[$toN][$fromN])) return (float) $table[$toN][$fromN];
+        return null;
+    }
+
+    /**
+     * Estime la durée en minutes selon la distance.
+     * Vitesse moyenne adaptée à la qualité des routes béninoises.
+     */
+    private function estimateDuration(float $distanceKm): int
+    {
+        $speed = match (true) {
+            $distanceKm < 30  => 40,  // urbain / périurbain
+            $distanceKm < 100 => 55,  // route nationale courte
+            $distanceKm < 300 => 65,  // route nationale longue
+            default           => 70,  // grande distance (Parakou+)
+        };
+        return (int) round(($distanceKm / $speed) * 60);
+    }
+
+    private function formatDuration(int $minutes): string
+    {
+        $h   = intdiv($minutes, 60);
+        $min = $minutes % 60;
+        if ($h === 0)  return "{$min}min";
+        if ($min === 0) return "{$h}h";
+        return "{$h}h {$min}min";
     }
 }

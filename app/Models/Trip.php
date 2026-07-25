@@ -33,6 +33,7 @@ class Trip extends Model
         'price_per_seat',
         'departure_time',
         'estimated_duration_minutes',
+        'distance_km',
         'estimated_arrival_time',
         'description',
 
@@ -93,6 +94,7 @@ class Trip extends Model
         'available_seats'            => 'integer',
         'max_per_booking'            => 'integer',
         'estimated_duration_minutes' => 'integer',
+        'distance_km'               => 'float',
         'commission_rate'            => 'integer',
         'view_count'                 => 'integer',
         'waypoints'                  => 'array',

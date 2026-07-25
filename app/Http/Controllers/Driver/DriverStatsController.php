@@ -98,7 +98,7 @@ class DriverStatsController extends Controller
             'cancellation_rate'  => $cancellationRate,
             'total_revenue'      => $totalRevenue,
             'net_revenue'        => $netRevenue,
-            'distance_km'        => 0, // requiert un champ distance sur Trip — à ajouter ultérieurement
+            'distance_km'        => (float) round($trips->sum('distance_km'), 1),
             'avg_trip_minutes'   => $avgDurationMin,
             'objective_revenue'  => $objectiveRevenue,
             'chart_data'         => $chartData,

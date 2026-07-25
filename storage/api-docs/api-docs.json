@@ -8637,6 +8637,107 @@
                 ]
             }
         },
+        "/api/driver/trip-estimate": {
+            "post": {
+                "tags": [
+                    "🚗 Driver — Ajouter un trajet"
+                ],
+                "summary": "Estimer la distance et la durée d'un trajet",
+                "description": "Retourne la distance en km et la durée estimée en minutes entre deux points. Accepte des coordonnées GPS (prioritaires) ou des noms de villes.",
+                "operationId": "driverTripEstimate",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "departure_city": {
+                                        "type": "string",
+                                        "example": "Cotonou"
+                                    },
+                                    "arrival_city": {
+                                        "type": "string",
+                                        "example": "Parakou"
+                                    },
+                                    "departure_latitude": {
+                                        "type": "number",
+                                        "example": 6.3703,
+                                        "nullable": true
+                                    },
+                                    "departure_longitude": {
+                                        "type": "number",
+                                        "example": 2.3912,
+                                        "nullable": true
+                                    },
+                                    "arrival_latitude": {
+                                        "type": "number",
+                                        "example": 9.337,
+                                        "nullable": true
+                                    },
+                                    "arrival_longitude": {
+                                        "type": "number",
+                                        "example": 2.628,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estimation calculée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "distance_km": {
+                                                    "type": "number",
+                                                    "example": 405,
+                                                    "nullable": true
+                                                },
+                                                "estimated_duration_minutes": {
+                                                    "type": "integer",
+                                                    "example": 347,
+                                                    "nullable": true
+                                                },
+                                                "estimated_duration_label": {
+                                                    "type": "string",
+                                                    "example": "5h 47min",
+                                                    "nullable": true
+                                                },
+                                                "source": {
+                                                    "description": "gps | city_table | unknown",
+                                                    "type": "string",
+                                                    "example": "gps"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/driver/bookings/{uuid}/arrival-context": {
             "get": {
                 "tags": [
