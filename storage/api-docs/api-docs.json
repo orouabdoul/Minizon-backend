@@ -8262,6 +8262,12 @@
                                                                 "type": "string",
                                                                 "example": "Voiture"
                                                             },
+                                                            "vehicle_type_slug": {
+                                                                "description": "Slug du type de véhicule",
+                                                                "type": "string",
+                                                                "example": "voiture",
+                                                                "nullable": true
+                                                            },
                                                             "available_seats": {
                                                                 "type": "integer",
                                                                 "example": 4
