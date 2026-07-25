@@ -588,6 +588,7 @@ class DriverAddTripController extends Controller
             new OA\Property(property: 'departure_time',             type: 'string',  format: 'date-time'),
             new OA\Property(property: 'estimated_arrival_time',     type: 'string',  format: 'date-time', nullable: true),
             new OA\Property(property: 'estimated_duration_minutes', type: 'integer', nullable: true),
+            new OA\Property(property: 'distance_km',               type: 'number',  nullable: true, example: 400.0, description: 'Distance calculée en km (Haversine ou table villes Bénin)'),
             new OA\Property(property: 'price_per_seat',             type: 'integer'),
             new OA\Property(property: 'total_seats',                type: 'integer'),
             new OA\Property(property: 'max_per_booking',            type: 'integer'),
