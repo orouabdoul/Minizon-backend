@@ -10489,17 +10489,29 @@
                                                     "example": "~33L"
                                                 },
                                                 "current_stop_index": {
-                                                    "description": "Index (0-based) du prochain arrêt à atteindre",
+                                                    "description": "Index (0-based) du prochain arrêt pickup à atteindre",
                                                     "type": "integer",
                                                     "example": 0
                                                 },
+                                                "completed_pickups": {
+                                                    "description": "Nombre de passagers déjà pris en charge",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "total_pickups": {
+                                                    "description": "Nombre total de passagers à prendre en charge",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
                                                 "completed_stops": {
+                                                    "description": "Total d'arrêts (pickups + dropoffs) effectués",
                                                     "type": "integer",
                                                     "example": 1
                                                 },
                                                 "total_stops": {
+                                                    "description": "Total d'arrêts affichés (pickups + dropoffs combinés)",
                                                     "type": "integer",
-                                                    "example": 4
+                                                    "example": 6
                                                 }
                                             },
                                             "type": "object"
@@ -10594,6 +10606,16 @@
                                                 "next_stop_index": {
                                                     "type": "integer",
                                                     "example": 2
+                                                },
+                                                "all_picked_up": {
+                                                    "description": "true si tous les passagers sont à bord",
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "notification_sent": {
+                                                    "description": "true si la notification FCM boarding a été envoyée",
+                                                    "type": "boolean",
+                                                    "example": true
                                                 }
                                             },
                                             "type": "object"
@@ -17357,7 +17379,60 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Position enregistrée"
+                        "description": "Position enregistrée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Position mise à jour."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "lat": {
+                                                    "type": "number",
+                                                    "example": 6.3703
+                                                },
+                                                "lng": {
+                                                    "type": "number",
+                                                    "example": 2.3912
+                                                },
+                                                "speed": {
+                                                    "description": "Vitesse en km/h (si fournie)",
+                                                    "type": "number",
+                                                    "nullable": true,
+                                                    "example": 62.5
+                                                },
+                                                "approaching_stops": {
+                                                    "description": "Passagers dont le pickup est à ≤ 300 m du conducteur (notification FCM envoyée)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "booking_uuid": {
+                                                                "type": "string",
+                                                                "format": "uuid"
+                                                            },
+                                                            "distance_m": {
+                                                                "type": "integer",
+                                                                "example": 187
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "Non autorisé ou trajet non actif"
@@ -17780,9 +17855,21 @@
                         "nullable": true
                     },
                     "distance_km": {
-                        "description": "Distance calculée en km (Haversine ou table villes Bénin)",
+                        "description": "Distance calculée en km",
                         "type": "number",
                         "example": 400,
+                        "nullable": true
+                    },
+                    "distance_source": {
+                        "description": "Source utilisée pour calculer la distance",
+                        "type": "string",
+                        "enum": [
+                            "ors",
+                            "gps",
+                            "city_table",
+                            "unknown"
+                        ],
+                        "example": "ors",
                         "nullable": true
                     },
                     "price_per_seat": {
@@ -17982,6 +18069,12 @@
                     "passenger_name": {
                         "type": "string",
                         "example": "Koffi Mensah"
+                    },
+                    "passenger_phone": {
+                        "description": "Numéro de téléphone du passager (pour contact direct)",
+                        "type": "string",
+                        "nullable": true,
+                        "example": "+22997123456"
                     },
                     "address": {
                         "type": "string",
