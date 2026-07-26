@@ -8,7 +8,7 @@ use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use OpenApi\Attributes as OA;
 
 class DriverAddTripController extends Controller
@@ -244,7 +244,7 @@ class DriverAddTripController extends Controller
                     // Date & heure (depuis les pickers Flutter — format local)
                     new OA\Property(property: 'departure_date',          type: 'string',  example: '10/07/2026', description: 'Format jj/mm/aaaa'),
                     new OA\Property(property: 'departure_time',          type: 'string',  example: '07:00',       description: 'Format HH:mm'),
-                    new OA\Property(property: 'estimated_duration_minutes', type: 'integer', example: 300, nullable: true, description: 'Durée estimée en minutes'),
+                    new OA\Property(property: 'estimated_duration_minutes', type: 'integer', example: 300, nullable: true, description: 'Durée estimée en minutes (optionnel — backend calcule si absent)'),
                     // Capacité & réservation
                     new OA\Property(property: 'total_seats',             type: 'integer', example: 3,     nullable: true),
                     new OA\Property(property: 'booking_mode',            type: 'string',  example: 'instant', enum: ['instant', 'approval'], nullable: true),
@@ -397,19 +397,20 @@ class DriverAddTripController extends Controller
         $maxPerBooking = min($validated['max_per_booking'] ?? $totalSeats, $totalSeats);
         $isPublished   = $validated['is_published'] ?? true;
 
-        // Distance auto-calculée
-        $distanceKm = $this->resolveDistance(
+        // Distance & durée : ORS API → Haversine GPS → table villes
+        $routeData = $this->resolveRouteData(
             $validated['departure_city']      ?? null,
             $validated['arrival_city']        ?? null,
-            $validated['departure_latitude']  ?? null,
-            $validated['departure_longitude'] ?? null,
-            $validated['arrival_latitude']    ?? null,
-            $validated['arrival_longitude']   ?? null,
+            isset($validated['departure_latitude'])  ? (float) $validated['departure_latitude']  : null,
+            isset($validated['departure_longitude']) ? (float) $validated['departure_longitude'] : null,
+            isset($validated['arrival_latitude'])    ? (float) $validated['arrival_latitude']    : null,
+            isset($validated['arrival_longitude'])   ? (float) $validated['arrival_longitude']   : null,
         );
 
-        // Durée estimée : priorité à la valeur du frontend, sinon on calcule depuis la distance
-        $durationMinutes = $validated['estimated_duration_minutes']
-            ?? ($distanceKm ? $this->estimateDuration($distanceKm) : null);
+        $distanceKm = $routeData['distance_km'];
+
+        // Durée : priorité au frontend si conducteur a modifié manuellement
+        $durationMinutes = $validated['estimated_duration_minutes'] ?? $routeData['duration_minutes'];
 
         $estimatedArrival = $durationMinutes
             ? $departureAt->copy()->addMinutes($durationMinutes)
@@ -470,6 +471,7 @@ class DriverAddTripController extends Controller
             'estimated_arrival_time'     => $trip->estimated_arrival_time,
             'estimated_duration_minutes' => $trip->estimated_duration_minutes,
             'distance_km'                => $trip->distance_km,
+            'distance_source'            => $routeData['source'],
             'price_per_seat'             => $trip->price_per_seat,
             'total_seats'                => $trip->total_seats,
             'max_per_booking'            => $trip->max_per_booking,
@@ -491,7 +493,7 @@ class DriverAddTripController extends Controller
         path: '/api/driver/trip-estimate',
         operationId: 'driverTripEstimate',
         summary: "Estimer la distance et la durée d'un trajet",
-        description: "Retourne la distance en km et la durée estimée en minutes entre deux points. Accepte des coordonnées GPS (prioritaires) ou des noms de villes.",
+        description: "Retourne la distance en km et la durée estimée en minutes entre deux points.\n\n**Priorité de calcul :**\n1. `ors` — OpenRouteService API (distance routière réelle via GPS)\n2. `gps` — Haversine × 1.3 (GPS disponible mais ORS indisponible)\n3. `city_table` — Table de distances béninoises (noms de villes uniquement)\n\nEnvoyer les coordonnées GPS quand disponibles pour une précision maximale.",
         tags: ['🚗 Driver — Ajouter un trajet'],
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
@@ -522,7 +524,7 @@ class DriverAddTripController extends Controller
                                 new OA\Property(property: 'distance_km',                type: 'number',  nullable: true, example: 405.0),
                                 new OA\Property(property: 'estimated_duration_minutes', type: 'integer', nullable: true, example: 347),
                                 new OA\Property(property: 'estimated_duration_label',   type: 'string',  nullable: true, example: '5h 47min'),
-                                new OA\Property(property: 'source',                     type: 'string',  example: 'gps', description: 'gps | city_table | unknown'),
+                                new OA\Property(property: 'source',                     type: 'string',  example: 'ors', description: 'ors | gps | city_table | unknown'),
                             ]
                         ),
                     ]
@@ -541,36 +543,23 @@ class DriverAddTripController extends Controller
             'arrival_longitude'   => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
-        $source     = 'unknown';
-        $distanceKm = null;
+        $routeData = $this->resolveRouteData(
+            $request->input('departure_city'),
+            $request->input('arrival_city'),
+            $request->filled('departure_latitude')  ? (float) $request->input('departure_latitude')  : null,
+            $request->filled('departure_longitude') ? (float) $request->input('departure_longitude') : null,
+            $request->filled('arrival_latitude')    ? (float) $request->input('arrival_latitude')    : null,
+            $request->filled('arrival_longitude')   ? (float) $request->input('arrival_longitude')   : null,
+        );
 
-        // 1. GPS précis
-        if ($request->filled(['departure_latitude', 'departure_longitude', 'arrival_latitude', 'arrival_longitude'])) {
-            $distanceKm = $this->haversine(
-                (float) $request->departure_latitude,
-                (float) $request->departure_longitude,
-                (float) $request->arrival_latitude,
-                (float) $request->arrival_longitude,
-            );
-            $source = 'gps';
-        }
-
-        // 2. Fallback sur table de distances
-        if ($distanceKm === null && $request->filled(['departure_city', 'arrival_city'])) {
-            $distanceKm = $this->cityDistance(
-                ucfirst(strtolower($request->departure_city)),
-                ucfirst(strtolower($request->arrival_city)),
-            );
-            if ($distanceKm !== null) $source = 'city_table';
-        }
-
-        $durationMin = $distanceKm ? $this->estimateDuration($distanceKm) : null;
+        $distanceKm  = $routeData['distance_km'];
+        $durationMin = $routeData['duration_minutes'];
 
         return $this->apiResponse(true, 'Estimation calculée.', [
             'distance_km'                => $distanceKm ? round($distanceKm, 1) : null,
             'estimated_duration_minutes' => $durationMin,
             'estimated_duration_label'   => $durationMin ? $this->formatDuration($durationMin) : null,
-            'source'                     => $source,
+            'source'                     => $routeData['source'],
         ]);
     }
 
@@ -590,7 +579,8 @@ class DriverAddTripController extends Controller
             new OA\Property(property: 'departure_time',             type: 'string',  format: 'date-time'),
             new OA\Property(property: 'estimated_arrival_time',     type: 'string',  format: 'date-time', nullable: true),
             new OA\Property(property: 'estimated_duration_minutes', type: 'integer', nullable: true),
-            new OA\Property(property: 'distance_km',               type: 'number',  nullable: true, example: 400.0, description: 'Distance calculée en km (Haversine ou table villes Bénin)'),
+            new OA\Property(property: 'distance_km',                type: 'number',  nullable: true, example: 400.0, description: 'Distance routière réelle (ORS) ou approximée (GPS/villes)'),
+            new OA\Property(property: 'distance_source',            type: 'string',  example: 'ors', description: 'ors | gps | city_table | unknown'),
             new OA\Property(property: 'price_per_seat',             type: 'integer'),
             new OA\Property(property: 'total_seats',                type: 'integer'),
             new OA\Property(property: 'max_per_booking',            type: 'integer'),
@@ -628,24 +618,84 @@ class DriverAddTripController extends Controller
 
     // ── Distance & durée ─────────────────────────────────────────────────────
 
-    private function resolveDistance(
+    /**
+     * Retourne distance + durée + source avec priorité :
+     * ORS API (route réelle) → Haversine GPS → table villes.
+     */
+    private function resolveRouteData(
         ?string $depCity, ?string $arrCity,
         ?float $depLat, ?float $depLng,
         ?float $arrLat, ?float $arrLng,
-    ): ?float {
+    ): array {
+        // 1. Coordonnées GPS disponibles
         if ($depLat && $depLng && $arrLat && $arrLng) {
-            return $this->haversine($depLat, $depLng, $arrLat, $arrLng);
+            // Essayer ORS en priorité
+            $ors = $this->orsRoute($depLat, $depLng, $arrLat, $arrLng);
+            if ($ors) {
+                return [
+                    'distance_km'      => $ors['distance_km'],
+                    'duration_minutes' => $ors['duration_minutes'],
+                    'source'           => 'ors',
+                ];
+            }
+            // Haversine en fallback si ORS indisponible
+            $km = $this->haversine($depLat, $depLng, $arrLat, $arrLng);
+            return [
+                'distance_km'      => $km,
+                'duration_minutes' => $this->estimateDuration($km),
+                'source'           => 'gps',
+            ];
         }
+
+        // 2. Noms de villes uniquement
         if ($depCity && $arrCity) {
-            return $this->cityDistance(
+            $km = $this->cityDistance(
                 ucfirst(strtolower($depCity)),
                 ucfirst(strtolower($arrCity)),
             );
+            if ($km !== null) {
+                return [
+                    'distance_km'      => $km,
+                    'duration_minutes' => $this->estimateDuration($km),
+                    'source'           => 'city_table',
+                ];
+            }
         }
+
+        return ['distance_km' => null, 'duration_minutes' => null, 'source' => 'unknown'];
+    }
+
+    /**
+     * Appelle OpenRouteService pour obtenir la distance routière réelle.
+     * Timeout 5s — retourne null si API indisponible ou clé absente.
+     */
+    private function orsRoute(float $lat1, float $lng1, float $lat2, float $lng2): ?array
+    {
+        $key = config('services.ors.key');
+        if (! $key) return null;
+
+        try {
+            $resp = Http::timeout(5)->get('https://api.openrouteservice.org/v2/directions/driving-car', [
+                'api_key' => $key,
+                'start'   => "{$lng1},{$lat1}",
+                'end'     => "{$lng2},{$lat2}",
+            ]);
+
+            if ($resp->successful()) {
+                $summary = $resp->json('routes.0.summary');
+                if ($summary && isset($summary['distance'], $summary['duration'])) {
+                    return [
+                        'distance_km'      => round($summary['distance'] / 1000, 1),
+                        'duration_minutes' => (int) round($summary['duration'] / 60),
+                    ];
+                }
+            }
+        } catch (\Throwable) {}
+
         return null;
     }
 
-    /** Distance orthodromique (vol d'oiseau × 1.3 pour les routes). */
+    /** Distance orthodromique (vol d'oiseau × 1.3 pour les routes béninoises). */
     private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $R    = 6371.0;
@@ -654,14 +704,12 @@ class DriverAddTripController extends Controller
         $a    = sin($dLat / 2) ** 2
               + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
         $bird = $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
-        // Coefficient 1.3 pour approximer les routes béninoises (sinuosité + déviation)
         return round($bird * 1.3, 1);
     }
 
     /** Table des distances routières (km) entre les grandes villes du Bénin. */
     private function cityDistance(string $from, string $to): ?float
     {
-        // Distances approximatives en km sur route
         $table = [
             'Cotonou'        => ['Porto-novo' => 35,  'Abomey-calavi' => 20,  'Ouidah' => 40,  'Allada' => 55,  'Sèmè-kpodji' => 20,  'Kpomassè' => 60,  'Bohicon' => 110, 'Abomey' => 130, 'Lokossa' => 110, 'Comè' => 100, 'Aplahoué' => 130, 'Dogbo' => 140, 'Athiémé' => 120, 'Azovè' => 145, 'Dassa-zoumé' => 195, 'Glazoué' => 215, 'Savalou' => 200, 'Bantè' => 230, 'Djougou' => 380, 'Natitingou' => 440, 'Tanguiéta' => 510, 'Parakou' => 400, 'N\'dali' => 450, 'Nikki' => 480, 'Bembèrèkè' => 460, 'Kandi' => 540, 'Gogounou' => 560, 'Sinendé' => 490, 'Banikoara' => 580, 'Malanville' => 650, 'Zagnanado' => 150, 'Covè' => 140, 'Adjohoun' => 55,  'Pobè' => 100, 'Kétou' => 130, 'Sakété' => 65,  'Tchaourou' => 340],
             'Porto-novo'     => ['Cotonou' => 35,  'Abomey-calavi' => 30,  'Bohicon' => 130, 'Parakou' => 430, 'Pobè' => 80,  'Kétou' => 115, 'Sakété' => 45,  'Adjohoun' => 50,  'Zagnanado' => 160],
@@ -703,7 +751,7 @@ class DriverAddTripController extends Controller
     {
         $h   = intdiv($minutes, 60);
         $min = $minutes % 60;
-        if ($h === 0)  return "{$min}min";
+        if ($h === 0)   return "{$min}min";
         if ($min === 0) return "{$h}h";
         return "{$h}h {$min}min";
     }

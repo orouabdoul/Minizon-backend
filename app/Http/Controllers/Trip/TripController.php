@@ -3,21 +3,28 @@
 namespace App\Http\Controllers\Trip;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Trip;
+use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use OpenApi\Attributes as OA;
 
 /**
  * Gestion des trajets — endpoints publics + actions conducteur.
  *
  * POST /api/trips/{uuid}/location  — push GPS toutes les ~5s depuis le device conducteur
+ *                                    + détection de proximité → notifications FCM passagers
  * POST /api/trips/{uuid}/start     — démarre le trajet (status pending → active)
  * POST /api/trips/{uuid}/end       — termine le trajet (status active → completed)
  * GET  /api/trips/{uuid}/tracking  — position publique pour les passagers
  */
 class TripController extends Controller
 {
+    // Rayon en mètres en dessous duquel on notifie le passager
+    private const APPROACH_RADIUS_M = 300;
+
     // =========================================================================
     //  GET /api/trips  — liste publique
     // =========================================================================
@@ -221,7 +228,7 @@ class TripController extends Controller
         path: '/api/trips/{uuid}/location',
         operationId: 'tripUpdateLocation',
         summary: 'Mettre à jour la position GPS du conducteur',
-        description: 'Appelé par le device conducteur toutes les 5–10 secondes pendant un trajet actif. Met à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.',
+        description: "Appelé par le device conducteur toutes les **5 secondes** pendant un trajet actif.\n\nMet à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.\n\n**Détection de proximité :** si le conducteur est à moins de 300m d'un point de prise en charge (pickup) d'un passager, une notification FCM **\"🚗 Votre conducteur approche !\"** est envoyée automatiquement à ce passager (une seule fois par arrêt par trajet, sonnerie activée).\n\nRetourne `approaching_stops` — liste des arrêts dont la notification vient d'être déclenchée.",
         tags: ['🚗 Driver — Trajets'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -239,7 +246,36 @@ class TripController extends Controller
             )
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Position enregistrée'),
+            new OA\Response(
+                response: 200,
+                description: 'Position enregistrée',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Position mise à jour.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'lat',   type: 'number', example: 7.1234),
+                                new OA\Property(property: 'lng',   type: 'number', example: 2.3456),
+                                new OA\Property(property: 'speed', type: 'number', nullable: true),
+                                new OA\Property(
+                                    property: 'approaching_stops',
+                                    type: 'array',
+                                    description: 'Arrêts dont la notification FCM vient d\'être envoyée (vide si aucun)',
+                                    items: new OA\Items(
+                                        properties: [
+                                            new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
+                                            new OA\Property(property: 'distance_m',   type: 'integer', example: 245),
+                                        ]
+                                    )
+                                ),
+                            ]
+                        ),
+                    ]
+                )
+            ),
             new OA\Response(response: 403, description: 'Non autorisé ou trajet non actif'),
             new OA\Response(response: 422, description: 'Données invalides'),
         ]
@@ -269,10 +305,18 @@ class TripController extends Controller
             'location_updated_at' => now(),
         ]);
 
+        // Détection de proximité → notifications FCM passagers
+        $approaching = $this->checkProximityNotifications(
+            $trip,
+            (float) $validated['latitude'],
+            (float) $validated['longitude']
+        );
+
         return $this->apiResponse(true, 'Position mise à jour.', [
-            'lat'   => (float) $validated['latitude'],
-            'lng'   => (float) $validated['longitude'],
-            'speed' => isset($validated['speed']) ? (float) $validated['speed'] : null,
+            'lat'              => (float) $validated['latitude'],
+            'lng'              => (float) $validated['longitude'],
+            'speed'            => isset($validated['speed']) ? (float) $validated['speed'] : null,
+            'approaching_stops'=> $approaching,
         ]);
     }
 
@@ -306,12 +350,83 @@ class TripController extends Controller
             || $trip->location_updated_at->lt($staleThreshold);
 
         return $this->apiResponse(true, 'Position du conducteur.', [
-            'lat'                => $trip->current_latitude,
-            'lng'                => $trip->current_longitude,
-            'speed_kmh'          => $trip->current_speed,
-            'location_updated_at'=> $trip->location_updated_at?->toIso8601String(),
-            'is_stale'           => $isStale,
-            'status'             => $trip->status,
+            'lat'                 => $trip->current_latitude,
+            'lng'                 => $trip->current_longitude,
+            'speed_kmh'           => $trip->current_speed,
+            'location_updated_at' => $trip->location_updated_at?->toIso8601String(),
+            'is_stale'            => $isStale,
+            'status'              => $trip->status,
         ]);
+    }
+
+    // =========================================================================
+    //  HELPERS PRIVÉS
+    // =========================================================================
+
+    /**
+     * Vérifie si le conducteur est dans le rayon d'approche (300m) d'un pickup.
+     * Envoie une notification FCM au passager une seule fois par arrêt (cache 2h).
+     *
+     * @return array  Liste des arrêts dont la notification vient d'être déclenchée.
+     */
+    private function checkProximityNotifications(Trip $trip, float $driverLat, float $driverLng): array
+    {
+        $approaching = [];
+
+        // Uniquement les pickups non encore terminés avec des coordonnées GPS
+        $pendingBookings = Booking::where('trip_id', $trip->id)
+            ->where('status', 'accepted')
+            ->whereNull('picked_up_at')
+            ->whereNotNull('pickup_latitude')
+            ->whereNotNull('pickup_longitude')
+            ->with('passenger:id,fcm_token,phone')
+            ->get();
+
+        foreach ($pendingBookings as $booking) {
+            $distM    = $this->metersApart(
+                $driverLat, $driverLng,
+                (float) $booking->pickup_latitude,
+                (float) $booking->pickup_longitude
+            );
+            $cacheKey = "approach_notified_{$trip->id}_{$booking->id}";
+
+            if ($distM <= self::APPROACH_RADIUS_M && ! Cache::has($cacheKey)) {
+                $fcmToken = $booking->passenger?->fcm_token;
+                if ($fcmToken) {
+                    app(FcmService::class)->send(
+                        $fcmToken,
+                        '🚗 Votre conducteur approche !',
+                        'Préparez-vous, le conducteur est à ' . round($distM) . 'm de votre point de prise en charge.',
+                        [
+                            'type'         => 'driver_approaching',
+                            'trip_uuid'    => $trip->uuid,
+                            'booking_uuid' => $booking->uuid,
+                            'distance_m'   => (string) round($distM),
+                            'sound'        => 'approach_sound',
+                        ]
+                    );
+                }
+                // Marquer comme notifié pour 2h (durée max d'un trajet)
+                Cache::put($cacheKey, true, now()->addMinutes(120));
+
+                $approaching[] = [
+                    'booking_uuid' => $booking->uuid,
+                    'distance_m'   => (int) round($distM),
+                ];
+            }
+        }
+
+        return $approaching;
+    }
+
+    /** Distance en mètres entre deux points GPS (Haversine). */
+    private function metersApart(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $R  = 6_371_000; // rayon Terre en mètres
+        $dL = deg2rad($lat2 - $lat1);
+        $dl = deg2rad($lng2 - $lng1);
+        $a  = sin($dL / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dl / 2) ** 2;
+        return 2 * $R * asin(sqrt($a));
     }
 }

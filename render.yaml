@@ -83,6 +83,8 @@ services:
         value: 10
       - key: FCM_SERVER_KEY
         sync: false
+      - key: ORS_API_KEY
+        sync: false
 
 databases:
   - name: minizon-db
