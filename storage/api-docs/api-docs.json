@@ -10765,7 +10765,27 @@
                                                     "example": "~33L"
                                                 },
                                                 "current_stop_index": {
-                                                    "type": "integer"
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "completed_pickups": {
+                                                    "description": "Passagers pris en charge avant le recalcul",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "total_pickups": {
+                                                    "description": "Total de passagers à prendre en charge",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "completed_stops": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "total_stops": {
+                                                    "description": "Total arrêts (pickups + dropoffs)",
+                                                    "type": "integer",
+                                                    "example": 6
                                                 }
                                             },
                                             "type": "object"

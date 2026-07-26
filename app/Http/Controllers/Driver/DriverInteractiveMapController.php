@@ -269,13 +269,17 @@ class DriverInteractiveMapController extends Controller
                             property: 'body',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'optimized',         type: 'boolean', example: true),
-                                new OA\Property(property: 'stops',             type: 'array',   items: new OA\Items(ref: '#/components/schemas/MapStop')),
-                                new OA\Property(property: 'route_polyline',    type: 'array',   items: new OA\Items(type: 'object')),
-                                new OA\Property(property: 'route_distance',    type: 'string',  example: '408 km'),
-                                new OA\Property(property: 'route_eta',         type: 'string',  example: '5h20'),
-                                new OA\Property(property: 'route_fuel',        type: 'string',  example: '~33L'),
-                                new OA\Property(property: 'current_stop_index',type: 'integer'),
+                                new OA\Property(property: 'optimized',          type: 'boolean', example: true),
+                                new OA\Property(property: 'stops',              type: 'array',   items: new OA\Items(ref: '#/components/schemas/MapStop')),
+                                new OA\Property(property: 'route_polyline',     type: 'array',   items: new OA\Items(type: 'object')),
+                                new OA\Property(property: 'route_distance',     type: 'string',  example: '408 km'),
+                                new OA\Property(property: 'route_eta',          type: 'string',  example: '5h20'),
+                                new OA\Property(property: 'route_fuel',         type: 'string',  example: '~33L'),
+                                new OA\Property(property: 'current_stop_index', type: 'integer', example: 1),
+                                new OA\Property(property: 'completed_pickups',  type: 'integer', example: 1, description: 'Passagers pris en charge avant le recalcul'),
+                                new OA\Property(property: 'total_pickups',      type: 'integer', example: 3, description: 'Total de passagers à prendre en charge'),
+                                new OA\Property(property: 'completed_stops',    type: 'integer', example: 1),
+                                new OA\Property(property: 'total_stops',        type: 'integer', example: 6, description: 'Total arrêts (pickups + dropoffs)'),
                             ]
                         ),
                     ]
@@ -316,7 +320,7 @@ class DriverInteractiveMapController extends Controller
 
         $trip->setRelation('bookings', $done->merge($pending)->values());
 
-        [$stops, $polyline, $completedPickups] = $this->buildStopsAndPolyline($trip);
+        [$stops, $polyline, $completedPickups, $totalPickups] = $this->buildStopsAndPolyline($trip);
 
         $distanceKm    = $trip->distance_km ?? $this->haversineKm(
             $trip->departure_latitude, $trip->departure_longitude,
@@ -334,6 +338,10 @@ class DriverInteractiveMapController extends Controller
             'route_eta'          => $routeEta,
             'route_fuel'         => $routeFuel,
             'current_stop_index' => $completedPickups,
+            'completed_pickups'  => $completedPickups,
+            'total_pickups'      => $totalPickups,
+            'completed_stops'    => $completedPickups,
+            'total_stops'        => count($stops),
         ]);
     }
 
