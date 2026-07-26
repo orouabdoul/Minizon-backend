@@ -398,7 +398,9 @@ class DriverInteractiveMapController extends Controller
             $polyline[] = ['lat' => $trip->departure_latitude, 'lng' => $trip->departure_longitude];
         }
 
-        $departsAt    = $trip->departure_time->setTimezone($tz);
+        $departsAt    = $trip->departure_time
+            ? $trip->departure_time->setTimezone($tz)
+            : now()->setTimezone($tz);
         $pickupOffset = 0;
         $doneCount    = 0;
 
@@ -525,6 +527,6 @@ class DriverInteractiveMapController extends Controller
         if ($minutes === null) return null;
         $h = intdiv($minutes, 60);
         $m = $minutes % 60;
-        return $m > 0 ? "{$h}h{$m}" : "{$h}h00";
+        return $m > 0 ? sprintf('%dh%02d', $h, $m) : "{$h}h00";
     }
 }
