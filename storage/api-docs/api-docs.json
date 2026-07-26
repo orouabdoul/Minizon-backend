@@ -17491,10 +17491,11 @@
         "/api/trips/{uuid}/location": {
             "post": {
                 "tags": [
-                    "🚗 Driver — Trajets"
+                    "🚗 Driver — Trajets",
+                    "🚗 Driver — Interactive Map"
                 ],
-                "summary": "Mettre à jour la position GPS du conducteur",
-                "description": "Appelé par le device conducteur toutes les 5–10 secondes pendant un trajet actif. Met à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.",
+                "summary": "📡 GPS temps-réel — Mettre à jour la position du conducteur (toutes les 5s)",
+                "description": "Appelé par Flutter toutes les **5 secondes** via `Timer.periodic` pendant un trajet actif.\n\nMet à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.\n\n**Détection de proximité (300m) :** si le conducteur est à moins de 300m d'un pickup passager → notification FCM `driver_approaching` envoyée (anti-spam : 1 fois par arrêt, TTL 2h).\n\nRetourne `approaching_stops[]` pour affichage côté conducteur.",
                 "operationId": "tripUpdateLocation",
                 "parameters": [
                     {

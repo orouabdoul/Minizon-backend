@@ -229,7 +229,7 @@ class TripController extends Controller
         operationId: 'tripUpdateLocation',
         summary: 'Mettre à jour la position GPS du conducteur',
         description: "Appelé par le device conducteur toutes les **5 secondes** pendant un trajet actif.\n\nMet à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.\n\n**Détection de proximité :** si le conducteur est à moins de 300m d'un point de prise en charge (pickup) d'un passager, une notification FCM **\"🚗 Votre conducteur approche !\"** est envoyée automatiquement à ce passager (une seule fois par arrêt par trajet, sonnerie activée).\n\nRetourne `approaching_stops` — liste des arrêts dont la notification vient d'être déclenchée.",
-        tags: ['🚗 Driver — Trajets'],
+        tags: ['🚗 Driver — Trajets', '🚗 Driver — Interactive Map'],
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
