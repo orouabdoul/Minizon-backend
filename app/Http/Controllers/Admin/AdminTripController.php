@@ -237,4 +237,63 @@ class AdminTripController extends Controller
 
         return $this->apiResponse(true, 'Trajet récupéré.', $this->format($trip));
     }
+
+    // =========================================================================
+    //  DESTROY  DELETE /api/admin/trips/{uuid}
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/admin/trips/{uuid}',
+        operationId: 'adminTripDelete',
+        summary: '[ADMIN] Supprimer un trajet',
+        description: "Supprime définitivement un trajet et annule toutes ses réservations non terminées.\n\n**Règles :**\n- Un trajet `active` (en cours) ne peut pas être supprimé directement — l'annuler d'abord.\n- Les réservations `pending` et `accepted` sont automatiquement annulées.\n- Les réservations `completed` et les paiements sont conservés pour l'historique.",
+        tags: ['🗺️ Admin — Trajets'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Trajet supprimé',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Trajet supprimé. 2 réservation(s) annulée(s).'),
+                        new OA\Property(property: 'body',    type: 'object',  nullable: true, example: null),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès refusé ou trajet en cours', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function destroy(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $trip = Trip::with('bookings')->where('uuid', $uuid)->first();
+
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        if ($trip->status === 'active') {
+            return $this->apiResponse(false, 'Impossible de supprimer un trajet en cours. Annulez-le d\'abord.', [], 403);
+        }
+
+        // Annuler les réservations non terminées
+        $cancelledCount = $trip->bookings()
+            ->whereIn('status', ['pending', 'accepted'])
+            ->update(['status' => 'cancelled']);
+
+        $trip->delete();
+
+        return $this->apiResponse(
+            true,
+            "Trajet supprimé. {$cancelledCount} réservation(s) annulée(s)."
+        );
+    }
 }

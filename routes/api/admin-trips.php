@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/trips')->group(function () {
 
-    Route::get('metrics', [AdminTripController::class, 'metrics']);
-    Route::get('/',       [AdminTripController::class, 'index']);
-    Route::get('{uuid}',  [AdminTripController::class, 'show']);
+    Route::get('metrics',    [AdminTripController::class, 'metrics']);
+    Route::get('/',          [AdminTripController::class, 'index']);
+    Route::get('{uuid}',     [AdminTripController::class, 'show']);
+    Route::delete('{uuid}',  [AdminTripController::class, 'destroy']);
 });

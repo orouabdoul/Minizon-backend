@@ -5265,6 +5265,63 @@
                         "bearerAuth": []
                     }
                 ]
+            },
+            "delete": {
+                "tags": [
+                    "🗺️ Admin — Trajets"
+                ],
+                "summary": "[ADMIN] Supprimer un trajet",
+                "description": "Supprime définitivement un trajet et annule toutes ses réservations non terminées.\n\n**Règles :**\n- Un trajet `active` (en cours) ne peut pas être supprimé — annulez-le d'abord.\n- Les réservations `pending` et `accepted` sont automatiquement annulées.\n- Les réservations `completed` et les paiements sont conservés pour l'historique.",
+                "operationId": "adminTripDelete",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trajet supprimé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "Trajet supprimé. 2 réservation(s) annulée(s)." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès refusé ou trajet en cours",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trajet introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/admin/vehicles/metrics": {
