@@ -166,7 +166,17 @@ class DriverNotificationsController extends Controller
         tags: ['🔔 Driver — Notifications'],
         security: [['bearerAuth' => []]],
         responses: [
-            new OA\Response(response: 200, description: 'Toutes marquées comme lues'),
+            new OA\Response(
+                response: 200,
+                description: 'Toutes marquées comme lues',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: '4 notification(s) marquée(s) comme lues.'),
+                        new OA\Property(property: 'body', type: 'object', nullable: true, example: null),
+                    ]
+                )
+            ),
         ]
     )]
     public function markAllRead(Request $request): JsonResponse
@@ -191,8 +201,22 @@ class DriverNotificationsController extends Controller
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Marquée comme lue'),
-            new OA\Response(response: 404, description: 'Introuvable'),
+            new OA\Response(
+                response: 200,
+                description: 'Marquée comme lue',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string', example: 'Notification marquée comme lue.'),
+                        new OA\Property(property: 'body', type: 'object', nullable: true, example: null),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Introuvable',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')
+            ),
         ]
     )]
     public function markRead(Request $request, string $id): JsonResponse
