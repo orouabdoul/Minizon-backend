@@ -1363,10 +1363,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification marquée comme lue"
+                        "description": "Notification marquée comme lue",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "Notification marquée comme lue." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Non trouvée"
+                        "description": "Non trouvée",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1385,7 +1402,19 @@
                 "operationId": "adminNotifMarkAllRead",
                 "responses": {
                     "200": {
-                        "description": "Toutes les notifications marquées comme lues"
+                        "description": "Toutes les notifications marquées comme lues",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "4 notification(s) marquée(s) comme lues." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -1415,10 +1444,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification marquée comme traitée"
+                        "description": "Notification marquée comme traitée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "Notification marquée comme traitée." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Non trouvée"
+                        "description": "Non trouvée",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -15091,7 +15137,19 @@
                 "operationId": "passengerNotificationsReadAll",
                 "responses": {
                     "200": {
-                        "description": "Toutes marquées comme lues"
+                        "description": "Toutes marquées comme lues",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "4 notification(s) marquée(s) comme lues." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -15121,10 +15179,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Marquée comme lue"
+                        "description": "Marquée comme lue",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "Notification marquée comme lue." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Introuvable"
+                        "description": "Introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -15155,10 +15230,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification supprimée"
+                        "description": "Notification supprimée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "message": { "type": "string", "example": "Notification supprimée." },
+                                        "body": { "type": "object", "nullable": true, "example": null }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Introuvable"
+                        "description": "Introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                            }
+                        }
                     }
                 },
                 "security": [
