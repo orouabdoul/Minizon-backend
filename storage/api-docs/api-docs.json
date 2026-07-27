@@ -11678,7 +11678,8 @@
                 "tags": [
                     "⭐ Driver — Avis"
                 ],
-                "summary": "Avis reçus par le conducteur connecté",
+                "summary": "Tous les avis reçus par le conducteur",
+                "description": "Retourne les avis visibles reçus, le résumé (note moyenne, distribution) et les modèles de réponse rapide.",
                 "operationId": "driverMyReviews",
                 "parameters": [
                     {
@@ -11689,11 +11690,230 @@
                             "type": "integer",
                             "default": 1
                         }
+                    },
+                    {
+                        "name": "rating",
+                        "in": "query",
+                        "description": "Filtrer par note (1 à 5)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 5,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "replied",
+                        "in": "query",
+                        "description": "true = avec réponse, false = sans réponse",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Avis et résumé"
+                        "description": "Avis et résumé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avis reçus."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "summary": {
+                                                    "properties": {
+                                                        "average_rating": {
+                                                            "type": "number",
+                                                            "example": 4.7
+                                                        },
+                                                        "total_reviews": {
+                                                            "type": "integer",
+                                                            "example": 24
+                                                        },
+                                                        "replied_count": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        },
+                                                        "pending_reply_count": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        },
+                                                        "rating_distribution": {
+                                                            "type": "object",
+                                                            "example": {
+                                                                "1": 0.04,
+                                                                "2": 0,
+                                                                "3": 0.08,
+                                                                "4": 0.21,
+                                                                "5": 0.67
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "reply_templates": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/ReplyTemplate"
+                                                    }
+                                                },
+                                                "reviews": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DriverReviewItem"
+                                                    }
+                                                },
+                                                "meta": {
+                                                    "properties": {
+                                                        "current_page": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "last_page": {
+                                                            "type": "integer",
+                                                            "example": 3
+                                                        },
+                                                        "total": {
+                                                            "type": "integer",
+                                                            "example": 24
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/trips/{uuid}/reviews": {
+            "get": {
+                "tags": [
+                    "⭐ Driver — Avis"
+                ],
+                "summary": "Avis reçus pour un trajet terminé",
+                "description": "Retourne tous les avis visibles laissés par les passagers pour un trajet spécifique (doit être `completed`). Inclut le résumé de note pour ce trajet et les modèles de réponse rapide. Pour répondre à un avis, utiliser `POST /api/driver/reviews/{uuid}/reply`.",
+                "operationId": "driverTripReviews",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID du trajet",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Avis du trajet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avis du trajet."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "trip": {
+                                                    "properties": {
+                                                        "uuid": {
+                                                            "type": "string",
+                                                            "format": "uuid"
+                                                        },
+                                                        "route": {
+                                                            "type": "string",
+                                                            "example": "Cotonou → Porto-Novo"
+                                                        },
+                                                        "date": {
+                                                            "type": "string",
+                                                            "example": "14 juillet 2026"
+                                                        },
+                                                        "status": {
+                                                            "type": "string",
+                                                            "example": "completed"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "summary": {
+                                                    "properties": {
+                                                        "average_rating": {
+                                                            "type": "number",
+                                                            "example": 4.3
+                                                        },
+                                                        "total_reviews": {
+                                                            "type": "integer",
+                                                            "example": 3
+                                                        },
+                                                        "replied_count": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "pending_reply_count": {
+                                                            "type": "integer",
+                                                            "example": 2
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "reply_templates": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/ReplyTemplate"
+                                                    }
+                                                },
+                                                "reviews": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DriverReviewItem"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Ce trajet ne vous appartient pas"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    },
+                    "409": {
+                        "description": "Le trajet n'est pas encore terminé"
                     }
                 },
                 "security": [
@@ -11709,11 +11929,13 @@
                     "⭐ Driver — Avis"
                 ],
                 "summary": "Répondre à un avis reçu",
+                "description": "Le conducteur répond à un avis passager. Une notification push est envoyée au passager. Fonctionne depuis la liste globale ou depuis un trajet terminé.",
                 "operationId": "driverReviewReply",
                 "parameters": [
                     {
                         "name": "uuid",
                         "in": "path",
+                        "description": "UUID de l'avis (pas du trajet)",
                         "required": true,
                         "schema": {
                             "type": "string",
@@ -11731,7 +11953,9 @@
                                 ],
                                 "properties": {
                                     "reply": {
+                                        "description": "Texte libre ou basé sur un reply_template (max 500 caractères)",
                                         "type": "string",
+                                        "example": "Je suis vraiment désolé pour cette expérience. Je ferai mieux la prochaine fois.",
                                         "maxLength": 500
                                     }
                                 },
@@ -11742,7 +11966,28 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Réponse publiée"
+                        "description": "Réponse publiée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Réponse publiée."
+                                        },
+                                        "notification_sent": {
+                                            "type": "boolean",
+                                            "example": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "Non autorisé"
@@ -18565,6 +18810,70 @@
                         "description": "ARGB int 10% opacité — Color(iconBackground)",
                         "type": "integer",
                         "example": 436204673
+                    }
+                },
+                "type": "object"
+            },
+            "DriverReviewItem": {
+                "properties": {
+                    "uuid": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "passenger_name": {
+                        "type": "string",
+                        "example": "Fatou BELLO"
+                    },
+                    "passenger_initial": {
+                        "type": "string",
+                        "example": "F"
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "example": 3,
+                        "maximum": 5,
+                        "minimum": 1
+                    },
+                    "date": {
+                        "type": "string",
+                        "example": "Il y a 2 jours"
+                    },
+                    "trip_route": {
+                        "description": "null quand appelé depuis GET /driver/trips/{uuid}/reviews (route déjà connue)",
+                        "type": "string",
+                        "example": "Cotonou → Porto-Novo",
+                        "nullable": true
+                    },
+                    "comment": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "driver_reply": {
+                        "type": "string",
+                        "example": "Merci pour votre retour !",
+                        "nullable": true
+                    },
+                    "needs_reply": {
+                        "description": "true si le conducteur n'a pas encore répondu",
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "ReplyTemplate": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "apology"
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "M'excuser"
+                    },
+                    "text": {
+                        "type": "string",
+                        "example": "Je suis vraiment désolé…"
                     }
                 },
                 "type": "object"

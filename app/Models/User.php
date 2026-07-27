@@ -170,7 +170,8 @@ class User extends Authenticatable
 
     public function averageRating(): ?float
     {
-        $avg = $this->reviewsReceived()->avg('rating');
+        // Seuls les avis visibles (non masqués par la modération) comptent
+        $avg = $this->reviewsReceived()->where('status', 'visible')->avg('rating');
         return $avg ? round($avg, 1) : null;
     }
 }
