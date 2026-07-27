@@ -18,6 +18,7 @@ class Review extends Model
         'rating',
         'comment',
         'driver_reply',
+        'driver_reaction',
         'status',
         'report_count',
     ];

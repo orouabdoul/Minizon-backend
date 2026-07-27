@@ -99,6 +99,10 @@ class DriverTripController extends Controller
 
         // ── Requête filtrée ───────────────────────────────────────────────────
         $query = Trip::with(['bookings.passenger.profile'])
+            ->withCount([
+                'reviews as reviews_count'       => fn ($q) => $q->where('status', 'visible'),
+                'reviews as pending_reply_count' => fn ($q) => $q->where('status', 'visible')->whereNull('driver_reply'),
+            ])
             ->where('user_id', $user->id);
 
         if ($filter !== 'all' && in_array($filter, $statuses)) {
@@ -437,6 +441,13 @@ class DriverTripController extends Controller
             'primary_action'       => $primaryAction,
             'can_edit'             => $trip->status === 'pending',
             'can_cancel'           => $trip->status === 'pending',
+
+            // Résumé avis (uniquement pour trajets terminés)
+            'reviews_summary' => $trip->status === 'completed' ? [
+                'count'             => (int) ($trip->reviews_count ?? 0),
+                'pending_reply'     => (int) ($trip->pending_reply_count ?? 0),
+                'has_pending_reply' => ($trip->pending_reply_count ?? 0) > 0,
+            ] : null,
         ];
     }
 

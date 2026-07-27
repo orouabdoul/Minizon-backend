@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Review;
 use App\Models\Trip;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -124,6 +125,7 @@ class DriverTripDetailController extends Controller
         $trip = Trip::with([
             'vehicle.vehicleType',
             'bookings' => fn ($q) => $q->whereIn('status', ['accepted', 'pending'])->with(['passenger.profile', 'passenger.reviewsReceived', 'payment']),
+            'reviews'  => fn ($q) => $q->where('status', 'visible')->with('reviewer.profile'),
         ])->where('uuid', $uuid)->first();
 
         if (! $trip) {
@@ -227,6 +229,11 @@ class DriverTripDetailController extends Controller
             'can_start'  => $trip->status === 'pending',
             'can_edit'   => $trip->status === 'pending',
             'can_cancel' => $trip->status === 'pending',
+
+            // Section avis — uniquement pour trajets terminés
+            'reviews' => $trip->status === 'completed'
+                ? $this->serializeTripReviews($trip->reviews, $request->user()->id)
+                : null,
         ]);
     }
 
@@ -459,5 +466,49 @@ class DriverTripDetailController extends Controller
         $first = mb_strtoupper(mb_substr($parts[0] ?? '', 0, 1));
         $last  = mb_strtoupper(mb_substr($parts[1] ?? '', 0, 1));
         return $first . $last ?: '??';
+    }
+
+    private function serializeTripReviews(\Illuminate\Database\Eloquent\Collection $reviews, int $driverId): array
+    {
+        $total        = $reviews->count();
+        $average      = $total > 0 ? round($reviews->avg('rating'), 2) : 0.0;
+        $repliedCount = $reviews->whereNotNull('driver_reply')->count();
+
+        $items = $reviews->map(function (Review $r) {
+            $profile  = $r->reviewer?->profile;
+            $name     = $profile
+                ? trim("{$profile->first_name} {$profile->last_name}")
+                : ($r->reviewer?->phone ?? 'Passager');
+            $diff = (int) ($r->created_at?->setTimezone('Africa/Porto-Novo')->diffInDays(now()) ?? 0);
+            $date = match (true) {
+                $diff === 0 => "Aujourd'hui",
+                $diff === 1 => 'Hier',
+                $diff <= 6  => "Il y a {$diff} jours",
+                default     => 'Il y a ' . (int) round($diff / 7) . ' semaine(s)',
+            };
+
+            return [
+                'uuid'              => $r->uuid,
+                'passenger_name'    => $name,
+                'passenger_initial' => mb_strtoupper(mb_substr($name, 0, 1)),
+                'rating'            => (int) $r->rating,
+                'date'              => $date,
+                'comment'           => $r->comment,
+                'driver_reply'      => $r->driver_reply,
+                'driver_reaction'   => $r->driver_reaction,
+                'needs_reply'       => $r->driver_reply === null,
+                'actions'           => ['can_reply' => true, 'can_react' => true],
+            ];
+        })->values();
+
+        return [
+            'summary' => [
+                'average_rating'      => $average,
+                'total_reviews'       => $total,
+                'replied_count'       => $repliedCount,
+                'pending_reply_count' => $total - $repliedCount,
+            ],
+            'items' => $items,
+        ];
     }
 }
