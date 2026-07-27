@@ -11679,7 +11679,7 @@
                     "⭐ Driver — Avis"
                 ],
                 "summary": "Tous les avis reçus par le conducteur",
-                "description": "Retourne les avis visibles reçus, le résumé (note moyenne, distribution) et les modèles de réponse rapide.",
+                "description": "Avis visibles, résumé global et modèles de réponse rapide.",
                 "operationId": "driverMyReviews",
                 "parameters": [
                     {
@@ -11694,7 +11694,6 @@
                     {
                         "name": "rating",
                         "in": "query",
-                        "description": "Filtrer par note (1 à 5)",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -11705,7 +11704,6 @@
                     {
                         "name": "replied",
                         "in": "query",
-                        "description": "true = avec réponse, false = sans réponse",
                         "required": false,
                         "schema": {
                             "type": "boolean"
@@ -11714,89 +11712,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Avis et résumé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Avis reçus."
-                                        },
-                                        "data": {
-                                            "properties": {
-                                                "summary": {
-                                                    "properties": {
-                                                        "average_rating": {
-                                                            "type": "number",
-                                                            "example": 4.7
-                                                        },
-                                                        "total_reviews": {
-                                                            "type": "integer",
-                                                            "example": 24
-                                                        },
-                                                        "replied_count": {
-                                                            "type": "integer",
-                                                            "example": 12
-                                                        },
-                                                        "pending_reply_count": {
-                                                            "type": "integer",
-                                                            "example": 12
-                                                        },
-                                                        "rating_distribution": {
-                                                            "type": "object",
-                                                            "example": {
-                                                                "1": 0.04,
-                                                                "2": 0,
-                                                                "3": 0.08,
-                                                                "4": 0.21,
-                                                                "5": 0.67
-                                                            }
-                                                        }
-                                                    },
-                                                    "type": "object"
-                                                },
-                                                "reply_templates": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/ReplyTemplate"
-                                                    }
-                                                },
-                                                "reviews": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/DriverReviewItem"
-                                                    }
-                                                },
-                                                "meta": {
-                                                    "properties": {
-                                                        "current_page": {
-                                                            "type": "integer",
-                                                            "example": 1
-                                                        },
-                                                        "last_page": {
-                                                            "type": "integer",
-                                                            "example": 3
-                                                        },
-                                                        "total": {
-                                                            "type": "integer",
-                                                            "example": 24
-                                                        }
-                                                    },
-                                                    "type": "object"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Avis et résumé"
                     }
                 },
                 "security": [
@@ -11812,7 +11728,7 @@
                     "⭐ Driver — Avis"
                 ],
                 "summary": "Avis reçus pour un trajet terminé",
-                "description": "Retourne tous les avis visibles laissés par les passagers pour un trajet spécifique (doit être `completed`). Inclut le résumé de note pour ce trajet et les modèles de réponse rapide. Pour répondre à un avis, utiliser `POST /api/driver/reviews/{uuid}/reply`.",
+                "description": "Retourne les avis visibles du trajet avec résumé et modèles de réponse. Seuls les trajets `completed` sont acceptés. Pour répondre : `POST /api/driver/reviews/{uuid}/reply`. Pour réagir : `PATCH /api/driver/reviews/{uuid}/react`.",
                 "operationId": "driverTripReviews",
                 "parameters": [
                     {
@@ -11913,7 +11829,7 @@
                         "description": "Trajet introuvable"
                     },
                     "409": {
-                        "description": "Le trajet n'est pas encore terminé"
+                        "description": "Le trajet n'est pas terminé"
                     }
                 },
                 "security": [
@@ -11929,13 +11845,13 @@
                     "⭐ Driver — Avis"
                 ],
                 "summary": "Répondre à un avis reçu",
-                "description": "Le conducteur répond à un avis passager. Une notification push est envoyée au passager. Fonctionne depuis la liste globale ou depuis un trajet terminé.",
+                "description": "Le passager reçoit une notification FCM. Fonctionne depuis la liste globale ou depuis un trajet terminé.",
                 "operationId": "driverReviewReply",
                 "parameters": [
                     {
                         "name": "uuid",
                         "in": "path",
-                        "description": "UUID de l'avis (pas du trajet)",
+                        "description": "UUID de l'avis",
                         "required": true,
                         "schema": {
                             "type": "string",
@@ -11953,9 +11869,8 @@
                                 ],
                                 "properties": {
                                     "reply": {
-                                        "description": "Texte libre ou basé sur un reply_template (max 500 caractères)",
                                         "type": "string",
-                                        "example": "Je suis vraiment désolé pour cette expérience. Je ferai mieux la prochaine fois.",
+                                        "example": "Je suis vraiment désolé pour cette expérience.",
                                         "maxLength": 500
                                     }
                                 },
@@ -11982,6 +11897,106 @@
                                         "notification_sent": {
                                             "type": "boolean",
                                             "example": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Non autorisé"
+                    },
+                    "404": {
+                        "description": "Avis introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/driver/reviews/{uuid}/react": {
+            "patch": {
+                "tags": [
+                    "⭐ Driver — Avis"
+                ],
+                "summary": "Réagir à un avis (OK / Contester / Signaler)",
+                "description": "Permet au conducteur d'exprimer une réaction à un avis reçu :\n\n- **`ok`** — Le conducteur accepte l'avis comme juste (icône ✅)\n- **`disputed`** — Le conducteur conteste l'avis (icône ❌) — signalé à l'équipe pour modération\n- **`reported`** — Le conducteur signale l'avis comme abusif ou faux (icône 🚨) — incrémente `report_count`, alerte admin\n- `null` — Réinitialise la réaction (annuler)",
+                "operationId": "driverReviewReact",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de l'avis",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reaction"
+                                ],
+                                "properties": {
+                                    "reaction": {
+                                        "description": "null pour réinitialiser",
+                                        "type": "string",
+                                        "example": "ok",
+                                        "nullable": true,
+                                        "enum": [
+                                            "ok",
+                                            "disputed",
+                                            "reported"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Réaction enregistrée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Réaction enregistrée."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "driver_reaction": {
+                                                    "type": "string",
+                                                    "example": "ok",
+                                                    "nullable": true,
+                                                    "enum": [
+                                                        "ok",
+                                                        "disputed",
+                                                        "reported"
+                                                    ]
+                                                },
+                                                "report_count": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -18815,6 +18830,7 @@
                 "type": "object"
             },
             "DriverReviewItem": {
+                "description": "Avis reçu par le conducteur — inclus dans la liste globale et dans le détail de trajet terminé.",
                 "properties": {
                     "uuid": {
                         "type": "string",
@@ -18839,7 +18855,6 @@
                         "example": "Il y a 2 jours"
                     },
                     "trip_route": {
-                        "description": "null quand appelé depuis GET /driver/trips/{uuid}/reviews (route déjà connue)",
                         "type": "string",
                         "example": "Cotonou → Porto-Novo",
                         "nullable": true
@@ -18853,10 +18868,36 @@
                         "example": "Merci pour votre retour !",
                         "nullable": true
                     },
+                    "driver_reaction": {
+                        "description": "Réaction du conducteur : ok ✅ | disputed ❌ | reported 🚨 | null = pas encore réagi",
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "ok",
+                            "disputed",
+                            "reported"
+                        ]
+                    },
                     "needs_reply": {
-                        "description": "true si le conducteur n'a pas encore répondu",
+                        "description": "true si aucune réponse n'a encore été donnée",
                         "type": "boolean",
                         "example": true
+                    },
+                    "actions": {
+                        "description": "Actions disponibles sur cet avis",
+                        "properties": {
+                            "can_reply": {
+                                "description": "Toujours true — la réponse peut être mise à jour",
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "can_react": {
+                                "description": "Toujours true — la réaction peut être changée",
+                                "type": "boolean",
+                                "example": true
+                            }
+                        },
+                        "type": "object"
                     }
                 },
                 "type": "object"
