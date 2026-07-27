@@ -1363,27 +1363,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification marquée comme lue",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "Notification marquée comme lue." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Notification marquée comme lue"
                     },
                     "404": {
-                        "description": "Non trouvée",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-                            }
-                        }
+                        "description": "Non trouvée"
                     }
                 },
                 "security": [
@@ -1402,19 +1385,7 @@
                 "operationId": "adminNotifMarkAllRead",
                 "responses": {
                     "200": {
-                        "description": "Toutes les notifications marquées comme lues",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "4 notification(s) marquée(s) comme lues." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Toutes les notifications marquées comme lues"
                     }
                 },
                 "security": [
@@ -1444,27 +1415,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification marquée comme traitée",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "Notification marquée comme traitée." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Notification marquée comme traitée"
                     },
                     "404": {
-                        "description": "Non trouvée",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-                            }
-                        }
+                        "description": "Non trouvée"
                     }
                 },
                 "security": [
@@ -5271,7 +5225,7 @@
                     "🗺️ Admin — Trajets"
                 ],
                 "summary": "[ADMIN] Supprimer un trajet",
-                "description": "Supprime définitivement un trajet et annule toutes ses réservations non terminées.\n\n**Règles :**\n- Un trajet `active` (en cours) ne peut pas être supprimé — annulez-le d'abord.\n- Les réservations `pending` et `accepted` sont automatiquement annulées.\n- Les réservations `completed` et les paiements sont conservés pour l'historique.",
+                "description": "Supprime définitivement un trajet et annule toutes ses réservations non terminées.\n\n**Règles :**\n- Un trajet `active` (en cours) ne peut pas être supprimé directement — l'annuler d'abord.\n- Les réservations `pending` et `accepted` sont automatiquement annulées.\n- Les réservations `completed` et les paiements sont conservés pour l'historique.",
                 "operationId": "adminTripDelete",
                 "parameters": [
                     {
@@ -5291,9 +5245,19 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "Trajet supprimé. 2 réservation(s) annulée(s)." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Trajet supprimé. 2 réservation(s) annulée(s)."
+                                        },
+                                        "body": {
+                                            "type": "object",
+                                            "example": null,
+                                            "nullable": true
+                                        }
                                     },
                                     "type": "object"
                                 }
@@ -5304,7 +5268,9 @@
                         "description": "Accès refusé ou trajet en cours",
                         "content": {
                             "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
                             }
                         }
                     },
@@ -5312,7 +5278,9 @@
                         "description": "Trajet introuvable",
                         "content": {
                             "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
                             }
                         }
                     }
@@ -8583,7 +8551,7 @@
                                         "example": "07:00"
                                     },
                                     "estimated_duration_minutes": {
-                                        "description": "Durée estimée en minutes",
+                                        "description": "Durée estimée en minutes (optionnel — backend calcule si absent)",
                                         "type": "integer",
                                         "example": 300,
                                         "nullable": true
@@ -8752,7 +8720,7 @@
                     "🚗 Driver — Ajouter un trajet"
                 ],
                 "summary": "Estimer la distance et la durée d'un trajet",
-                "description": "Retourne la distance en km et la durée estimée en minutes entre deux points. Accepte des coordonnées GPS (prioritaires) ou des noms de villes.",
+                "description": "Retourne la distance en km et la durée estimée en minutes entre deux points.\n\n**Priorité de calcul :**\n1. `ors` — OpenRouteService API (distance routière réelle via GPS)\n2. `gps` — Haversine × 1.3 (GPS disponible mais ORS indisponible)\n3. `city_table` — Table de distances béninoises (noms de villes uniquement)\n\nEnvoyer les coordonnées GPS quand disponibles pour une précision maximale.",
                 "operationId": "driverTripEstimate",
                 "requestBody": {
                     "required": true,
@@ -8826,9 +8794,9 @@
                                                     "nullable": true
                                                 },
                                                 "source": {
-                                                    "description": "gps | city_table | unknown",
+                                                    "description": "ors | gps | city_table | unknown",
                                                     "type": "string",
-                                                    "example": "gps"
+                                                    "example": "ors"
                                                 }
                                             },
                                             "type": "object"
@@ -10513,7 +10481,7 @@
                     "🚗 Driver — Interactive Map"
                 ],
                 "summary": "Données de la carte interactive du trajet en cours",
-                "description": "Retourne en un seul appel tout ce dont la page \"Carte interactive\" a besoin : position conducteur, arrêts ordonnés avec statuts (pending/approaching/done), polyline de route simplifiée, distance, ETA et estimation carburant. Appelé à l'entrée sur la page et à chaque recalcul. La télémétrie GPS temps-réel continue de passer par **POST /api/trips/{uuid}/location**.",
+                "description": "Retourne en un seul appel tout ce dont la page \"Carte interactive\" a besoin : position conducteur, arrêts ordonnés avec statuts (pending/approaching/done), polyline de route simplifiée, distance, ETA et estimation carburant.\n\n**Arrêts :** chaque passager génère 2 arrêts — un `pickup` (prise en charge) et un `dropoff` (dépose). Les coordonnées GPS sont celles enregistrées par le passager lors de sa réservation.\n\n**Mises à jour temps-réel :** la télémétrie GPS continue de passer par **POST /api/trips/{uuid}/location** (toutes les 5s). Ce même endpoint déclenche les notifications FCM d'approche vers les passagers.",
                 "operationId": "driverTripMap",
                 "parameters": [
                     {
@@ -10558,14 +10526,14 @@
                                                     "type": "object"
                                                 },
                                                 "stops": {
-                                                    "description": "Arrêts ordonnés (pickups puis dropoff)",
+                                                    "description": "Arrêts ordonnés : pickups (un par passager) puis dropoffs (un par passager)",
                                                     "type": "array",
                                                     "items": {
                                                         "$ref": "#/components/schemas/MapStop"
                                                     }
                                                 },
                                                 "route_polyline": {
-                                                    "description": "Points de la polyligne (départ → pickups → arrivée)",
+                                                    "description": "Points de la polyligne (départ → pickups → arrivée finale)",
                                                     "type": "array",
                                                     "items": {
                                                         "properties": {
@@ -10607,12 +10575,12 @@
                                                     "example": 3
                                                 },
                                                 "completed_stops": {
-                                                    "description": "Total d'arrêts (pickups + dropoffs) effectués",
+                                                    "description": "Alias de completed_pickups (compatibilité)",
                                                     "type": "integer",
                                                     "example": 1
                                                 },
                                                 "total_stops": {
-                                                    "description": "Total d'arrêts affichés (pickups + dropoffs combinés)",
+                                                    "description": "Total d'arrêts affichés (pickups + dropoffs)",
                                                     "type": "integer",
                                                     "example": 6
                                                 }
@@ -10658,8 +10626,8 @@
                 "tags": [
                     "🚗 Driver — Interactive Map"
                 ],
-                "summary": "Marquer un arrêt comme terminé",
-                "description": "Enregistre la prise en charge d'un passager (pickup) en remplissant `picked_up_at` sur la réservation. Pour le dernier arrêt (dépose finale), utilisez **POST /api/trips/{uuid}/end** pour clôturer le trajet.",
+                "summary": "Marquer un arrêt (pickup) comme terminé",
+                "description": "Enregistre la prise en charge d'un passager en remplissant `picked_up_at` sur la réservation.\n\nEnvoie automatiquement une notification FCM au passager : **\"✅ Vous êtes à bord !\"**\n\nPour terminer le trajet (dernier arrêt / dépose finale), utilisez **POST /api/trips/{uuid}/end**.",
                 "operationId": "driverMarkStopDone",
                 "parameters": [
                     {
@@ -10707,18 +10675,17 @@
                                                     "format": "date-time"
                                                 },
                                                 "next_stop_index": {
+                                                    "description": "Index du prochain arrêt pickup à atteindre",
                                                     "type": "integer",
                                                     "example": 2
                                                 },
                                                 "all_picked_up": {
-                                                    "description": "true si tous les passagers sont à bord",
-                                                    "type": "boolean",
-                                                    "example": false
+                                                    "description": "true = tous les passagers sont à bord, navigation vers la dépose",
+                                                    "type": "boolean"
                                                 },
                                                 "notification_sent": {
-                                                    "description": "true si la notification FCM boarding a été envoyée",
-                                                    "type": "boolean",
-                                                    "example": true
+                                                    "description": "true = notification FCM envoyée au passager",
+                                                    "type": "boolean"
                                                 }
                                             },
                                             "type": "object"
@@ -10763,7 +10730,7 @@
                     "🚗 Driver — Interactive Map"
                 ],
                 "summary": "Recalculer / optimiser l'itinéraire",
-                "description": "Retourne l'itinéraire réoptimisé (arrêts non terminés triés par proximité avec la position actuelle du conducteur). La polyline et les ETAs sont mises à jour en conséquence. Lève le bandeau de confirmation côté Flutter (`showOptimizationBanner = true`).",
+                "description": "Retourne l'itinéraire réoptimisé : les arrêts pickup non terminés sont triés par proximité avec la position actuelle du conducteur (Haversine). Les ETAs sont recalculées en conséquence. Lève le bandeau de confirmation côté Flutter (`showOptimizationBanner = true`).",
                 "operationId": "driverRecalculateRoute",
                 "parameters": [
                     {
@@ -11055,8 +11022,8 @@
                                         },
                                         "body": {
                                             "type": "object",
-                                            "nullable": true,
-                                            "example": null
+                                            "example": null,
+                                            "nullable": true
                                         }
                                     },
                                     "type": "object"
@@ -11107,8 +11074,8 @@
                                         },
                                         "body": {
                                             "type": "object",
-                                            "nullable": true,
-                                            "example": null
+                                            "example": null,
+                                            "nullable": true
                                         }
                                     },
                                     "type": "object"
@@ -13092,7 +13059,45 @@
                 "operationId": "driverWallet",
                 "responses": {
                     "200": {
-                        "description": "Solde récupéré"
+                        "description": "Solde récupéré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Solde du portefeuille."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "available_balance": {
+                                                    "type": "integer",
+                                                    "example": 47500
+                                                },
+                                                "pending_amount": {
+                                                    "type": "integer",
+                                                    "example": 12000
+                                                },
+                                                "total_revenue": {
+                                                    "type": "integer",
+                                                    "example": 85000
+                                                },
+                                                "total_withdrawn": {
+                                                    "type": "integer",
+                                                    "example": 37500
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -13108,7 +13113,7 @@
                     "💳 Driver — Retrait"
                 ],
                 "summary": "Initier un retrait",
-                "description": "Crée une demande de retrait vers un compte MoMo ou bancaire. Montant minimum : 1 000 FCFA.",
+                "description": "Crée une demande de retrait vers un compte **MoMo** (MTN, Moov, Celtiis) ou un compte **bancaire**.\nMontant minimum : **1 000 FCFA**.\n\n**Retrait MoMo** — champs requis : `amount`, `provider` (mtn/moov/celtiis), `phone_number`\n\n**Retrait bancaire** — champs requis : `amount`, `provider` = `bank`, `bank_name`, `account_number`, `account_holder_name`",
                 "operationId": "driverWithdraw",
                 "requestBody": {
                     "required": true,
@@ -13117,16 +13122,16 @@
                             "schema": {
                                 "required": [
                                     "amount",
-                                    "provider",
-                                    "phone_number"
+                                    "provider"
                                 ],
                                 "properties": {
                                     "amount": {
-                                        "description": "Montant en FCFA",
+                                        "description": "Montant en FCFA (min 1 000)",
                                         "type": "integer",
                                         "example": 25000
                                     },
                                     "provider": {
+                                        "description": "Type de compte de réception",
                                         "type": "string",
                                         "example": "mtn",
                                         "enum": [
@@ -13137,8 +13142,24 @@
                                         ]
                                     },
                                     "phone_number": {
+                                        "description": "Numéro MoMo — requis si provider ∈ {mtn, moov, celtiis}",
                                         "type": "string",
                                         "example": "+229 97 00 00 00"
+                                    },
+                                    "bank_name": {
+                                        "description": "Nom de la banque — requis si provider = bank",
+                                        "type": "string",
+                                        "example": "Ecobank"
+                                    },
+                                    "account_number": {
+                                        "description": "IBAN ou numéro de compte — requis si provider = bank",
+                                        "type": "string",
+                                        "example": "BJ0610100400060000001278391"
+                                    },
+                                    "account_holder_name": {
+                                        "description": "Nom du titulaire du compte — requis si provider = bank",
+                                        "type": "string",
+                                        "example": "Jean Dupont"
                                     }
                                 },
                                 "type": "object"
@@ -13148,10 +13169,65 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Retrait initié"
+                        "description": "Retrait initié avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Retrait initié. Traitement sous 24h."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "reference": {
+                                                    "type": "string",
+                                                    "example": "WD-A1B2C3D4E5F6"
+                                                },
+                                                "amount": {
+                                                    "type": "integer",
+                                                    "example": 25000
+                                                },
+                                                "provider": {
+                                                    "type": "string",
+                                                    "example": "mtn"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "pending"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Solde insuffisant ou validation"
+                        "description": "Solde insuffisant ou champs manquants",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Solde insuffisant. Solde disponible : 5 000 FCFA."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -15214,19 +15290,7 @@
                 "operationId": "passengerNotificationsReadAll",
                 "responses": {
                     "200": {
-                        "description": "Toutes marquées comme lues",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "4 notification(s) marquée(s) comme lues." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Toutes marquées comme lues"
                     }
                 },
                 "security": [
@@ -15256,27 +15320,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Marquée comme lue",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "Notification marquée comme lue." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Marquée comme lue"
                     },
                     "404": {
-                        "description": "Introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-                            }
-                        }
+                        "description": "Introuvable"
                     }
                 },
                 "security": [
@@ -15307,27 +15354,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Notification supprimée",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": { "type": "boolean", "example": true },
-                                        "message": { "type": "string", "example": "Notification supprimée." },
-                                        "body": { "type": "object", "nullable": true, "example": null }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Notification supprimée"
                     },
                     "404": {
-                        "description": "Introuvable",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-                            }
-                        }
+                        "description": "Introuvable"
                     }
                 },
                 "security": [
@@ -17551,8 +17581,8 @@
                     "🚗 Driver — Trajets",
                     "🚗 Driver — Interactive Map"
                 ],
-                "summary": "📡 GPS temps-réel — Mettre à jour la position du conducteur (toutes les 5s)",
-                "description": "Appelé par Flutter toutes les **5 secondes** via `Timer.periodic` pendant un trajet actif.\n\nMet à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.\n\n**Détection de proximité (300m) :** si le conducteur est à moins de 300m d'un pickup passager → notification FCM `driver_approaching` envoyée (anti-spam : 1 fois par arrêt, TTL 2h).\n\nRetourne `approaching_stops[]` pour affichage côté conducteur.",
+                "summary": "Mettre à jour la position GPS du conducteur",
+                "description": "Appelé par le device conducteur toutes les **5 secondes** pendant un trajet actif.\n\nMet à jour `current_latitude`, `current_longitude`, `current_speed` et `location_updated_at` sur le trajet.\n\n**Détection de proximité :** si le conducteur est à moins de 300m d'un point de prise en charge (pickup) d'un passager, une notification FCM **\"🚗 Votre conducteur approche !\"** est envoyée automatiquement à ce passager (une seule fois par arrêt par trajet, sonnerie activée).\n\nRetourne `approaching_stops` — liste des arrêts dont la notification vient d'être déclenchée.",
                 "operationId": "tripUpdateLocation",
                 "parameters": [
                     {
@@ -17617,20 +17647,18 @@
                                             "properties": {
                                                 "lat": {
                                                     "type": "number",
-                                                    "example": 6.3703
+                                                    "example": 7.1234
                                                 },
                                                 "lng": {
                                                     "type": "number",
-                                                    "example": 2.3912
+                                                    "example": 2.3456
                                                 },
                                                 "speed": {
-                                                    "description": "Vitesse en km/h (si fournie)",
                                                     "type": "number",
-                                                    "nullable": true,
-                                                    "example": 62.5
+                                                    "nullable": true
                                                 },
                                                 "approaching_stops": {
-                                                    "description": "Passagers dont le pickup est à ≤ 300 m du conducteur (notification FCM envoyée)",
+                                                    "description": "Arrêts dont la notification FCM vient d'être envoyée (vide si aucun)",
                                                     "type": "array",
                                                     "items": {
                                                         "properties": {
@@ -17640,7 +17668,7 @@
                                                             },
                                                             "distance_m": {
                                                                 "type": "integer",
-                                                                "example": 187
+                                                                "example": 245
                                                             }
                                                         },
                                                         "type": "object"
@@ -18076,22 +18104,15 @@
                         "nullable": true
                     },
                     "distance_km": {
-                        "description": "Distance calculée en km",
+                        "description": "Distance routière réelle (ORS) ou approximée (GPS/villes)",
                         "type": "number",
                         "example": 400,
                         "nullable": true
                     },
                     "distance_source": {
-                        "description": "Source utilisée pour calculer la distance",
+                        "description": "ors | gps | city_table | unknown",
                         "type": "string",
-                        "enum": [
-                            "ors",
-                            "gps",
-                            "city_table",
-                            "unknown"
-                        ],
-                        "example": "ors",
-                        "nullable": true
+                        "example": "ors"
                     },
                     "price_per_seat": {
                         "type": "integer"
@@ -18266,10 +18287,10 @@
                 "type": "object"
             },
             "MapStop": {
-                "description": "Arrêt de la carte interactive (pickup ou dropoff final)",
+                "description": "Arrêt de la carte interactive — pickup (prise en charge) ou dropoff (dépose)",
                 "properties": {
                     "id": {
-                        "description": "UUID de la réservation (ou \"{tripUuid}_dropoff\" pour la dépose finale)",
+                        "description": "UUID réservation pour pickups, \"{uuid}_dropoff\" pour dépose",
                         "type": "string"
                     },
                     "type": {
@@ -18292,10 +18313,9 @@
                         "example": "Koffi Mensah"
                     },
                     "passenger_phone": {
-                        "description": "Numéro de téléphone du passager (pour contact direct)",
                         "type": "string",
-                        "nullable": true,
-                        "example": "+22997123456"
+                        "example": "+22961234567",
+                        "nullable": true
                     },
                     "address": {
                         "type": "string",
@@ -18316,7 +18336,8 @@
                                 "example": 2.3912
                             }
                         },
-                        "type": "object"
+                        "type": "object",
+                        "nullable": true
                     }
                 },
                 "type": "object"
