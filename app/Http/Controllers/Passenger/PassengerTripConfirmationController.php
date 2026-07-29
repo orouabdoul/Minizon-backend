@@ -185,7 +185,6 @@ class PassengerTripConfirmationController extends Controller
 
         // Idempotent
         if (! $booking->passenger_confirmed_at) {
-            // Migration requise : ALTER TABLE bookings ADD COLUMN passenger_confirmed_at TIMESTAMP NULL;
             $booking->update(['passenger_confirmed_at' => now()]);
         }
 
@@ -311,15 +310,13 @@ class PassengerTripConfirmationController extends Controller
         }
 
         // Création de l'avis
-        // tags n'est pas dans $fillable du modèle → on assigne manuellement
-        // Migration requise : ALTER TABLE reviews ADD COLUMN tags JSON NULL;
         $review              = new Review();
         $review->trip_id     = $trip->id;
         $review->reviewer_id = $passenger->id;
-        $review->reviewee_id = $trip->user_id;  // conducteur
+        $review->reviewee_id = $trip->user_id;
         $review->rating      = $validated['rating'];
         $review->comment     = $validated['comment'] ?? null;
-        $review->tags        = json_encode($validated['tags'] ?? []);
+        $review->tags        = $validated['tags'] ?? [];
         $review->save();
 
         return $this->apiResponse(true, 'Avis envoyé. Merci !', [

@@ -37,11 +37,13 @@ class Booking extends Model
         'status',
         'payment_status',
         'picked_up_at',
+        'passenger_confirmed_at',
     ];
 
     protected $casts = [
         'seats_booked'           => 'integer',
-        'picked_up_at'           => 'datetime',
+        'picked_up_at'               => 'datetime',
+        'passenger_confirmed_at'     => 'datetime',
         'pickup_latitude'        => 'float',
         'pickup_longitude'       => 'float',
         'dropoff_latitude'       => 'float',

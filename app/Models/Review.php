@@ -17,6 +17,7 @@ class Review extends Model
         'reviewee_id',
         'rating',
         'comment',
+        'tags',
         'driver_reply',
         'driver_reaction',
         'status',
@@ -26,6 +27,7 @@ class Review extends Model
     protected $casts = [
         'rating'       => 'integer',
         'report_count' => 'integer',
+        'tags'         => 'array',
     ];
 
     protected static function boot(): void
