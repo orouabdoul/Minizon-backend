@@ -109,16 +109,16 @@ class PassengerPaymentSuccessController extends Controller
             ->orderByDesc('created_at')
             ->first();
 
-        // Référence affichée (FedaPay transaction id ou fallback sur l'ID booking)
+        // Référence affichée
         $transactionRef = $payment
-            ? 'TXN-' . strtoupper(substr((string) ($payment->transaction_id ?? $payment->id), 0, 8))
+            ? 'TXN-' . strtoupper(substr((string) ($payment->transaction_reference ?? $payment->uuid), 0, 12))
             : 'TXN-' . strtoupper(substr($booking->uuid, 0, 8));
 
-        $seats       = (int) $booking->seats_booked;
+        $seats        = (int) $booking->seats_booked;
         $pricePerSeat = (int) ($trip?->price_per_seat ?? 0);
-        $base        = $pricePerSeat * $seats;
-        $fee         = (int) round($base * 0.10);
-        $amountPaid  = $payment ? (int) $payment->amount : $base + $fee;
+        $base         = $pricePerSeat * $seats;
+        $fee          = (int) round($base * 0.10);
+        $amountPaid   = $payment ? (int) $payment->gross_amount : $base + $fee;
 
         $formattedAmount = number_format($amountPaid, 0, ',', ' ') . ' FCFA';
 
