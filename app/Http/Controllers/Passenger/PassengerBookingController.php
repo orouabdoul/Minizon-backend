@@ -271,7 +271,8 @@ class PassengerBookingController extends Controller
         }
 
         $trip        = $booking->trip;
-        $grossAmount = (int) $trip->price_per_seat * (int) $booking->seats_booked;
+        // calculated_price = prix proraté par distance (par place) — cf. GeoHelper::calculatePassengerPrice
+        $grossAmount = (int) $booking->calculated_price * (int) $booking->seats_booked;
         $commission  = (int) round($grossAmount * self::COMMISSION_RATE);
         $netAmount   = $grossAmount - $commission;
 

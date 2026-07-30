@@ -114,11 +114,10 @@ class PassengerPaymentSuccessController extends Controller
             ? 'TXN-' . strtoupper(substr((string) ($payment->transaction_reference ?? $payment->uuid), 0, 12))
             : 'TXN-' . strtoupper(substr($booking->uuid, 0, 8));
 
-        $seats        = (int) $booking->seats_booked;
-        $pricePerSeat = (int) ($trip?->price_per_seat ?? 0);
-        $base         = $pricePerSeat * $seats;
-        $fee          = (int) round($base * 0.10);
-        $amountPaid   = $payment ? (int) $payment->gross_amount : $base + $fee;
+        $seats      = (int) $booking->seats_booked;
+        $amountPaid = $payment
+            ? (int) $payment->gross_amount
+            : (int) $booking->calculated_price * $seats;
 
         $formattedAmount = number_format($amountPaid, 0, ',', ' ') . ' FCFA';
 
