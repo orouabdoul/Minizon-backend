@@ -130,9 +130,11 @@ class PassengerWaitingApprovalController extends Controller
             ? round((float) $driver->reviewsReceived()->avg('rating') ?? 0, 1)
             : 0.0;
 
-        $pricePerSeat = (int) ($trip?->price_per_seat ?? 0);
-        $seats        = (int) $booking->seats_booked;
-        $totalPrice   = number_format($pricePerSeat * $seats, 0, ',', ' ') . ' FCFA';
+        $seats = (int) $booking->seats_booked;
+
+        // Utiliser le prix proraté du passager (calculé à la réservation), pas le prix plein
+        $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
+        $totalPrice      = number_format($calculatedPrice * $seats, 0, ',', ' ') . ' FCFA';
 
         $depTime = $trip?->departure_time?->setTimezone($tz);
 

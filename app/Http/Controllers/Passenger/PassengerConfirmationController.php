@@ -131,18 +131,23 @@ class PassengerConfirmationController extends Controller
         $rawPhone   = $user->phone ?? '';
         $localPhone = preg_replace('/^\+?229/', '', $rawPhone);
 
-        // Distance estimée depuis la durée (approximation si pas de champ dédié)
+        // Distance réelle du trajet (champ direct sur le Trip)
+        // Fallback Haversine si le champ n'est pas renseigné
         $distanceKm = null;
-        if ($trip->estimated_duration_minutes) {
-            $estimatedKm = round($trip->estimated_duration_minutes / 60 * 50);
-            $distanceKm  = $estimatedKm . ' km';
+        if ($trip->distance_km && (float) $trip->distance_km > 0) {
+            $distanceKm = (string) round((float) $trip->distance_km, 1);
+        } elseif ($trip->departure_latitude && $trip->arrival_latitude) {
+            $distanceKm = (string) round(\App\Helpers\GeoHelper::haversineKm(
+                (float) $trip->departure_latitude, (float) $trip->departure_longitude,
+                (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
+            ), 1);
         }
 
         return $this->apiResponse(true, 'Contexte de confirmation.', [
             'trip' => [
                 'uuid'            => $trip->uuid,
                 'available_seats' => (int) $trip->available_seats,
-                'max_per_booking' => (int) ($trip->max_per_booking ?? $trip->available_seats),
+                'max_per_booking' => (int) ($trip->max_per_booking ?? 0),
                 'price_per_seat'  => (int) $trip->price_per_seat,
                 'booking_mode'    => $trip->booking_mode ?? 'approval',
                 'distance_km'     => $distanceKm,
