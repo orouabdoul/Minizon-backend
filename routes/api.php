@@ -25,6 +25,13 @@ Route::get('ping', fn () => response()->json([
 require __DIR__ . '/api/auth.php';
 require __DIR__ . '/api/chat.php';
 require __DIR__ . '/api/trips.php';
+require __DIR__ . '/api/bookings.php';
+require __DIR__ . '/api/payments.php';
+
+// Routes sandbox (local/test uniquement — jamais en production)
+if (! app()->isProduction()) {
+    require __DIR__ . '/api/sandbox.php';
+}
 
 
 // ── Driver (conducteur) — par page ────────────────────────────────────────
