@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
+    private const SERVICE_FEE_RATE = 0.05;
+
     // =========================================================================
     //  POST /api/trips/{uuid}/bookings
     // =========================================================================
@@ -20,7 +22,7 @@ class BookingController extends Controller
     public function store(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'seats_booked'         => ['required', 'integer', 'min:1', 'max:10'],
+            'seats_booked'         => ['required', 'integer', 'min:1'],
             'pickup_city'          => ['required', 'string', 'max:100'],
             'pickup_neighborhood'  => ['required', 'string', 'max:100'],
             'pickup_address'       => ['required', 'string', 'max:500'],
@@ -51,17 +53,6 @@ class BookingController extends Controller
 
         if ($trip->available_seats < $seatsRequested) {
             return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
-        }
-
-        $existing = Booking::where('trip_id', $trip->id)
-            ->where('passenger_id', $request->user()->id)
-            ->whereNotIn('status', ['rejected', 'cancelled'])
-            ->first();
-
-        if ($existing) {
-            return $this->apiResponse(false, 'Vous avez déjà une réservation active pour ce trajet.', [
-                'booking_uuid' => $existing->uuid,
-            ], 409);
         }
 
         // ── Calcul distance passager → prix proraté ────────────────────────────
@@ -110,11 +101,17 @@ class BookingController extends Controller
 
         $this->notifyDriver($trip, $booking);
 
+        $priceSubtotal = $calculatedPrice * $seatsRequested;
+        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
+        $priceTotal    = $priceSubtotal + $serviceFee;
+
         return $this->apiResponse(true, 'Réservation créée.', [
             'booking_uuid'          => $booking->uuid,
             'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'price_total'           => (int) $trip->price_per_seat * $seatsRequested,
-            'calculated_price'      => $calculatedPrice,
+            'calculated_price'      => $calculatedPrice,       // prix proraté par place
+            'price_subtotal'        => $priceSubtotal,         // sous-total (places × prix proraté)
+            'service_fee'           => $serviceFee,            // frais de service 5%
+            'price_total'           => $priceTotal,            // montant total à payer
             'passenger_distance_km' => round($passengerDistanceKm, 2),
             'trip_distance_km'      => round($tripDistanceKm, 2),
         ], 201);

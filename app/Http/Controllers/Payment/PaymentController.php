@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    private const COMMISSION_RATE = 0.10;
+    private const SERVICE_FEE_RATE = 0.05;
 
     // =========================================================================
     //  POST /api/bookings/{uuid}/pay
@@ -55,9 +55,10 @@ class PaymentController extends Controller
 
         // ── Montant basé sur le prix proraté (distance passager) × places ─────
         // calculated_price = GeoHelper::calculatePassengerPrice() enregistré à la réservation
-        $grossAmount = (int) $booking->calculated_price * (int) $booking->seats_booked;
-        $commission  = (int) round($grossAmount * self::COMMISSION_RATE);
-        $netAmount   = $grossAmount - $commission;
+        $priceSubtotal = (int) $booking->calculated_price * (int) $booking->seats_booked;
+        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE); // 5% frais de service
+        $grossAmount   = $priceSubtotal + $serviceFee; // montant total débité au passager
+        $netAmount     = $priceSubtotal;               // montant reversé au conducteur
 
         // ── Profil passager pour FedaPay ──────────────────────────────────────
         $passenger = $request->user()->load('profile');
@@ -133,9 +134,9 @@ class PaymentController extends Controller
                 'user_id'               => $request->user()->id,
                 'provider'              => $validated['provider'],
                 'phone_number'          => $validated['phone_number'],
-                'gross_amount'          => $grossAmount,
-                'commission_amount'     => $commission,
-                'net_amount'            => $netAmount,
+                'gross_amount'          => $grossAmount,   // sous-total + frais 5%
+                'commission_amount'     => $serviceFee,    // frais de service Minizon
+                'net_amount'            => $netAmount,     // part reversée au conducteur
                 'status'                => 'pending',
                 'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
                 'transaction_reference' => $txnRef,
@@ -144,19 +145,23 @@ class PaymentController extends Controller
         });
 
         Log::info('FedaPay payment initiated', [
-            'booking_uuid' => $booking->uuid,
-            'payment_uuid' => $payment->uuid,
-            'fedapay_id'   => $fedaTx->id,
-            'amount'       => $grossAmount,
+            'booking_uuid'  => $booking->uuid,
+            'payment_uuid'  => $payment->uuid,
+            'fedapay_id'    => $fedaTx->id,
+            'price_subtotal'=> $priceSubtotal,
+            'service_fee'   => $serviceFee,
+            'amount_total'  => $grossAmount,
         ]);
 
         return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
-            'payment_uuid' => $payment->uuid,
-            'booking_uuid' => $booking->uuid,
-            'amount'       => $grossAmount,
-            'status'       => 'pending',
-            'payment_url'  => $paymentUrl,
-            'fedapay_id'   => $fedaTx->id ?? null,
+            'payment_uuid'   => $payment->uuid,
+            'booking_uuid'   => $booking->uuid,
+            'price_subtotal' => $priceSubtotal,  // sous-total (sans frais)
+            'service_fee'    => $serviceFee,     // frais de service 5%
+            'amount'         => $grossAmount,    // total débité (avec frais)
+            'status'         => 'pending',
+            'payment_url'    => $paymentUrl,
+            'fedapay_id'     => $fedaTx->id ?? null,
         ]);
     }
 

@@ -132,9 +132,11 @@ class PassengerWaitingApprovalController extends Controller
 
         $seats = (int) $booking->seats_booked;
 
-        // Utiliser le prix proraté du passager (calculé à la réservation), pas le prix plein
+        // Prix proraté × places + frais de service 5%
         $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
-        $totalPrice      = number_format($calculatedPrice * $seats, 0, ',', ' ') . ' FCFA';
+        $priceSubtotal   = $calculatedPrice * $seats;
+        $serviceFee      = (int) round($priceSubtotal * 0.05);
+        $totalPrice      = number_format($priceSubtotal + $serviceFee, 0, ',', ' ') . ' FCFA';
 
         $depTime = $trip?->departure_time?->setTimezone($tz);
 

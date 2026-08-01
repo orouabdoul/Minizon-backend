@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Passenger\PassengerBookingController;
 use App\Http\Controllers\Passenger\PassengerConfirmationController;
 use App\Http\Controllers\Passenger\PassengerLiveTrackingController;
 use App\Http\Controllers\Passenger\PassengerTripDetailController;
@@ -26,20 +25,4 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
 
 });
 
-// ── Réservation & Paiement ────────────────────────────────────────────────────
-
-Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
-
-    // Créer une réservation (bookNow)
-    Route::post('trips/{uuid}/bookings', [PassengerBookingController::class, 'store'])
-        ->name('passenger.bookings.store');
-
-    // Initier le paiement Mobile Money FedaPay
-    Route::post('bookings/{uuid}/pay', [PassengerBookingController::class, 'pay'])
-        ->name('passenger.bookings.pay');
-
-    // Annuler une réservation (depuis ReservationView ou DetailJourneyView)
-    Route::post('bookings/{uuid}/cancel', [PassengerBookingController::class, 'cancel'])
-        ->name('passenger.bookings.cancel');
-
-});
+// Réservation & Paiement → voir routes/api/bookings.php et routes/api/payments.php

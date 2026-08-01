@@ -29,7 +29,7 @@ use OpenApi\Attributes as OA;
  */
 class PassengerConfirmationController extends Controller
 {
-    private const COMMISSION_RATE = 10;
+    private const COMMISSION_RATE = 5;
 
     private const PAYMENT_METHODS = [
         [
@@ -147,7 +147,7 @@ class PassengerConfirmationController extends Controller
             'trip' => [
                 'uuid'            => $trip->uuid,
                 'available_seats' => (int) $trip->available_seats,
-                'max_per_booking' => (int) ($trip->max_per_booking ?? 0),
+                'max_per_booking' => 0, // 0 = pas de cap, Flutter utilise available_seats comme seule limite
                 'price_per_seat'  => (int) $trip->price_per_seat,
                 'booking_mode'    => $trip->booking_mode ?? 'approval',
                 'distance_km'     => $distanceKm,
