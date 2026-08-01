@@ -53,14 +53,14 @@ class PaymentController extends Controller
 
         $trip = $booking->trip;
 
-        // ── Montant basé sur le prix proraté persisté à la réservation ──────────
+        // ── Montant basé sur les frais persistés à la réservation ─────────────
+        // service_fee est stocké sur la réservation lors de sa création pour cohérence
         $priceSubtotal = (int) $booking->calculated_price * (int) $booking->seats_booked;
-        // Lire service_fee depuis la réservation (verrouillé au moment de la réservation)
         $serviceFee    = (int) ($booking->service_fee > 0
             ? $booking->service_fee
-            : round($priceSubtotal * self::SERVICE_FEE_RATE)); // fallback si ancienne réservation sans service_fee
-        $grossAmount   = $priceSubtotal + $serviceFee; // montant total débité au passager
-        $netAmount     = $priceSubtotal;               // montant reversé au conducteur
+            : round($priceSubtotal * self::SERVICE_FEE_RATE)); // fallback ancienne réservation
+        $grossAmount   = $priceSubtotal + $serviceFee; // total débité au passager
+        $netAmount     = $priceSubtotal;               // part reversée au conducteur
 
         // ── Profil passager pour FedaPay ──────────────────────────────────────
         $passenger = $request->user()->load('profile');
@@ -124,7 +124,7 @@ class PaymentController extends Controller
         $txnRef = 'TXN-' . strtoupper(substr(str_replace('-', '', (string) Str::uuid()), 0, 12));
 
         $payment = DB::transaction(function () use (
-            $booking, $validated, $grossAmount, $commission, $netAmount, $request, $fedaTx, $txnRef
+            $booking, $validated, $grossAmount, $serviceFee, $netAmount, $request, $fedaTx, $txnRef
         ) {
             // Supprimer l'éventuel paiement pending précédent pour cette réservation
             Payment::where('booking_id', $booking->id)
@@ -136,9 +136,9 @@ class PaymentController extends Controller
                 'user_id'               => $request->user()->id,
                 'provider'              => $validated['provider'],
                 'phone_number'          => $validated['phone_number'],
-                'gross_amount'          => $grossAmount,   // sous-total + frais 5%
-                'commission_amount'     => $serviceFee,    // frais de service Minizon
-                'net_amount'            => $netAmount,     // part reversée au conducteur
+                'gross_amount'          => $grossAmount,    // sous-total + frais 5%
+                'commission_amount'     => $serviceFee,     // frais de service Minizon
+                'net_amount'            => $netAmount,      // part reversée au conducteur
                 'status'                => 'pending',
                 'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
                 'transaction_reference' => $txnRef,
@@ -147,20 +147,20 @@ class PaymentController extends Controller
         });
 
         Log::info('FedaPay payment initiated', [
-            'booking_uuid'  => $booking->uuid,
-            'payment_uuid'  => $payment->uuid,
-            'fedapay_id'    => $fedaTx->id,
-            'price_subtotal'=> $priceSubtotal,
-            'service_fee'   => $serviceFee,
-            'amount_total'  => $grossAmount,
+            'booking_uuid'   => $booking->uuid,
+            'payment_uuid'   => $payment->uuid,
+            'fedapay_id'     => $fedaTx->id,
+            'price_subtotal' => $priceSubtotal,
+            'service_fee'    => $serviceFee,
+            'amount_total'   => $grossAmount,
         ]);
 
         return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
             'payment_uuid'   => $payment->uuid,
             'booking_uuid'   => $booking->uuid,
             'price_subtotal' => $priceSubtotal,  // sous-total (sans frais)
-            'service_fee'    => $serviceFee,     // frais de service 5%
-            'amount'         => $grossAmount,    // total débité (avec frais)
+            'service_fee'    => $serviceFee,      // frais de service 5%
+            'amount'         => $grossAmount,     // total débité (avec frais)
             'status'         => 'pending',
             'payment_url'    => $paymentUrl,
             'fedapay_id'     => $fedaTx->id ?? null,

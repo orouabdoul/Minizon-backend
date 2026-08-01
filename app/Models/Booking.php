@@ -33,6 +33,7 @@ class Booking extends Model
         // Prix calculé automatiquement (Haversine)
         'passenger_distance_km',
         'calculated_price',
+        'service_fee',
 
         'status',
         'payment_status',
@@ -41,15 +42,16 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'seats_booked'           => 'integer',
-        'picked_up_at'               => 'datetime',
-        'passenger_confirmed_at'     => 'datetime',
-        'pickup_latitude'        => 'float',
-        'pickup_longitude'       => 'float',
-        'dropoff_latitude'       => 'float',
-        'dropoff_longitude'      => 'float',
-        'passenger_distance_km'  => 'float',
-        'calculated_price'       => 'integer',
+        'seats_booked'          => 'integer',
+        'picked_up_at'          => 'datetime',
+        'passenger_confirmed_at'=> 'datetime',
+        'pickup_latitude'       => 'float',
+        'pickup_longitude'      => 'float',
+        'dropoff_latitude'      => 'float',
+        'dropoff_longitude'     => 'float',
+        'passenger_distance_km' => 'float',
+        'calculated_price'      => 'integer',
+        'service_fee'           => 'integer',
     ];
 
     protected static function boot(): void
@@ -106,4 +108,10 @@ class Booking extends Model
     public function isRejected(): bool  { return $this->status === 'rejected'; }
     public function isCancelled(): bool { return $this->status === 'cancelled'; }
     public function isPaid(): bool      { return $this->payment_status === 'escrow_locked'; }
+
+    // Prix total payé par le passager (calculé_price × places + frais service)
+    public function totalAmount(): int
+    {
+        return ($this->calculated_price * $this->seats_booked) + ($this->service_fee ?? 0);
+    }
 }

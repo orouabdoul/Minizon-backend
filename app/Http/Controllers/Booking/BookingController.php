@@ -73,7 +73,15 @@ class BookingController extends Controller
             (int) $trip->price_per_seat
         );
 
-        $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested, $passengerDistanceKm, $calculatedPrice) {
+        // Frais calculés avant la transaction pour être persistés dans la réservation
+        $priceSubtotal = $calculatedPrice * $seatsRequested;
+        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
+        $priceTotal    = $priceSubtotal + $serviceFee;
+
+        $booking = DB::transaction(function () use (
+            $trip, $request, $validated, $seatsRequested,
+            $passengerDistanceKm, $calculatedPrice, $serviceFee
+        ) {
             $booking = Booking::create([
                 'trip_id'               => $trip->id,
                 'passenger_id'          => $request->user()->id,
@@ -90,6 +98,7 @@ class BookingController extends Controller
                 'dropoff_longitude'     => $validated['dropoff_longitude'],
                 'passenger_distance_km' => round($passengerDistanceKm, 2),
                 'calculated_price'      => $calculatedPrice,
+                'service_fee'           => $serviceFee,
                 'status'                => 'pending',
                 'payment_status'        => 'unpaid',
             ]);
@@ -101,17 +110,13 @@ class BookingController extends Controller
 
         $this->notifyDriver($trip, $booking);
 
-        $priceSubtotal = $calculatedPrice * $seatsRequested;
-        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
-        $priceTotal    = $priceSubtotal + $serviceFee;
-
         return $this->apiResponse(true, 'Réservation créée.', [
             'booking_uuid'          => $booking->uuid,
             'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'calculated_price'      => $calculatedPrice,       // prix proraté par place
-            'price_subtotal'        => $priceSubtotal,         // sous-total (places × prix proraté)
-            'service_fee'           => $serviceFee,            // frais de service 5%
-            'price_total'           => $priceTotal,            // montant total à payer
+            'calculated_price'      => $calculatedPrice,   // prix proraté par place
+            'price_subtotal'        => $priceSubtotal,     // sous-total (places × prix proraté)
+            'service_fee'           => $serviceFee,        // frais de service 5%
+            'price_total'           => $priceTotal,        // montant total à payer
             'passenger_distance_km' => round($passengerDistanceKm, 2),
             'trip_distance_km'      => round($tripDistanceKm, 2),
         ], 201);
@@ -138,6 +143,7 @@ class BookingController extends Controller
             'payment_status'        => $b->payment_status,
             'seats_booked'          => $b->seats_booked,
             'calculated_price'      => $b->calculated_price,
+            'service_fee'           => $b->service_fee,
             'passenger_distance_km' => $b->passenger_distance_km,
             'trip_uuid'             => $b->trip?->uuid,
             'origin'                => $b->trip?->departure_city,
@@ -172,6 +178,7 @@ class BookingController extends Controller
                 'payment_status'        => $booking->payment_status,
                 'seats_booked'          => $booking->seats_booked,
                 'calculated_price'      => $booking->calculated_price,
+                'service_fee'           => $booking->service_fee,
                 'passenger_distance_km' => $booking->passenger_distance_km,
                 'pickup_address'        => $booking->pickup_address,
                 'dropoff_address'       => $booking->dropoff_address,
