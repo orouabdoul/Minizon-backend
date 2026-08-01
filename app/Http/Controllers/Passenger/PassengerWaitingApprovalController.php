@@ -132,10 +132,12 @@ class PassengerWaitingApprovalController extends Controller
 
         $seats = (int) $booking->seats_booked;
 
-        // Prix proraté × places + frais de service 5%
+        // Prix proraté × places + frais de service (lus depuis la réservation)
         $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
         $priceSubtotal   = $calculatedPrice * $seats;
-        $serviceFee      = (int) round($priceSubtotal * 0.05);
+        $serviceFee      = (int) ($booking->service_fee > 0
+            ? $booking->service_fee
+            : round($priceSubtotal * 0.05)); // fallback ancienne réservation
         $totalPrice      = number_format($priceSubtotal + $serviceFee, 0, ',', ' ') . ' FCFA';
 
         $depTime = $trip?->departure_time?->setTimezone($tz);

@@ -53,10 +53,12 @@ class PaymentController extends Controller
 
         $trip = $booking->trip;
 
-        // ── Montant basé sur le prix proraté (distance passager) × places ─────
-        // calculated_price = GeoHelper::calculatePassengerPrice() enregistré à la réservation
+        // ── Montant basé sur le prix proraté persisté à la réservation ──────────
         $priceSubtotal = (int) $booking->calculated_price * (int) $booking->seats_booked;
-        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE); // 5% frais de service
+        // Lire service_fee depuis la réservation (verrouillé au moment de la réservation)
+        $serviceFee    = (int) ($booking->service_fee > 0
+            ? $booking->service_fee
+            : round($priceSubtotal * self::SERVICE_FEE_RATE)); // fallback si ancienne réservation sans service_fee
         $grossAmount   = $priceSubtotal + $serviceFee; // montant total débité au passager
         $netAmount     = $priceSubtotal;               // montant reversé au conducteur
 
