@@ -245,10 +245,14 @@ class PassengerReservationController extends Controller
         $passengerName = trim(($passengerProfile?->first_name ?? '') . ' ' . ($passengerProfile?->last_name ?? '')) ?: 'Passager';
         $driverName    = trim(($driverProfile?->first_name ?? '') . ' ' . ($driverProfile?->last_name ?? '')) ?: 'Conducteur';
 
-        $payment      = $booking->payment;
-        $pricePerSeat = (int) ($trip->price_per_seat ?? 0);
-        $seats        = (int) $booking->seats_booked;
-        $totalAmount  = $payment ? (int) $payment->gross_amount : $pricePerSeat * $seats;
+        $payment         = $booking->payment;
+        $seats           = (int) $booking->seats_booked;
+        $calculatedPrice = (int) ($booking->calculated_price ?? $trip->price_per_seat ?? 0);
+        $subtotal        = $calculatedPrice * $seats;
+        $serviceFee      = (int) ($booking->service_fee > 0
+            ? $booking->service_fee
+            : round($subtotal * 0.05));
+        $totalAmount     = $payment ? (int) $payment->gross_amount : $subtotal + $serviceFee;
 
         $providerLabels = [
             'mtn'    => 'MTN Mobile Money',
@@ -267,7 +271,9 @@ class PassengerReservationController extends Controller
             'route'          => ($trip->departure_city ?? '—') . ' → ' . ($trip->arrival_city ?? '—'),
             'departure_date' => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
             'seats'          => $seats,
-            'price_per_seat' => number_format($pricePerSeat, 0, ',', ' ') . ' FCFA',
+            'price_per_seat' => number_format($calculatedPrice, 0, ',', ' ') . ' FCFA',
+            'price_subtotal' => number_format($subtotal, 0, ',', ' ') . ' FCFA',
+            'service_fee'    => number_format($serviceFee, 0, ',', ' ') . ' FCFA',
             'total_amount'   => number_format($totalAmount, 0, ',', ' ') . ' FCFA',
             'payment_method' => $paymentMethod,
             'transaction_ref'=> $payment?->transaction_reference ?? $payment?->provider_reference ?? '—',
@@ -368,11 +374,16 @@ class PassengerReservationController extends Controller
         // ── Statut Flutter ────────────────────────────────────────────────
         $flutterStatus = $this->deriveStatus($booking);
 
-        // ── Prix ──────────────────────────────────────────────────────────
-        $seats  = (int) $booking->seats_booked;
+        // ── Prix (proraté passager + frais service 5%) ────────────────────
+        $seats           = (int) $booking->seats_booked;
+        $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
+        $subtotal        = $calculatedPrice * $seats;
+        $serviceFee      = (int) ($booking->service_fee > 0
+            ? $booking->service_fee
+            : round($subtotal * 0.05));
         $amount = $payment
             ? (int) $payment->gross_amount
-            : ((int) ($trip?->price_per_seat ?? 0)) * $seats;
+            : $subtotal + $serviceFee;
 
         // ── Dates ─────────────────────────────────────────────────────────
         $depTime = $trip?->departure_time?->setTimezone($tz);
