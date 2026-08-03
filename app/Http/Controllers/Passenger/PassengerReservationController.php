@@ -287,35 +287,86 @@ class PassengerReservationController extends Controller
 
     #[OA\Schema(
         schema: 'PassengerReservationItem',
-        description: 'Correspond au modèle Flutter `ReservationItem`.',
+        description: 'Correspond au modèle Flutter `ReservationItem`. Contient tous les champs nécessaires à l\'affichage liste + détail.',
         properties: [
-            new OA\Property(property: 'uuid',              type: 'string',  format: 'uuid'),
-            new OA\Property(property: 'conversation_uuid', type: 'string',  format: 'uuid', nullable: true, description: 'UUID de la conversation conducteur–passager liée à cette réservation. null si pas encore de conversation initiée.'),
-            new OA\Property(property: 'status',            type: 'string',  enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], description: 'Statut dérivé pour le Flutter — combinaison booking.status + trip.status.'),
-            new OA\Property(property: 'is_paid',           type: 'boolean', example: true),
-            new OA\Property(property: 'cancel_reason',    type: 'string',  nullable: true),
-            new OA\Property(property: 'time_ago',         type: 'string',  example: 'il y a 2h'),
-            new OA\Property(property: 'driver_name',      type: 'string',  example: 'Koffi Adjovi'),
-            new OA\Property(property: 'driver_initials',  type: 'string',  example: 'KA'),
-            new OA\Property(property: 'rating',           type: 'number',  format: 'float', example: 4.8),
-            new OA\Property(property: 'review_count',     type: 'string',  example: '247 avis'),
-            new OA\Property(property: 'total_price',        type: 'string',  example: '1 575 FCFA'),
-            new OA\Property(property: 'seats_count',        type: 'integer', example: 1),
-            new OA\Property(property: 'departure_city',     type: 'string',  example: 'Cotonou',        description: 'Ville de prise en charge du passager (booking.pickup_city)'),
-            new OA\Property(property: 'departure_note',     type: 'string',  example: 'Cadjehoun',      description: 'Quartier de prise en charge (booking.pickup_neighborhood)'),
-            new OA\Property(property: 'departure_address',  type: 'string',  example: 'Face pharmacie', description: 'Adresse exacte de prise en charge (booking.pickup_address)'),
-            new OA\Property(property: 'arrival_city',       type: 'string',  example: 'Abomey-Calavi',  description: 'Ville de dépose du passager (booking.dropoff_city)'),
-            new OA\Property(property: 'arrival_note',       type: 'string',  example: 'Godomey',        description: 'Quartier de dépose (booking.dropoff_neighborhood)'),
-            new OA\Property(property: 'arrival_address',    type: 'string',  example: 'Carrefour',      description: 'Adresse exacte de dépose (booking.dropoff_address)'),
-            new OA\Property(property: 'trip_origin',        type: 'string',  example: 'Cotonou',        description: 'Ville de départ du trajet complet (info conducteur)'),
-            new OA\Property(property: 'trip_destination',   type: 'string',  example: 'Parakou',        description: 'Ville d\'arrivée du trajet complet (info conducteur)'),
-            new OA\Property(property: 'departure_time',   type: 'string',  example: '08h30'),
-            new OA\Property(property: 'departure_date',   type: 'string',  example: 'Sam. 05/07'),
-            new OA\Property(property: 'vehicle',          type: 'string',  example: 'Toyota Corolla'),
-            new OA\Property(property: 'vehicle_plate',    type: 'string',  example: 'AB-123-CD'),
-            new OA\Property(property: 'eta_minutes',      type: 'integer', nullable: true, example: 12),
-            new OA\Property(property: 'has_rated',        type: 'boolean', example: false),
-            new OA\Property(property: 'refund_status',    type: 'string',  enum: ['none', 'pending', 'refunded', 'rejected']),
+            // ── Identifiants ──────────────────────────────────────────────
+            new OA\Property(property: 'uuid',               type: 'string', format: 'uuid'),
+            new OA\Property(property: 'booking_ref',        type: 'string', example: 'BK-1A2B3C4D',    description: 'Référence courte affichée en monospace.'),
+            new OA\Property(property: 'trip_uuid',          type: 'string', format: 'uuid', nullable: true),
+            new OA\Property(property: 'conversation_uuid',  type: 'string', format: 'uuid', nullable: true),
+
+            // ── Statut & paiement ─────────────────────────────────────────
+            new OA\Property(property: 'status',         type: 'string', enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']),
+            new OA\Property(property: 'is_paid',        type: 'boolean', example: true),
+            new OA\Property(property: 'payment_status', type: 'string',  example: 'escrow_locked'),
+            new OA\Property(property: 'payment_ref',    type: 'string',  nullable: true, example: 'TXN-A1B2C3D4E5F6'),
+            new OA\Property(property: 'cancel_reason',  type: 'string',  nullable: true),
+            new OA\Property(property: 'time_ago',       type: 'string',  example: 'il y a 2h'),
+            new OA\Property(property: 'created_at',     type: 'string',  format: 'date-time', nullable: true),
+
+            // ── Conducteur ────────────────────────────────────────────────
+            new OA\Property(property: 'driver_name',        type: 'string',  example: 'Koffi Adjovi'),
+            new OA\Property(property: 'driver_initials',    type: 'string',  example: 'KA'),
+            new OA\Property(property: 'rating',             type: 'number',  format: 'float', example: 4.8),
+            new OA\Property(property: 'review_count',       type: 'integer', example: 247),
+            new OA\Property(property: 'review_count_label', type: 'string',  example: '247 avis'),
+
+            // ── Prix & commissions ────────────────────────────────────────
+            new OA\Property(property: 'seats_count',    type: 'integer', example: 1),
+            new OA\Property(property: 'total_price',    type: 'string',  example: '630 FCFA', description: 'Montant total formaté (affiché côté passager).'),
+            new OA\Property(
+                property: 'price_breakdown',
+                type: 'object',
+                description: 'Détail complet du prix pour l\'écran de détail.',
+                properties: [
+                    new OA\Property(property: 'calculated_price_per_seat',     type: 'integer', example: 600),
+                    new OA\Property(property: 'calculated_price_per_seat_fmt', type: 'string',  example: '600 FCFA'),
+                    new OA\Property(property: 'seats',                         type: 'integer', example: 1),
+                    new OA\Property(property: 'subtotal',                      type: 'integer', example: 600),
+                    new OA\Property(property: 'subtotal_fmt',                  type: 'string',  example: '600 FCFA'),
+                    new OA\Property(property: 'service_fee',                   type: 'integer', example: 30),
+                    new OA\Property(property: 'service_fee_fmt',               type: 'string',  example: '30 FCFA'),
+                    new OA\Property(property: 'service_fee_pct',               type: 'string',  example: '5%'),
+                    new OA\Property(property: 'total',                         type: 'integer', example: 630),
+                    new OA\Property(property: 'total_fmt',                     type: 'string',  example: '630 FCFA'),
+                    new OA\Property(property: 'driver_commission',             type: 'integer', example: 60),
+                    new OA\Property(property: 'driver_commission_fmt',         type: 'string',  example: '60 FCFA'),
+                    new OA\Property(property: 'driver_commission_pct',         type: 'string',  example: '10%'),
+                    new OA\Property(property: 'driver_payout',                 type: 'integer', example: 540),
+                    new OA\Property(property: 'driver_payout_fmt',             type: 'string',  example: '540 FCFA'),
+                ]
+            ),
+            new OA\Property(property: 'passenger_distance_km', type: 'number', format: 'float', nullable: true, example: 127.4),
+
+            // ── Prise en charge passager ──────────────────────────────────
+            new OA\Property(property: 'departure_city',      type: 'string',  example: 'Cotonou'),
+            new OA\Property(property: 'departure_note',      type: 'string',  example: 'Akpakpa'),
+            new OA\Property(property: 'departure_address',   type: 'string',  example: 'Face pharmacie du centre'),
+            new OA\Property(property: 'departure_latitude',  type: 'number',  format: 'float', nullable: true, example: 6.3654),
+            new OA\Property(property: 'departure_longitude', type: 'number',  format: 'float', nullable: true, example: 2.4183),
+
+            // ── Dépose passager ───────────────────────────────────────────
+            new OA\Property(property: 'arrival_city',        type: 'string',  example: 'Abomey-Calavi'),
+            new OA\Property(property: 'arrival_note',        type: 'string',  example: 'Godomey'),
+            new OA\Property(property: 'arrival_address',     type: 'string',  example: 'Carrefour étoile'),
+            new OA\Property(property: 'arrival_latitude',    type: 'number',  format: 'float', nullable: true, example: 6.45),
+            new OA\Property(property: 'arrival_longitude',   type: 'number',  format: 'float', nullable: true, example: 2.35),
+
+            // ── Trajet complet ────────────────────────────────────────────
+            new OA\Property(property: 'trip_origin',      type: 'string', example: 'Cotonou'),
+            new OA\Property(property: 'trip_destination', type: 'string', example: 'Parakou'),
+
+            // ── Horaires & véhicule ───────────────────────────────────────
+            new OA\Property(property: 'departure_time',     type: 'string',  example: '08h30'),
+            new OA\Property(property: 'departure_date',     type: 'string',  example: 'Sam. 05/07'),
+            new OA\Property(property: 'departure_datetime', type: 'string',  format: 'date-time', nullable: true),
+            new OA\Property(property: 'vehicle',            type: 'string',  example: 'Toyota Corolla'),
+            new OA\Property(property: 'vehicle_plate',      type: 'string',  example: 'AB-123-CD'),
+
+            // ── En cours / après trajet ───────────────────────────────────
+            new OA\Property(property: 'eta_minutes',    type: 'integer', nullable: true, example: 12),
+            new OA\Property(property: 'has_rated',      type: 'boolean', example: false),
+            new OA\Property(property: 'refund_status',  type: 'string',  enum: ['none', 'pending', 'refunded', 'rejected']),
         ]
     )]
     private function schemaPlaceholder(): void {}
@@ -378,16 +429,15 @@ class PassengerReservationController extends Controller
         // ── Statut Flutter ────────────────────────────────────────────────
         $flutterStatus = $this->deriveStatus($booking);
 
-        // ── Prix (proraté passager + frais service 5%) ────────────────────
-        $seats           = (int) $booking->seats_booked;
-        $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
-        $subtotal        = $calculatedPrice * $seats;
-        $serviceFee      = (int) ($booking->service_fee > 0
-            ? $booking->service_fee
-            : round($subtotal * 0.05));
-        $amount = $payment
-            ? (int) $payment->gross_amount
-            : $subtotal + $serviceFee;
+        // ── Prix ──────────────────────────────────────────────────────────
+        $seats            = (int) $booking->seats_booked;
+        $calculatedPrice  = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
+        $base             = $calculatedPrice * $seats;
+        $serviceFee       = (int) ($booking->service_fee > 0 ? $booking->service_fee : round($base * 0.05));
+        $driverCommission = (int) round($base * 0.10);
+        $driverPayout     = $base - $driverCommission;
+        $totalPriceRaw    = $booking->total_price ?: ($base + $serviceFee);
+        $amount           = $payment ? (int) $payment->gross_amount : $totalPriceRaw;
 
         // ── Dates ─────────────────────────────────────────────────────────
         $depTime = $trip?->departure_time?->setTimezone($tz);
@@ -422,35 +472,81 @@ class PassengerReservationController extends Controller
         }
 
         return [
+            // ── Identifiants ──────────────────────────────────────────────
             'uuid'              => $booking->uuid,
+            'booking_ref'       => 'BK-' . strtoupper(substr(str_replace('-', '', $booking->uuid), 0, 8)),
+            'trip_uuid'         => $trip?->uuid,
             'conversation_uuid' => $conversationByBooking->get($booking->id),
+
+            // ── Statut & paiement ─────────────────────────────────────────
             'status'            => $flutterStatus,
             'is_paid'           => $booking->payment_status === 'escrow_locked',
+            'payment_status'    => $booking->payment_status,
+            'payment_ref'       => $payment?->transaction_reference,
             'cancel_reason'     => null,
-            'time_ago'        => $this->relativeTime($booking->created_at),
-            'driver_name'     => $driverName,
-            'driver_initials' => $initials ?: '??',
-            'rating'          => $rating,
-            'review_count'    => $reviewCount . ' avis',
-            'total_price'        => number_format($amount, 0, ',', ' ') . ' FCFA',
-            'seats_count'        => $seats,
-            // Points passager (pickup/dropoff de la réservation, pas le trajet complet)
-            'departure_city'     => $booking->pickup_city    ?: ($trip?->departure_city ?? '—'),
-            'departure_note'     => $booking->pickup_neighborhood ?: ($trip?->departure_neighborhood ?? ''),
-            'departure_address'  => $booking->pickup_address  ?: '',
-            'arrival_city'       => $booking->dropoff_city   ?: ($trip?->arrival_city ?? '—'),
-            'arrival_note'       => $booking->dropoff_neighborhood ?: ($trip?->arrival_neighborhood ?? ''),
-            'arrival_address'    => $booking->dropoff_address ?: '',
-            // Villes du trajet complet (pour info conducteur)
-            'trip_origin'        => $trip?->departure_city ?? '—',
-            'trip_destination'   => $trip?->arrival_city   ?? '—',
-            'departure_time'  => $depTime?->format('H\hi') ?? '—',
-            'departure_date'  => $depTime?->translatedFormat('D. d/m') ?? '—',
-            'vehicle'         => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
-            'vehicle_plate'   => $vehicle?->license_plate ?? '—',
-            'eta_minutes'     => $etaMinutes,
-            'has_rated'       => $hasRated,
-            'refund_status'   => $refundStatus,
+            'time_ago'          => $this->relativeTime($booking->created_at),
+            'created_at'        => $booking->created_at?->setTimezone('Africa/Porto-Novo')->toIso8601String(),
+
+            // ── Conducteur ────────────────────────────────────────────────
+            'driver_name'       => $driverName,
+            'driver_initials'   => $initials ?: '??',
+            'rating'            => $rating,
+            'review_count'      => $reviewCount,
+            'review_count_label'=> $reviewCount . ' avis',
+
+            // ── Prix & détail commission ──────────────────────────────────
+            'seats_count'       => $seats,
+            'total_price'       => number_format($amount, 0, ',', ' ') . ' FCFA',
+            'price_breakdown'   => [
+                'calculated_price_per_seat'     => $calculatedPrice,
+                'calculated_price_per_seat_fmt' => number_format($calculatedPrice, 0, ',', ' ') . ' FCFA',
+                'seats'                         => $seats,
+                'subtotal'                      => $base,
+                'subtotal_fmt'                  => number_format($base, 0, ',', ' ') . ' FCFA',
+                'service_fee'                   => $serviceFee,
+                'service_fee_fmt'               => number_format($serviceFee, 0, ',', ' ') . ' FCFA',
+                'service_fee_pct'               => '5%',
+                'total'                         => $totalPriceRaw,
+                'total_fmt'                     => number_format($totalPriceRaw, 0, ',', ' ') . ' FCFA',
+                'driver_commission'             => $driverCommission,
+                'driver_commission_fmt'         => number_format($driverCommission, 0, ',', ' ') . ' FCFA',
+                'driver_commission_pct'         => '10%',
+                'driver_payout'                 => $driverPayout,
+                'driver_payout_fmt'             => number_format($driverPayout, 0, ',', ' ') . ' FCFA',
+            ],
+            'passenger_distance_km' => $booking->passenger_distance_km,
+
+            // ── Points prise en charge passager ───────────────────────────
+            'departure_city'        => $booking->pickup_city    ?: ($trip?->departure_city ?? '—'),
+            'departure_note'        => $booking->pickup_neighborhood ?: ($trip?->departure_neighborhood ?? ''),
+            'departure_address'     => $booking->pickup_address  ?: '',
+            'departure_latitude'    => $booking->pickup_latitude,
+            'departure_longitude'   => $booking->pickup_longitude,
+
+            // ── Points dépose passager ────────────────────────────────────
+            'arrival_city'          => $booking->dropoff_city   ?: ($trip?->arrival_city ?? '—'),
+            'arrival_note'          => $booking->dropoff_neighborhood ?: ($trip?->arrival_neighborhood ?? ''),
+            'arrival_address'       => $booking->dropoff_address ?: '',
+            'arrival_latitude'      => $booking->dropoff_latitude,
+            'arrival_longitude'     => $booking->dropoff_longitude,
+
+            // ── Trajet complet (infos conducteur) ─────────────────────────
+            'trip_origin'           => $trip?->departure_city ?? '—',
+            'trip_destination'      => $trip?->arrival_city   ?? '—',
+
+            // ── Horaires & véhicule ───────────────────────────────────────
+            'departure_time'        => $depTime?->format('H\hi') ?? '—',
+            'departure_date'        => $depTime?->translatedFormat('D. d/m') ?? '—',
+            'departure_datetime'    => $depTime?->toIso8601String(),
+            'vehicle'               => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
+            'vehicle_plate'         => $vehicle?->license_plate ?? '—',
+
+            // ── En cours ──────────────────────────────────────────────────
+            'eta_minutes'           => $etaMinutes,
+
+            // ── Après trajet ──────────────────────────────────────────────
+            'has_rated'             => $hasRated,
+            'refund_status'         => $refundStatus,
         ];
     }
 

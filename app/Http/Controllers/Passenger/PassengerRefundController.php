@@ -121,7 +121,7 @@ class PassengerRefundController extends Controller
             ? $trip->departure_time->setTimezone($tz)->translatedFormat('D. d/m \à H\hi')
             : '—';
 
-        $amount          = $payment ? (int) $payment->gross_amount : ($trip ? (int) $trip->price_per_seat : 0);
+        $amount          = $payment ? (int) $payment->gross_amount : (int) $booking->total_price;
         $formattedAmount = number_format($amount, 0, ',', ' ') . ' FCFA';
 
         $transactionRef = $payment?->transaction_reference
@@ -252,7 +252,7 @@ class PassengerRefundController extends Controller
             ->whereNotIn('status', ['disputed', 'resolved_driver', 'resolved_passenger'])
             ->update(['status' => 'disputed']);
 
-        $amount = $booking->payment ? (int) $booking->payment->gross_amount : 0;
+        $amount = $booking->payment ? (int) $booking->payment->gross_amount : (int) $booking->total_price;
 
         return $this->apiResponse(true, 'Demande de remboursement soumise. Traitement sous 3–7 jours ouvrables.', [
             'refund_uuid'     => $dispute->uuid,
@@ -343,7 +343,7 @@ class PassengerRefundController extends Controller
         $booking = $dispute->booking;
         $trip    = $booking?->trip;
         $payment = $booking?->payment;
-        $amount  = $payment ? (int) $payment->gross_amount : 0;
+        $amount  = $payment ? (int) $payment->gross_amount : (int) $booking?->total_price;
 
         $tz = 'Africa/Porto-Novo';
 

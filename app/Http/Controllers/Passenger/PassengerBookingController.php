@@ -18,11 +18,11 @@ use OpenApi\Attributes as OA;
 
 class PassengerBookingController extends Controller
 {
-    private const COMMISSION_RATE = 0.10;
+    private const SERVICE_FEE_RATE  = 0.05;  // +5%  ajouté au passager
+    private const DRIVER_COMMISSION = 0.10;  // -10% prélevé sur la part conducteur
 
     // =========================================================================
     //  POST /api/trips/{uuid}/bookings
-    //  Créer une réservation
     // =========================================================================
 
     #[OA\Post(
@@ -72,17 +72,18 @@ class PassengerBookingController extends Controller
                             properties: [
                                 new OA\Property(property: 'booking_uuid',           type: 'string',  format: 'uuid'),
                                 new OA\Property(property: 'booking_mode',           type: 'string',  enum: ['instant', 'approval'], example: 'approval'),
-                                new OA\Property(property: 'price_total',            type: 'integer', example: 1500, description: 'Prix total conducteur (seats × price_per_seat)'),
-                                new OA\Property(property: 'calculated_price',       type: 'integer', example: 950,  description: 'Prix automatique calculé selon la distance du passager (XOF)'),
-                                new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4, description: 'Distance passager calculée par Haversine (km)'),
-                                new OA\Property(property: 'trip_distance_km',       type: 'number',  format: 'float', example: 420.0, description: 'Distance totale du trajet principal (km)'),
+                                new OA\Property(property: 'price_total',            type: 'integer', example: 630,  description: 'Montant total à payer (base + 5% service fee)'),
+                                new OA\Property(property: 'calculated_price',       type: 'integer', example: 600,  description: 'Prix proraté par place selon distance (XOF)'),
+                                new OA\Property(property: 'service_fee',            type: 'integer', example: 30,   description: 'Frais de service Minizon 5% ajoutés au passager (XOF)'),
+                                new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4),
+                                new OA\Property(property: 'trip_distance_km',       type: 'number',  format: 'float', example: 420.0),
                             ]
                         ),
                     ]
                 )
             ),
-            new OA\Response(response: 404, description: 'Trajet introuvable',                          content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 409, description: 'Réservation déjà existante sur ce trajet',   content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Trajet introuvable',                             content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'Réservation déjà existante sur ce trajet',      content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 422, description: 'Places insuffisantes ou trajet non réservable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
@@ -122,7 +123,6 @@ class PassengerBookingController extends Controller
             return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
         }
 
-        // Doublon — une réservation active existe déjà
         $existing = Booking::where('trip_id', $trip->id)
             ->where('passenger_id', $request->user()->id)
             ->whereNotIn('status', ['rejected', 'cancelled'])
@@ -134,7 +134,7 @@ class PassengerBookingController extends Controller
             ], 409);
         }
 
-        // ── Calcul de la distance et du prix automatique ─────────────────────
+        // ── Calcul distance & prix ────────────────────────────────────────────
         $passengerDistanceKm = GeoHelper::haversineKm(
             $validated['pickup_latitude'],  $validated['pickup_longitude'],
             $validated['dropoff_latitude'], $validated['dropoff_longitude']
@@ -151,7 +151,14 @@ class PassengerBookingController extends Controller
             (int) $trip->price_per_seat
         );
 
-        $booking = DB::transaction(function () use ($trip, $request, $validated, $seatsRequested, $passengerDistanceKm, $calculatedPrice) {
+        $base       = $calculatedPrice * $seatsRequested;
+        $serviceFee = (int) round($base * self::SERVICE_FEE_RATE);
+        $totalPrice = $base + $serviceFee;
+
+        $booking = DB::transaction(function () use (
+            $trip, $request, $validated, $seatsRequested,
+            $passengerDistanceKm, $calculatedPrice, $serviceFee, $totalPrice
+        ) {
             $booking = Booking::create([
                 'trip_id'              => $trip->id,
                 'passenger_id'         => $request->user()->id,
@@ -168,24 +175,25 @@ class PassengerBookingController extends Controller
                 'dropoff_longitude'    => $validated['dropoff_longitude'],
                 'passenger_distance_km'=> round($passengerDistanceKm, 2),
                 'calculated_price'     => $calculatedPrice,
+                'service_fee'          => $serviceFee,
+                'total_price'          => $totalPrice,
                 'status'               => 'pending',
                 'payment_status'       => 'unpaid',
             ]);
 
-            // Bloquer les places immédiatement pour éviter la surréservation
             $trip->decrement('available_seats', $seatsRequested);
 
             return $booking;
         });
 
-        // Notifier le conducteur d'une nouvelle demande
         $this->notifyDriver($trip, $booking);
 
         return $this->apiResponse(true, 'Réservation créée.', [
             'booking_uuid'          => $booking->uuid,
             'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'price_total'           => (int) $trip->price_per_seat * $seatsRequested,
+            'price_total'           => $totalPrice,
             'calculated_price'      => $calculatedPrice,
+            'service_fee'           => $serviceFee,
             'passenger_distance_km' => round($passengerDistanceKm, 2),
             'trip_distance_km'      => round($tripDistanceKm, 2),
         ], 201);
@@ -193,7 +201,6 @@ class PassengerBookingController extends Controller
 
     // =========================================================================
     //  POST /api/bookings/{uuid}/pay
-    //  Initier le paiement Mobile Money (FedaPay)
     // =========================================================================
 
     #[OA\Post(
@@ -230,17 +237,17 @@ class PassengerBookingController extends Controller
                             properties: [
                                 new OA\Property(property: 'payment_uuid', type: 'string', format: 'uuid'),
                                 new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
-                                new OA\Property(property: 'amount',       type: 'integer', example: 1500),
+                                new OA\Property(property: 'amount',       type: 'integer', example: 630, description: 'Montant débité au passager (base + 5%)'),
                                 new OA\Property(property: 'status',       type: 'string',  example: 'pending'),
-                                new OA\Property(property: 'payment_url',  type: 'string',  example: 'https://checkout.fedapay.com/payment-page/...', description: 'URL FedaPay à ouvrir en WebView Flutter pour que le passager valide sur son téléphone Mobile Money.'),
+                                new OA\Property(property: 'payment_url',  type: 'string',  example: 'https://checkout.fedapay.com/...'),
                                 new OA\Property(property: 'fedapay_id',   type: 'integer', nullable: true, example: 12345),
                             ]
                         ),
                     ]
                 )
             ),
-            new OA\Response(response: 404, description: 'Réservation introuvable',        content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-            new OA\Response(response: 409, description: 'Paiement déjà effectué',         content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Réservation introuvable',              content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'Paiement déjà effectué',               content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
             new OA\Response(response: 422, description: 'Réservation non éligible au paiement', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ]
     )]
@@ -270,11 +277,18 @@ class PassengerBookingController extends Controller
             return $this->apiResponse(false, 'Cette réservation a été annulée ou refusée.', [], 422);
         }
 
-        $trip        = $booking->trip;
-        // calculated_price = prix proraté par distance (par place) — cf. GeoHelper::calculatePassengerPrice
-        $grossAmount = (int) $booking->calculated_price * (int) $booking->seats_booked;
-        $commission  = (int) round($grossAmount * self::COMMISSION_RATE);
-        $netAmount   = $grossAmount - $commission;
+        $trip = $booking->trip;
+
+        // base = prix proraté × places (sans frais)
+        $base             = (int) $booking->calculated_price * (int) $booking->seats_booked;
+        // Passager paie base + 5% service fee
+        $grossAmount      = $booking->total_price ?: ($base + ($booking->service_fee ?? 0));
+        // Minizon prélève 10% sur la part conducteur
+        $driverCommission = (int) round($base * self::DRIVER_COMMISSION);
+        // Conducteur reçoit 90% du base
+        $netAmount        = $base - $driverCommission;
+        // Commission totale Minizon = service_fee (5% passager) + 10% conducteur
+        $commissionAmount = ($booking->service_fee ?? 0) + $driverCommission;
 
         // ── Profil du passager pour FedaPay ──────────────────────────────────
         $passenger = $request->user()->load('profile');
@@ -283,11 +297,9 @@ class PassengerBookingController extends Controller
         $lastName  = $profile?->last_name  ?? '';
         $email     = $profile?->email      ?? ($passenger->phone . '@minizon.app');
 
-        // ── Initialiser FedaPay ───────────────────────────────────────────────
         FedaPay::setApiKey(config('fedapay.secret_key'));
         FedaPay::setEnvironment(config('fedapay.environment'));
 
-        // ── Créer la transaction FedaPay ──────────────────────────────────────
         try {
             $fedaTx = FedaTransaction::create([
                 'description'  => "Réservation Minizon — {$trip->departure_city} → {$trip->arrival_city}",
@@ -305,60 +317,47 @@ class PassengerBookingController extends Controller
                 ],
             ]);
         } catch (\Throwable $e) {
-            Log::error('FedaPay transaction create failed', [
-                'booking_uuid' => $booking->uuid,
-                'error'        => $e->getMessage(),
-            ]);
+            Log::error('FedaPay transaction create failed', ['booking_uuid' => $booking->uuid, 'error' => $e->getMessage()]);
             return $this->apiResponse(false, 'Impossible d\'initier le paiement. Réessayez.', [], 502);
         }
 
-        // ── Générer le token de paiement FedaPay (URL checkout Mobile Money) ──
         try {
             $tokenObj   = $fedaTx->generateToken();
             $paymentUrl = $tokenObj->url;
         } catch (\FedaPay\Error\Base $e) {
             Log::error('FedaPay generateToken failed', [
-                'booking_uuid'  => $booking->uuid,
-                'fedapay_id'    => $fedaTx->id ?? null,
-                'http_status'   => $e->getHttpStatus(),
-                'feda_message'  => $e->getErrorMessage(),
-                'feda_errors'   => $e->getErrors(),
+                'booking_uuid' => $booking->uuid,
+                'fedapay_id'   => $fedaTx->id ?? null,
+                'http_status'  => $e->getHttpStatus(),
+                'feda_message' => $e->getErrorMessage(),
+                'feda_errors'  => $e->getErrors(),
             ]);
             return $this->apiResponse(false, 'Impossible de générer le lien de paiement. Réessayez.', [
                 'detail' => $e->getErrorMessage() ?: $e->getMessage(),
             ], 502);
         } catch (\Throwable $e) {
-            Log::error('FedaPay generateToken unexpected error', [
-                'booking_uuid' => $booking->uuid,
-                'error'        => $e->getMessage(),
-            ]);
+            Log::error('FedaPay generateToken unexpected error', ['booking_uuid' => $booking->uuid, 'error' => $e->getMessage()]);
             return $this->apiResponse(false, 'Erreur inattendue lors de la génération du paiement.', [], 502);
         }
 
-        // ── Persister le paiement en base (pending jusqu'au webhook) ─────────
         $txnRef = 'TXN-' . strtoupper(substr(str_replace('-', '', (string) Str::uuid()), 0, 12));
 
         $payment = DB::transaction(function () use (
-            $booking, $validated, $grossAmount, $commission, $netAmount, $request, $fedaTx, $txnRef
+            $booking, $validated, $grossAmount, $commissionAmount, $netAmount, $request, $fedaTx, $txnRef
         ) {
-            $payment = Payment::create([
+            return Payment::create([
                 'booking_id'            => $booking->id,
                 'user_id'               => $request->user()->id,
                 'provider'              => $validated['provider'],
                 'phone_number'          => $validated['phone_number'],
                 'gross_amount'          => $grossAmount,
-                'commission_amount'     => $commission,
+                'commission_amount'     => $commissionAmount,
                 'net_amount'            => $netAmount,
                 'status'                => 'pending',
                 'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
                 'transaction_reference' => $txnRef,
                 'provider_reference'    => (string) ($fedaTx->id ?? ''),
             ]);
-
-            // Le booking passe en escrow_locked seulement après confirmation webhook
-            // Pour l'instant on garde unpaid — le webhook mettra à jour
-
-            return $payment;
         });
 
         return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
@@ -373,7 +372,6 @@ class PassengerBookingController extends Controller
 
     // =========================================================================
     //  POST /api/bookings/{uuid}/cancel
-    //  Annuler une réservation (depuis le passager)
     // =========================================================================
 
     #[OA\Post(
@@ -411,11 +409,9 @@ class PassengerBookingController extends Controller
         }
 
         DB::transaction(function () use ($booking) {
-            // Remettre les places disponibles si la réservation était acceptée
             if ($booking->status === 'accepted' && $booking->trip) {
                 $booking->trip->increment('available_seats', $booking->seats_booked);
             }
-
             $booking->update(['status' => 'cancelled']);
         });
 
@@ -424,7 +420,7 @@ class PassengerBookingController extends Controller
         return $this->apiResponse(true, 'Réservation annulée.');
     }
 
-    // -------------------------------------------------------------------------
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
     {
@@ -451,8 +447,6 @@ class PassengerBookingController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Throwable) {
-            // non-bloquant
-        }
+        } catch (\Throwable) {}
     }
 }

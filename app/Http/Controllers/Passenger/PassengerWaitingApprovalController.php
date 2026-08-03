@@ -132,30 +132,53 @@ class PassengerWaitingApprovalController extends Controller
 
         $seats = (int) $booking->seats_booked;
 
-        // Prix proraté × places + frais de service (lus depuis la réservation)
-        $calculatedPrice = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
-        $priceSubtotal   = $calculatedPrice * $seats;
-        $serviceFee      = (int) ($booking->service_fee > 0
-            ? $booking->service_fee
-            : round($priceSubtotal * 0.05)); // fallback ancienne réservation
-        $totalPrice      = number_format($priceSubtotal + $serviceFee, 0, ',', ' ') . ' FCFA';
+        $calculatedPrice  = (int) ($booking->calculated_price ?? $trip?->price_per_seat ?? 0);
+        $base             = $calculatedPrice * $seats;
+        $serviceFee       = (int) ($booking->service_fee > 0 ? $booking->service_fee : round($base * 0.05));
+        $totalPriceRaw    = $booking->total_price ?: ($base + $serviceFee);
 
         $depTime = $trip?->departure_time?->setTimezone($tz);
 
         return $this->apiResponse(true, 'Statut de la réservation.', [
-            'booking_uuid'         => $booking->uuid,
-            'status'               => $flutterStatus,
-            'reserved_seats'       => $seats,
-            'total_timeout_seconds'=> self::APPROVAL_TIMEOUT_SECONDS,
-            'timeout_at'           => $timeoutAt,
-            'seconds_remaining'    => $secondsRemaining,
-            'ride'                 => [
-                'origin'         => $trip?->departure_city ?? '—',
-                'destination'    => $trip?->arrival_city   ?? '—',
-                'departure_time' => $depTime?->format('H\hi') ?? '—',
-                'driver_name'    => $driverName,
-                'rating'         => $rating > 0 ? (string) $rating : '—',
-                'price'          => $totalPrice,
+            'booking_uuid'          => $booking->uuid,
+            'booking_ref'           => 'BK-' . strtoupper(substr(str_replace('-', '', $booking->uuid), 0, 8)),
+            'status'                => $flutterStatus,
+            'reserved_seats'        => $seats,
+            'total_timeout_seconds' => self::APPROVAL_TIMEOUT_SECONDS,
+            'timeout_at'            => $timeoutAt,
+            'seconds_remaining'     => $secondsRemaining,
+
+            // ── Résumé trajet + prix pour la carte ────────────────────────
+            'ride' => [
+                // Trajet complet
+                'origin'             => $trip?->departure_city ?? '—',
+                'destination'        => $trip?->arrival_city   ?? '—',
+                'departure_time'     => $depTime?->format('H\hi') ?? '—',
+                'departure_date'     => $depTime?->translatedFormat('D. d/m') ?? '—',
+                // Conducteur
+                'driver_name'        => $driverName,
+                'rating'             => $rating > 0 ? (string) $rating : '—',
+                // Points passager
+                'pickup_city'        => $booking->pickup_city        ?? '—',
+                'pickup_neighborhood'=> $booking->pickup_neighborhood ?? '',
+                'pickup_address'     => $booking->pickup_address      ?? '',
+                'dropoff_city'       => $booking->dropoff_city        ?? '—',
+                'dropoff_neighborhood'=> $booking->dropoff_neighborhood ?? '',
+                'dropoff_address'    => $booking->dropoff_address     ?? '',
+                'passenger_distance_km' => $booking->passenger_distance_km,
+                // Prix
+                'price'              => number_format($totalPriceRaw, 0, ',', ' ') . ' FCFA',
+                'price_breakdown'    => [
+                    'calculated_price_per_seat' => $calculatedPrice,
+                    'seats'                     => $seats,
+                    'subtotal'                  => $base,
+                    'subtotal_fmt'              => number_format($base, 0, ',', ' ') . ' FCFA',
+                    'service_fee'               => $serviceFee,
+                    'service_fee_fmt'           => number_format($serviceFee, 0, ',', ' ') . ' FCFA',
+                    'service_fee_pct'           => '5%',
+                    'total'                     => $totalPriceRaw,
+                    'total_fmt'                 => number_format($totalPriceRaw, 0, ',', ' ') . ' FCFA',
+                ],
             ],
         ]);
     }

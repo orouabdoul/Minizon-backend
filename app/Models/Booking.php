@@ -34,6 +34,7 @@ class Booking extends Model
         'passenger_distance_km',
         'calculated_price',
         'service_fee',
+        'total_price',
 
         'status',
         'payment_status',
@@ -52,6 +53,7 @@ class Booking extends Model
         'passenger_distance_km' => 'float',
         'calculated_price'      => 'integer',
         'service_fee'           => 'integer',
+        'total_price'           => 'integer',
     ];
 
     protected static function boot(): void

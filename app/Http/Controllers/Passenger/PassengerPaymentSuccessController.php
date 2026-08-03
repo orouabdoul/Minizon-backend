@@ -114,10 +114,14 @@ class PassengerPaymentSuccessController extends Controller
             ? 'TXN-' . strtoupper(substr((string) ($payment->transaction_reference ?? $payment->uuid), 0, 12))
             : 'TXN-' . strtoupper(substr($booking->uuid, 0, 8));
 
-        $seats      = (int) $booking->seats_booked;
-        $amountPaid = $payment
-            ? (int) $payment->gross_amount
-            : (int) $booking->calculated_price * $seats;
+        $seats            = (int) $booking->seats_booked;
+        $calculatedPrice  = (int) ($booking->calculated_price ?? 0);
+        $base             = $calculatedPrice * $seats;
+        $serviceFee       = (int) ($booking->service_fee > 0 ? $booking->service_fee : round($base * 0.05));
+        $driverCommission = (int) round($base * 0.10);
+        $driverPayout     = $base - $driverCommission;
+        $totalPriceRaw    = $booking->total_price ?: ($base + $serviceFee);
+        $amountPaid       = $payment ? (int) $payment->gross_amount : $totalPriceRaw;
 
         $formattedAmount = number_format($amountPaid, 0, ',', ' ') . ' FCFA';
 
@@ -164,12 +168,46 @@ class PassengerPaymentSuccessController extends Controller
         ];
 
         return $this->apiResponse(true, 'Récapitulatif du paiement.', [
+            // ── Transaction ───────────────────────────────────────────────
             'transaction_ref'   => $transactionRef,
+            'booking_ref'       => 'BK-' . strtoupper(substr(str_replace('-', '', $booking->uuid), 0, 8)),
             'amount_paid'       => $amountPaid,
             'formatted_amount'  => $formattedAmount,
+
+            // ── Détail prix & commissions ─────────────────────────────────
+            'price_breakdown'   => [
+                'calculated_price_per_seat'     => $calculatedPrice,
+                'calculated_price_per_seat_fmt' => number_format($calculatedPrice, 0, ',', ' ') . ' FCFA',
+                'seats'                         => $seats,
+                'subtotal'                      => $base,
+                'subtotal_fmt'                  => number_format($base, 0, ',', ' ') . ' FCFA',
+                'service_fee'                   => $serviceFee,
+                'service_fee_fmt'               => number_format($serviceFee, 0, ',', ' ') . ' FCFA',
+                'service_fee_pct'               => '5%',
+                'total'                         => $amountPaid,
+                'total_fmt'                     => $formattedAmount,
+                'driver_commission'             => $driverCommission,
+                'driver_commission_fmt'         => number_format($driverCommission, 0, ',', ' ') . ' FCFA',
+                'driver_commission_pct'         => '10%',
+                'driver_payout'                 => $driverPayout,
+                'driver_payout_fmt'             => number_format($driverPayout, 0, ',', ' ') . ' FCFA',
+            ],
+
+            // ── Conducteur & contact ──────────────────────────────────────
             'driver_phone'      => $driverPhone,
             'conversation_uuid' => $conversation?->uuid,
             'reserved_seats'    => $seats,
+
+            // ── Points passager ───────────────────────────────────────────
+            'pickup_city'           => $booking->pickup_city        ?? '—',
+            'pickup_neighborhood'   => $booking->pickup_neighborhood ?? '',
+            'pickup_address'        => $booking->pickup_address      ?? '',
+            'dropoff_city'          => $booking->dropoff_city        ?? '—',
+            'dropoff_neighborhood'  => $booking->dropoff_neighborhood ?? '',
+            'dropoff_address'       => $booking->dropoff_address     ?? '',
+            'passenger_distance_km' => $booking->passenger_distance_km,
+
+            // ── Trajet ────────────────────────────────────────────────────
             'ride'              => $ride,
         ]);
     }
