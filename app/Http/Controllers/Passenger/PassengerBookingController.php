@@ -206,8 +206,8 @@ class PassengerBookingController extends Controller
     #[OA\Post(
         path: '/api/bookings/{uuid}/pay',
         operationId: 'passengerBookingPay',
-        summary: 'Initier le paiement Mobile Money',
-        description: 'Crée le paiement en escrow via FedaPay (MTN / Moov / Celtiis). La réservation passe en `escrow_locked` après succès.',
+        summary: 'Initier le paiement (MoMo ou Carte bancaire)',
+        description: "Crée le paiement en escrow via FedaPay. Supports :\n- **MTN / Moov / Celtiis** → `phone_number` requis, paiement push MoMo\n- **card** → `phone_number` non requis, paiement via page checkout FedaPay (WebView)\n\nDans tous les cas, `payment_url` est retourné — ouvrir en WebView Flutter pour finaliser.",
         tags: ['👤 Passenger — Réservations'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -216,17 +216,29 @@ class PassengerBookingController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['provider', 'phone_number'],
+                required: ['provider'],
                 properties: [
-                    new OA\Property(property: 'provider',     type: 'string',  enum: ['mtn', 'moov', 'celtiis'], example: 'mtn'),
-                    new OA\Property(property: 'phone_number', type: 'string',  example: '97000000', description: 'Numéro local béninois (8 chiffres sans indicatif)'),
+                    new OA\Property(
+                        property: 'provider',
+                        type: 'string',
+                        enum: ['mtn', 'moov', 'celtiis', 'card'],
+                        example: 'mtn',
+                        description: 'Mode de paiement. `card` = carte bancaire via checkout FedaPay.'
+                    ),
+                    new OA\Property(
+                        property: 'phone_number',
+                        type: 'string',
+                        nullable: true,
+                        example: '97000000',
+                        description: 'Requis pour mtn/moov/celtiis. Non requis pour card. Format : 8–12 chiffres sans indicatif.'
+                    ),
                 ]
             )
         ),
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'Paiement initié — escrow en attente de validation conducteur',
+                description: 'Paiement initié',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
@@ -235,12 +247,14 @@ class PassengerBookingController extends Controller
                             property: 'body',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'payment_uuid', type: 'string', format: 'uuid'),
-                                new OA\Property(property: 'booking_uuid', type: 'string', format: 'uuid'),
-                                new OA\Property(property: 'amount',       type: 'integer', example: 630, description: 'Montant débité au passager (base + 5%)'),
-                                new OA\Property(property: 'status',       type: 'string',  example: 'pending'),
-                                new OA\Property(property: 'payment_url',  type: 'string',  example: 'https://checkout.fedapay.com/...'),
-                                new OA\Property(property: 'fedapay_id',   type: 'integer', nullable: true, example: 12345),
+                                new OA\Property(property: 'payment_uuid',    type: 'string',  format: 'uuid'),
+                                new OA\Property(property: 'booking_uuid',    type: 'string',  format: 'uuid'),
+                                new OA\Property(property: 'amount',          type: 'integer', example: 630, description: 'Montant total débité au passager (XOF)'),
+                                new OA\Property(property: 'provider',        type: 'string',  example: 'mtn'),
+                                new OA\Property(property: 'status',          type: 'string',  example: 'pending'),
+                                new OA\Property(property: 'payment_url',     type: 'string',  example: 'https://checkout.fedapay.com/payment-page/...', description: 'Ouvrir en WebView Flutter. Valable pour tous les providers.'),
+                                new OA\Property(property: 'fedapay_id',      type: 'integer', nullable: true, example: 12345),
+                                new OA\Property(property: 'requires_webview',type: 'boolean', example: true, description: 'Toujours true — le passager complète le paiement sur la page FedaPay.'),
                             ]
                         ),
                     ]
@@ -253,9 +267,13 @@ class PassengerBookingController extends Controller
     )]
     public function pay(Request $request, string $uuid): JsonResponse
     {
+        $isMomo = in_array($request->input('provider'), ['mtn', 'moov', 'celtiis'], true);
+
         $validated = $request->validate([
-            'provider'     => ['required', 'string', 'in:mtn,moov,celtiis'],
-            'phone_number' => ['required', 'string', 'regex:/^[0-9]{8,12}$/'],
+            'provider'     => ['required', 'string', 'in:mtn,moov,celtiis,card'],
+            'phone_number' => $isMomo
+                ? ['required', 'string', 'regex:/^[0-9]{8,12}$/']
+                : ['nullable', 'string'],
         ]);
 
         $booking = Booking::with(['trip', 'payment'])
@@ -300,21 +318,26 @@ class PassengerBookingController extends Controller
         FedaPay::setApiKey(config('fedapay.secret_key'));
         FedaPay::setEnvironment(config('fedapay.environment'));
 
+        // Données client FedaPay — phone_number uniquement pour MoMo
+        $customer = [
+            'firstname' => $firstName,
+            'lastname'  => $lastName,
+            'email'     => $email,
+        ];
+        if ($isMomo && ! empty($validated['phone_number'])) {
+            $customer['phone_number'] = [
+                'number'  => $validated['phone_number'],
+                'country' => 'bj',
+            ];
+        }
+
         try {
             $fedaTx = FedaTransaction::create([
                 'description'  => "Réservation Minizon — {$trip->departure_city} → {$trip->arrival_city}",
                 'amount'       => $grossAmount,
                 'currency'     => ['iso' => 'XOF'],
                 'callback_url' => config('fedapay.callback_url'),
-                'customer'     => [
-                    'firstname'    => $firstName,
-                    'lastname'     => $lastName,
-                    'email'        => $email,
-                    'phone_number' => [
-                        'number'  => $validated['phone_number'],
-                        'country' => 'bj',
-                    ],
-                ],
+                'customer'     => $customer,
             ]);
         } catch (\Throwable $e) {
             Log::error('FedaPay transaction create failed', ['booking_uuid' => $booking->uuid, 'error' => $e->getMessage()]);
@@ -361,12 +384,14 @@ class PassengerBookingController extends Controller
         });
 
         return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
-            'payment_uuid' => $payment->uuid,
-            'booking_uuid' => $booking->uuid,
-            'amount'       => $grossAmount,
-            'status'       => 'pending',
-            'payment_url'  => $paymentUrl,
-            'fedapay_id'   => $fedaTx->id ?? null,
+            'payment_uuid'    => $payment->uuid,
+            'booking_uuid'    => $booking->uuid,
+            'amount'          => $grossAmount,
+            'provider'        => $validated['provider'],
+            'status'          => 'pending',
+            'payment_url'     => $paymentUrl,
+            'fedapay_id'      => $fedaTx->id ?? null,
+            'requires_webview'=> true,
         ]);
     }
 
