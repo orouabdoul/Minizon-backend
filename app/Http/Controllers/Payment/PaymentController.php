@@ -18,18 +18,23 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    private const SERVICE_FEE_RATE = 0.05;
+    private const SERVICE_FEE_RATE  = 0.05;  // +5%  ajouté au passager
+    private const DRIVER_COMMISSION = 0.10;  // -10% prélevé sur la part conducteur
 
     // =========================================================================
     //  POST /api/bookings/{uuid}/pay
-    //  Initier le paiement Mobile Money (FedaPay)
+    //  Initier le paiement MoMo ou carte bancaire (FedaPay)
     // =========================================================================
 
     public function initiate(Request $request, string $uuid): JsonResponse
     {
+        $isMomo = in_array($request->input('provider'), ['mtn', 'moov', 'celtiis'], true);
+
         $validated = $request->validate([
-            'provider'     => ['required', 'string', 'in:mtn,moov,celtiis'],
-            'phone_number' => ['required', 'string', 'regex:/^[0-9]{8,12}$/'],
+            'provider'     => ['required', 'string', 'in:mtn,moov,celtiis,card'],
+            'phone_number' => $isMomo
+                ? ['required', 'string', 'regex:/^[0-9]{8,12}$/']
+                : ['nullable', 'string'],
         ]);
 
         $booking = Booking::with(['trip', 'payment'])
@@ -53,21 +58,37 @@ class PaymentController extends Controller
 
         $trip = $booking->trip;
 
-        // ── Montant basé sur les frais persistés à la réservation ─────────────
-        // service_fee est stocké sur la réservation lors de sa création pour cohérence
-        $priceSubtotal = (int) $booking->calculated_price * (int) $booking->seats_booked;
-        $serviceFee    = (int) ($booking->service_fee > 0
+        // ── Calcul des montants ────────────────────────────────────────────────
+        $base             = (int) $booking->calculated_price * (int) $booking->seats_booked;
+        $serviceFee       = (int) ($booking->service_fee > 0
             ? $booking->service_fee
-            : round($priceSubtotal * self::SERVICE_FEE_RATE)); // fallback ancienne réservation
-        $grossAmount   = $priceSubtotal + $serviceFee; // total débité au passager
-        $netAmount     = $priceSubtotal;               // part reversée au conducteur
+            : round($base * self::SERVICE_FEE_RATE));
+        $grossAmount      = $booking->total_price ?: ($base + $serviceFee);  // débité au passager
+        $driverCommission = (int) round($base * self::DRIVER_COMMISSION);    // 10% Minizon côté conducteur
+        $netAmount        = $base - $driverCommission;                        // 90% du base → conducteur
+        $commissionAmount = $serviceFee + $driverCommission;                  // total Minizon
 
         // ── Profil passager pour FedaPay ──────────────────────────────────────
         $passenger = $request->user()->load('profile');
         $profile   = $passenger->profile;
         $firstName = $profile?->first_name ?? 'Passager';
         $lastName  = $profile?->last_name  ?? '';
-        $email     = $profile?->email      ?? ($passenger->phone . '@minizon.app');
+
+        // Email : utiliser le profil ou construire depuis l'ID (jamais depuis le phone brut)
+        $email = $profile?->email ?? ('user' . $passenger->id . '@minizon.app');
+
+        // ── Données customer FedaPay (phone uniquement pour MoMo) ────────────
+        $customer = [
+            'firstname' => $firstName,
+            'lastname'  => $lastName,
+            'email'     => $email,
+        ];
+        if ($isMomo && ! empty($validated['phone_number'])) {
+            $customer['phone_number'] = [
+                'number'  => $validated['phone_number'],
+                'country' => 'bj',
+            ];
+        }
 
         // ── Initialiser le SDK FedaPay ────────────────────────────────────────
         FedaPay::setApiKey(config('fedapay.secret_key'));
@@ -80,15 +101,7 @@ class PaymentController extends Controller
                 'amount'       => $grossAmount,
                 'currency'     => ['iso' => 'XOF'],
                 'callback_url' => config('fedapay.callback_url'),
-                'customer'     => [
-                    'firstname'    => $firstName,
-                    'lastname'     => $lastName,
-                    'email'        => $email,
-                    'phone_number' => [
-                        'number'  => $validated['phone_number'],
-                        'country' => 'bj',
-                    ],
-                ],
+                'customer'     => $customer,
             ]);
         } catch (\Throwable $e) {
             Log::error('FedaPay transaction create failed', [
@@ -124,21 +137,19 @@ class PaymentController extends Controller
         $txnRef = 'TXN-' . strtoupper(substr(str_replace('-', '', (string) Str::uuid()), 0, 12));
 
         $payment = DB::transaction(function () use (
-            $booking, $validated, $grossAmount, $serviceFee, $netAmount, $request, $fedaTx, $txnRef
+            $booking, $validated, $grossAmount, $commissionAmount, $netAmount, $request, $fedaTx, $txnRef
         ) {
-            // Supprimer l'éventuel paiement pending précédent pour cette réservation
-            Payment::where('booking_id', $booking->id)
-                ->where('status', 'pending')
-                ->delete();
+            // Supprimer l'éventuel paiement pending précédent
+            Payment::where('booking_id', $booking->id)->where('status', 'pending')->delete();
 
             return Payment::create([
                 'booking_id'            => $booking->id,
                 'user_id'               => $request->user()->id,
                 'provider'              => $validated['provider'],
-                'phone_number'          => $validated['phone_number'],
-                'gross_amount'          => $grossAmount,    // sous-total + frais 5%
-                'commission_amount'     => $serviceFee,     // frais de service Minizon
-                'net_amount'            => $netAmount,      // part reversée au conducteur
+                'phone_number'          => $validated['phone_number'] ?? null,
+                'gross_amount'          => $grossAmount,
+                'commission_amount'     => $commissionAmount,
+                'net_amount'            => $netAmount,
                 'status'                => 'pending',
                 'idempotency_key'       => 'booking_' . $booking->id . '_' . time(),
                 'transaction_reference' => $txnRef,
@@ -147,23 +158,26 @@ class PaymentController extends Controller
         });
 
         Log::info('FedaPay payment initiated', [
-            'booking_uuid'   => $booking->uuid,
-            'payment_uuid'   => $payment->uuid,
-            'fedapay_id'     => $fedaTx->id,
-            'price_subtotal' => $priceSubtotal,
-            'service_fee'    => $serviceFee,
-            'amount_total'   => $grossAmount,
+            'booking_uuid'      => $booking->uuid,
+            'payment_uuid'      => $payment->uuid,
+            'fedapay_id'        => $fedaTx->id,
+            'provider'          => $validated['provider'],
+            'base'              => $base,
+            'service_fee'       => $serviceFee,
+            'driver_commission' => $driverCommission,
+            'gross_amount'      => $grossAmount,
+            'net_amount'        => $netAmount,
         ]);
 
         return $this->apiResponse(true, 'Paiement initié. Complétez le paiement sur la page sécurisée.', [
-            'payment_uuid'   => $payment->uuid,
-            'booking_uuid'   => $booking->uuid,
-            'price_subtotal' => $priceSubtotal,  // sous-total (sans frais)
-            'service_fee'    => $serviceFee,      // frais de service 5%
-            'amount'         => $grossAmount,     // total débité (avec frais)
-            'status'         => 'pending',
-            'payment_url'    => $paymentUrl,
-            'fedapay_id'     => $fedaTx->id ?? null,
+            'payment_uuid'    => $payment->uuid,
+            'booking_uuid'    => $booking->uuid,
+            'provider'        => $validated['provider'],
+            'amount'          => $grossAmount,
+            'status'          => 'pending',
+            'payment_url'     => $paymentUrl,
+            'fedapay_id'      => $fedaTx->id ?? null,
+            'requires_webview'=> true,
         ]);
     }
 
