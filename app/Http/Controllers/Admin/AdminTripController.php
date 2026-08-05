@@ -23,8 +23,12 @@ class AdminTripController extends Controller
     {
         return Trip::with([
             'user.profile',
-            'bookings' => fn ($q) => $q->where('status', 'accepted')->with('passenger.profile'),
-        ])->withCount(['bookings as dispute_count' => fn ($q) => $q->whereHas('dispute')]);
+            'bookings' => fn ($q) => $q->whereIn('status', ['pending', 'accepted'])
+                ->with('passenger.profile')
+                ->select(['id', 'trip_id', 'passenger_id', 'status', 'seats_booked', 'calculated_price', 'passenger_distance_km', 'uuid']),
+        ])
+        ->withCount('bookings as bookings_count')
+        ->withCount(['bookings as dispute_count' => fn ($q) => $q->whereHas('dispute')]);
     }
 
     private function frontendStatus(Trip $trip): string
@@ -46,31 +50,44 @@ class AdminTripController extends Controller
         $revenue     = $seatsBooked * ($trip->price_per_seat ?? 0);
 
         $passengers = $trip->bookings->map(fn ($b) => [
-            'id'     => $b->passenger?->uuid,
-            'avatar' => $b->passenger?->profile?->selfie_front
+            'booking_uuid'          => $b->uuid,
+            'id'                    => $b->passenger?->uuid,
+            'name'                  => trim(
+                ($b->passenger?->profile?->first_name ?? '') . ' ' .
+                ($b->passenger?->profile?->last_name  ?? '')
+            ) ?: ($b->passenger?->phone ?? '—'),
+            'avatar'                => $b->passenger?->profile?->selfie_front
                 ? Storage::disk('public')->url($b->passenger->profile->selfie_front)
                 : null,
+            'seats_booked'          => $b->seats_booked,
+            'calculated_price'      => $b->calculated_price,
+            'calculated_price_fmt'  => number_format($b->calculated_price ?? 0, 0, ',', ' ') . ' FCFA',
+            'passenger_distance_km' => $b->passenger_distance_km,
+            'status'                => $b->status,
         ])->values();
 
         Carbon::setLocale('fr');
 
         return [
-            'id'            => $trip->uuid,
-            'tripId'        => 'TRP-' . strtoupper(substr($trip->uuid, 0, 8)),
-            'driverName'    => $driverName,
-            'driverAvatar'  => $profile?->selfie_front ? Storage::disk('public')->url($profile->selfie_front) : null,
-            'driverRating'  => $driver?->averageRating() ?? 0,
-            'driverReviews' => $driver?->reviewsReceived()->count() ?? 0,
-            'from'          => $trip->departure_city,
-            'to'            => $trip->arrival_city,
-            'date'          => $trip->departure_time?->format('d/m/Y'),
-            'time'          => $trip->departure_time?->format('H:i'),
-            'seats'         => $trip->total_seats ?? 0,
-            'seatsBooked'   => $seatsBooked,
-            'pricePerSeat'  => number_format($trip->price_per_seat ?? 0, 0, ',', ' ') . ' FCFA',
-            'revenue'       => number_format($revenue, 0, ',', ' ') . ' FCFA',
-            'status'        => $this->frontendStatus($trip),
-            'passengers'    => $passengers,
+            'id'               => $trip->uuid,
+            'tripId'           => 'TRP-' . strtoupper(substr($trip->uuid, 0, 8)),
+            'driverName'       => $driverName,
+            'driverAvatar'     => $profile?->selfie_front ? Storage::disk('public')->url($profile->selfie_front) : null,
+            'driverRating'     => $driver?->averageRating() ?? 0,
+            'driverReviews'    => $driver?->reviewsReceived()->count() ?? 0,
+            'from'             => $trip->departure_city,
+            'to'               => $trip->arrival_city,
+            'date'             => $trip->departure_time?->format('d/m/Y'),
+            'time'             => $trip->departure_time?->format('H:i'),
+            'seats'            => $trip->total_seats ?? 0,
+            'seatsBooked'      => $seatsBooked,
+            'bookingsCount'    => $trip->bookings_count ?? 0,
+            'pricePerSeat'     => number_format($trip->price_per_seat ?? 0, 0, ',', ' ') . ' FCFA',
+            'pricePerSeatRaw'  => $trip->price_per_seat ?? 0,
+            'revenue'          => number_format($revenue, 0, ',', ' ') . ' FCFA',
+            'revenueRaw'       => $revenue,
+            'status'           => $this->frontendStatus($trip),
+            'passengers'       => $passengers,
         ];
     }
 
