@@ -9,8 +9,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/payments')->group(function () {
 
-    Route::get('metrics',        [AdminPaymentController::class, 'metrics']);
-    Route::get('/',              [AdminPaymentController::class, 'index']);
-    Route::get('{uuid}',         [AdminPaymentController::class, 'show']);
-    Route::post('{uuid}/refund', [AdminPaymentController::class, 'refund']);
+    // Routes nommées — AVANT les wildcards {uuid}
+    Route::get('metrics',         [AdminPaymentController::class, 'metrics']);
+    Route::get('/',               [AdminPaymentController::class, 'index']);
+    Route::post('sync',           [AdminPaymentController::class, 'sync']);
+
+    // Wildcards — APRÈS les routes nommées
+    Route::get('{uuid}',          [AdminPaymentController::class, 'show']);
+    Route::post('{uuid}/refund',  [AdminPaymentController::class, 'refund']);
+    Route::post('{uuid}/sync',    [AdminPaymentController::class, 'syncOne']);
 });

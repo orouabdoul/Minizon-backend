@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\TripValidation;
+use FedaPay\FedaPay;
+use FedaPay\Transaction as FedaTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
@@ -462,6 +465,205 @@ class AdminPaymentController extends Controller
         return $this->apiResponse(true, 'Paiement récupéré.', array_merge(
             $this->format($payment),
             ['timelineEvents' => $this->buildTimeline($payment)]
+        ));
+    }
+
+    // =========================================================================
+    //  SYNC  POST /api/admin/payments/sync
+    //  Réconciliation manuelle : interroge FedaPay pour tous les paiements pending
+    //  et met à jour les statuts locaux.
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/admin/payments/sync',
+        operationId: 'adminPaymentSync',
+        summary: '[ADMIN] Synchroniser les paiements en attente avec FedaPay',
+        description: "Interroge l'API FedaPay pour chaque paiement local en statut `pending` et met à jour le statut selon la réponse FedaPay :\n- `approved` → `locked` (escrow) + booking `escrow_locked`\n- `declined` / `cancelled` → `failed`\n\nUtile quand le webhook FedaPay n'a pas pu atteindre le serveur (dev/sandbox).",
+        tags: ['💳 Admin — Paiements'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Synchronisation effectuée',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: '5 paiement(s) synchronisé(s).'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'checked',  type: 'integer', example: 12, description: 'Nombre de paiements pending vérifiés'),
+                                new OA\Property(property: 'locked',   type: 'integer', example: 8,  description: 'Passés à locked (approuvés)'),
+                                new OA\Property(property: 'failed',   type: 'integer', example: 2,  description: 'Passés à failed (déclinés)'),
+                                new OA\Property(property: 'skipped',  type: 'integer', example: 2,  description: 'Toujours pending chez FedaPay'),
+                                new OA\Property(property: 'errors',   type: 'integer', example: 0,  description: 'Erreurs lors de l\'appel FedaPay'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+        ]
+    )]
+    public function sync(Request $request): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        FedaPay::setApiKey(config('fedapay.secret_key'));
+        FedaPay::setEnvironment(config('fedapay.environment'));
+
+        $pendingPayments = Payment::with('booking')
+            ->where('status', 'pending')
+            ->whereNotNull('provider_reference')
+            ->where('provider_reference', '!=', '')
+            ->get();
+
+        $locked  = 0;
+        $failed  = 0;
+        $skipped = 0;
+        $errors  = 0;
+
+        foreach ($pendingPayments as $payment) {
+            try {
+                $fedaTx       = FedaTransaction::retrieve((int) $payment->provider_reference);
+                $fedaStatus   = $fedaTx->status ?? null;
+
+                if ($fedaStatus === 'approved') {
+                    DB::transaction(function () use ($payment) {
+                        $payment->update(['status' => 'locked']);
+
+                        if ($payment->booking) {
+                            $payment->booking->update(['payment_status' => 'escrow_locked']);
+
+                            TripValidation::firstOrCreate(
+                                ['booking_id' => $payment->booking->id],
+                                [
+                                    'trip_id'             => $payment->booking->trip_id,
+                                    'passenger_confirmed' => false,
+                                    'auto_release_at'     => now()->addHours(24),
+                                    'status'              => 'waiting',
+                                ]
+                            );
+                        }
+                    });
+                    $locked++;
+
+                } elseif (in_array($fedaStatus, ['declined', 'cancelled'], true)) {
+                    $payment->update(['status' => 'failed']);
+                    $failed++;
+
+                } else {
+                    $skipped++;
+                }
+
+            } catch (\Throwable $e) {
+                Log::error('AdminPaymentSync: erreur FedaPay', [
+                    'payment_uuid'      => $payment->uuid,
+                    'provider_reference'=> $payment->provider_reference,
+                    'error'             => $e->getMessage(),
+                ]);
+                $errors++;
+            }
+        }
+
+        $total = $locked + $failed;
+
+        return $this->apiResponse(true, "{$total} paiement(s) synchronisé(s).", [
+            'checked' => $pendingPayments->count(),
+            'locked'  => $locked,
+            'failed'  => $failed,
+            'skipped' => $skipped,
+            'errors'  => $errors,
+        ]);
+    }
+
+    // =========================================================================
+    //  SYNC ONE  POST /api/admin/payments/{uuid}/sync
+    //  Réconciliation d'un seul paiement
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/admin/payments/{uuid}/sync',
+        operationId: 'adminPaymentSyncOne',
+        summary: '[ADMIN] Synchroniser un paiement spécifique avec FedaPay',
+        tags: ['💳 Admin — Paiements'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Paiement synchronisé'),
+            new OA\Response(response: 400, description: 'Aucun ID FedaPay associé'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Paiement introuvable'),
+        ]
+    )]
+    public function syncOne(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $payment = $this->baseQuery()->where('uuid', $uuid)->first();
+
+        if (! $payment) {
+            return $this->apiResponse(false, 'Paiement introuvable.', [], 404);
+        }
+
+        if (empty($payment->provider_reference)) {
+            return $this->apiResponse(false, 'Ce paiement n\'a pas d\'ID FedaPay associé.', [], 400);
+        }
+
+        FedaPay::setApiKey(config('fedapay.secret_key'));
+        FedaPay::setEnvironment(config('fedapay.environment'));
+
+        try {
+            $fedaTx     = FedaTransaction::retrieve((int) $payment->provider_reference);
+            $fedaStatus = $fedaTx->status ?? null;
+
+            if ($fedaStatus === 'approved' && $payment->status === 'pending') {
+                DB::transaction(function () use ($payment) {
+                    $payment->update(['status' => 'locked']);
+
+                    if ($payment->booking) {
+                        $payment->booking->update(['payment_status' => 'escrow_locked']);
+
+                        TripValidation::firstOrCreate(
+                            ['booking_id' => $payment->booking->id],
+                            [
+                                'trip_id'             => $payment->booking->trip_id,
+                                'passenger_confirmed' => false,
+                                'auto_release_at'     => now()->addHours(24),
+                                'status'              => 'waiting',
+                            ]
+                        );
+                    }
+                });
+
+            } elseif (in_array($fedaStatus, ['declined', 'cancelled'], true) && $payment->status === 'pending') {
+                $payment->update(['status' => 'failed']);
+            }
+
+        } catch (\Throwable $e) {
+            Log::error('AdminPaymentSyncOne: erreur FedaPay', [
+                'payment_uuid' => $payment->uuid,
+                'error'        => $e->getMessage(),
+            ]);
+            return $this->apiResponse(false, 'Erreur lors de la vérification FedaPay : ' . $e->getMessage(), [], 502);
+        }
+
+        $payment->refresh()->load([
+            'booking.trip.user.profile',
+            'booking.passenger.profile',
+            'booking.tripValidation',
+        ]);
+
+        return $this->apiResponse(true, 'Paiement synchronisé.', array_merge(
+            $this->format($payment),
+            ['fedapay_status' => $fedaStatus ?? 'inconnu']
         ));
     }
 
