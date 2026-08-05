@@ -9,7 +9,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/reservations')->group(function () {
 
-    Route::get('metrics', [AdminReservationController::class, 'metrics']);
-    Route::get('/',       [AdminReservationController::class, 'index']);
-    Route::get('{uuid}',  [AdminReservationController::class, 'show']);
+    // Routes nommées — AVANT les wildcards {uuid}
+    Route::get('metrics',    [AdminReservationController::class, 'metrics']);
+    Route::get('/',          [AdminReservationController::class, 'index']);
+
+    // Wildcards — APRÈS les routes nommées
+    Route::get('{uuid}',     [AdminReservationController::class, 'show']);
+    Route::put('{uuid}',     [AdminReservationController::class, 'update']);
+    Route::delete('{uuid}',  [AdminReservationController::class, 'destroy']);
 });

@@ -445,6 +445,79 @@ class AdminSupportController extends Controller
     }
 
     // =========================================================================
+    //  SHOW  GET /api/admin/support/{uuid}
+    // =========================================================================
+
+    #[OA\Get(
+        path: '/api/admin/support/{uuid}',
+        operationId: 'adminSupportShow',
+        summary: '[ADMIN] Détail d\'un ticket support',
+        tags: ['🎧 Admin — Support'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Ticket récupéré'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Ticket introuvable'),
+        ]
+    )]
+    public function show(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $ticket = $this->baseQuery()->where('uuid', $uuid)->first();
+
+        if (! $ticket) {
+            return $this->apiResponse(false, 'Ticket introuvable.', [], 404);
+        }
+
+        $data = $this->format($ticket);
+        $data['description'] = $ticket->description;
+
+        return $this->apiResponse(true, 'Ticket récupéré.', $data);
+    }
+
+    // =========================================================================
+    //  DESTROY  DELETE /api/admin/support/{uuid}
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/admin/support/{uuid}',
+        operationId: 'adminSupportDestroy',
+        summary: '[ADMIN] Supprimer un ticket support',
+        tags: ['🎧 Admin — Support'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Ticket supprimé'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Ticket introuvable'),
+        ]
+    )]
+    public function destroy(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $ticket = SupportTicket::where('uuid', $uuid)->first();
+
+        if (! $ticket) {
+            return $this->apiResponse(false, 'Ticket introuvable.', [], 404);
+        }
+
+        $ticket->delete();
+
+        return $this->apiResponse(true, 'Ticket supprimé.');
+    }
+
+    // =========================================================================
     //  STORE  POST /api/admin/support (création via back-office)
     // =========================================================================
 

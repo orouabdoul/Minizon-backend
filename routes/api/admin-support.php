@@ -9,9 +9,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/support')->group(function () {
 
-    Route::get('metrics',        [AdminSupportController::class, 'metrics']);
-    Route::get('agents',         [AdminSupportController::class, 'agents']);
-    Route::get('/',              [AdminSupportController::class, 'index']);
-    Route::post('/',             [AdminSupportController::class, 'store']);
-    Route::post('{uuid}/resolve',[AdminSupportController::class, 'resolve']);
+    // Routes nommées — AVANT les wildcards {uuid}
+    Route::get('metrics',         [AdminSupportController::class, 'metrics']);
+    Route::get('agents',          [AdminSupportController::class, 'agents']);
+    Route::get('/',               [AdminSupportController::class, 'index']);
+    Route::post('/',              [AdminSupportController::class, 'store']);
+
+    // Wildcards — APRÈS les routes nommées
+    Route::get('{uuid}',          [AdminSupportController::class, 'show']);
+    Route::post('{uuid}/resolve', [AdminSupportController::class, 'resolve']);
+    Route::delete('{uuid}',       [AdminSupportController::class, 'destroy']);
 });

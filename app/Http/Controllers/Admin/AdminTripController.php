@@ -239,6 +239,58 @@ class AdminTripController extends Controller
     }
 
     // =========================================================================
+    //  UPDATE  PUT /api/admin/trips/{uuid}
+    // =========================================================================
+
+    #[OA\Put(
+        path: '/api/admin/trips/{uuid}',
+        operationId: 'adminTripUpdate',
+        summary: '[ADMIN] Modifier le statut d\'un trajet',
+        tags: ['🗺️ Admin — Trajets'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['status'],
+                properties: [
+                    new OA\Property(property: 'status', type: 'string', enum: ['pending', 'active', 'completed', 'cancelled'], example: 'cancelled'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Trajet mis à jour'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Trajet introuvable'),
+            new OA\Response(response: 422, description: 'Données invalides'),
+        ]
+    )]
+    public function update(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $trip = Trip::where('uuid', $uuid)->first();
+
+        if (! $trip) {
+            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+        }
+
+        $data = $request->validate([
+            'status' => ['required', 'in:pending,active,completed,cancelled'],
+        ]);
+
+        $trip->update(['status' => $data['status']]);
+
+        return $this->apiResponse(true, 'Trajet mis à jour.', $this->format(
+            $this->tripsQuery()->where('uuid', $uuid)->first()
+        ));
+    }
+
+    // =========================================================================
     //  DESTROY  DELETE /api/admin/trips/{uuid}
     // =========================================================================
 

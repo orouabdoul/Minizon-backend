@@ -9,8 +9,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->prefix('admin/trips')->group(function () {
 
+    // Routes nommées — AVANT les wildcards {uuid}
     Route::get('metrics',    [AdminTripController::class, 'metrics']);
     Route::get('/',          [AdminTripController::class, 'index']);
+
+    // Wildcards — APRÈS les routes nommées
     Route::get('{uuid}',     [AdminTripController::class, 'show']);
+    Route::put('{uuid}',     [AdminTripController::class, 'update']);
     Route::delete('{uuid}',  [AdminTripController::class, 'destroy']);
 });

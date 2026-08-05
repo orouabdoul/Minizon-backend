@@ -491,4 +491,92 @@ class AdminReservationController extends Controller
             ['timelineEvents' => $this->buildTimeline($booking)]
         ));
     }
+
+    // =========================================================================
+    //  UPDATE  PUT /api/admin/reservations/{uuid}
+    // =========================================================================
+
+    #[OA\Put(
+        path: '/api/admin/reservations/{uuid}',
+        operationId: 'adminReservationUpdate',
+        summary: '[ADMIN] Modifier le statut d\'une réservation',
+        tags: ['🎫 Admin — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['status'],
+                properties: [
+                    new OA\Property(property: 'status', type: 'string', enum: ['pending', 'accepted', 'rejected', 'cancelled'], example: 'cancelled'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Réservation mise à jour'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Réservation introuvable'),
+            new OA\Response(response: 422, description: 'Données invalides'),
+        ]
+    )]
+    public function update(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $booking = Booking::where('uuid', $uuid)->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        $data = $request->validate([
+            'status' => ['required', 'in:pending,accepted,rejected,cancelled'],
+        ]);
+
+        $booking->update(['status' => $data['status']]);
+
+        return $this->apiResponse(true, 'Réservation mise à jour.', $this->format(
+            $this->baseQuery()->where('uuid', $uuid)->first()
+        ));
+    }
+
+    // =========================================================================
+    //  DESTROY  DELETE /api/admin/reservations/{uuid}
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/admin/reservations/{uuid}',
+        operationId: 'adminReservationDestroy',
+        summary: '[ADMIN] Supprimer une réservation',
+        tags: ['🎫 Admin — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Réservation supprimée'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Réservation introuvable'),
+        ]
+    )]
+    public function destroy(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $booking = Booking::where('uuid', $uuid)->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        $booking->delete();
+
+        return $this->apiResponse(true, 'Réservation supprimée.');
+    }
 }
