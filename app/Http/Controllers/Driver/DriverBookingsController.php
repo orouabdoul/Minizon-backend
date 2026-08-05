@@ -61,6 +61,8 @@ class DriverBookingsController extends Controller
                                             new OA\Property(property: 'dropoff_longitude',       type: 'number',  format: 'float', example: 2.6280),
                                             new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4),
                                             new OA\Property(property: 'calculated_price',        type: 'integer', example: 950),
+                                            new OA\Property(property: 'payment_status',          type: 'string',  enum: ['unpaid', 'escrow_locked', 'released_to_driver', 'refunded'], example: 'escrow_locked'),
+                                            new OA\Property(property: 'is_paid',                 type: 'boolean', example: true),
                                         ],
                                         type: 'object'
                                     )
@@ -110,6 +112,8 @@ class DriverBookingsController extends Controller
                     'dropoff_longitude'     => $b->dropoff_longitude,
                     'passenger_distance_km' => $b->passenger_distance_km,
                     'calculated_price'      => $b->calculated_price,
+                    'payment_status'        => $b->payment_status,
+                    'is_paid'               => $b->payment_status === 'escrow_locked',
                 ];
             });
 
