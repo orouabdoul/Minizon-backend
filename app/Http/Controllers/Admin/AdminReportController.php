@@ -69,14 +69,92 @@ class AdminReportController extends Controller
     // =========================================================================
 
     #[OA\Get(
-        path: '/admin/reports',
-        summary: 'Rapport global (KPIs, revenus, top conducteurs, zones)',
+        path: '/api/admin/reports',
+        operationId: 'adminReportsIndex',
+        summary: '[ADMIN] Rapport global — KPIs, graphique revenus, top conducteurs, zones',
+        description: 'Retourne toutes les données de la page Rapports & Statistiques : 4 KPIs avec tendance, graphique revenus/trajets, top 5 conducteurs, répartition par zone.',
         tags: ['📊 Admin — Rapports'],
+        security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'period', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['7j', '30j', '90j'], default: '7j')),
+            new OA\Parameter(
+                name: 'period', in: 'query', required: false,
+                description: 'Période d\'analyse : 7 derniers jours, 30 jours, ou 90 jours',
+                schema: new OA\Schema(type: 'string', enum: ['7j', '30j', '90j'], default: '7j')
+            ),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Rapport généré'),
+            new OA\Response(
+                response: 200,
+                description: 'Rapport généré avec succès',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(property: 'message', type: 'string',  example: 'Rapport généré.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'period', type: 'string', example: '7j'),
+                                new OA\Property(
+                                    property: 'kpis',
+                                    type: 'array',
+                                    description: '4 indicateurs clés avec tendance vs période précédente',
+                                    items: new OA\Items(
+                                        properties: [
+                                            new OA\Property(property: 'id',    type: 'string',  example: 'revenue'),
+                                            new OA\Property(property: 'label', type: 'string',  example: 'Revenus'),
+                                            new OA\Property(property: 'value', type: 'string',  example: '1 250 000 FCFA'),
+                                            new OA\Property(property: 'color', type: 'string',  example: '#2563EB'),
+                                            new OA\Property(property: 'trend', type: 'string',  example: '+12.5%'),
+                                            new OA\Property(property: 'up',    type: 'boolean', example: true),
+                                        ]
+                                    )
+                                ),
+                                new OA\Property(
+                                    property: 'revenueChart',
+                                    type: 'array',
+                                    description: 'Données du graphique en barres (revenus + trajets par jour/semaine/mois)',
+                                    items: new OA\Items(
+                                        properties: [
+                                            new OA\Property(property: 'label',   type: 'string',  example: 'lu 28'),
+                                            new OA\Property(property: 'revenue', type: 'integer', example: 85000),
+                                            new OA\Property(property: 'trips',   type: 'integer', example: 12),
+                                        ]
+                                    )
+                                ),
+                                new OA\Property(
+                                    property: 'topDrivers',
+                                    type: 'array',
+                                    description: 'Top 5 conducteurs par revenus sur la période',
+                                    items: new OA\Items(
+                                        properties: [
+                                            new OA\Property(property: 'name',    type: 'string',  example: 'Kofi Mensah'),
+                                            new OA\Property(property: 'avatar',  type: 'string',  example: 'https://...'),
+                                            new OA\Property(property: 'trips',   type: 'integer', example: 24),
+                                            new OA\Property(property: 'rating',  type: 'number',  example: 4.8),
+                                            new OA\Property(property: 'revenue', type: 'string',  example: '320 000 FCFA'),
+                                        ]
+                                    )
+                                ),
+                                new OA\Property(
+                                    property: 'byZone',
+                                    type: 'array',
+                                    description: 'Répartition des trajets par ville de départ (max 8)',
+                                    items: new OA\Items(
+                                        properties: [
+                                            new OA\Property(property: 'zone',    type: 'string',  example: 'Cotonou'),
+                                            new OA\Property(property: 'trips',   type: 'integer', example: 89),
+                                            new OA\Property(property: 'percent', type: 'integer', example: 63),
+                                        ]
+                                    )
+                                ),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
         ]
     )]
     public function index(Request $request): JsonResponse
@@ -242,15 +320,26 @@ class AdminReportController extends Controller
     // =========================================================================
 
     #[OA\Get(
-        path: '/admin/reports/export',
-        summary: 'Exporter le rapport (CSV/Excel ou PDF)',
+        path: '/api/admin/reports/export',
+        operationId: 'adminReportsExport',
+        summary: '[ADMIN] Exporter le rapport en CSV (Excel) ou PDF',
+        description: 'Télécharge toutes les transactions de la période au format CSV (Excel) ou retourne un message JSON pour le PDF. Le CSV inclut : date, référence, passager, conducteur, trajet, montants.',
         tags: ['📊 Admin — Rapports'],
+        security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'period', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['7j', '30j', '90j'], default: '7j')),
-            new OA\Parameter(name: 'format', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['excel', 'pdf'], default: 'excel')),
+            new OA\Parameter(
+                name: 'period', in: 'query', required: false,
+                schema: new OA\Schema(type: 'string', enum: ['7j', '30j', '90j'], default: '7j')
+            ),
+            new OA\Parameter(
+                name: 'format', in: 'query', required: false,
+                description: 'excel → télécharge un fichier .csv. pdf → message JSON (à venir).',
+                schema: new OA\Schema(type: 'string', enum: ['excel', 'pdf'], default: 'excel')
+            ),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Fichier téléchargé ou message'),
+            new OA\Response(response: 200, description: 'Fichier CSV téléchargé (Content-Type: text/csv) ou message JSON'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
         ]
     )]
     public function export(Request $request): JsonResponse|Response

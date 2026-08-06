@@ -2059,6 +2059,115 @@
                 ]
             }
         },
+        "/api/admin/payments/sync": {
+            "post": {
+                "tags": [
+                    "💳 Admin — Paiements"
+                ],
+                "summary": "[ADMIN] Synchroniser les paiements en attente avec FedaPay",
+                "description": "Interroge l'API FedaPay pour chaque paiement local en statut `pending` et met à jour le statut selon la réponse FedaPay :\n- `approved` → `locked` (escrow) + booking `escrow_locked`\n- `declined` / `cancelled` → `failed`\n\nUtile quand le webhook FedaPay n'a pas pu atteindre le serveur (dev/sandbox).",
+                "operationId": "adminPaymentSync",
+                "responses": {
+                    "200": {
+                        "description": "Synchronisation effectuée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "5 paiement(s) synchronisé(s)."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "checked": {
+                                                    "description": "Nombre de paiements pending vérifiés",
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "locked": {
+                                                    "description": "Passés à locked (approuvés)",
+                                                    "type": "integer",
+                                                    "example": 8
+                                                },
+                                                "failed": {
+                                                    "description": "Passés à failed (déclinés)",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "skipped": {
+                                                    "description": "Toujours pending chez FedaPay",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "errors": {
+                                                    "description": "Erreurs lors de l'appel FedaPay",
+                                                    "type": "integer",
+                                                    "example": 0
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments/{uuid}/sync": {
+            "post": {
+                "tags": [
+                    "💳 Admin — Paiements"
+                ],
+                "summary": "[ADMIN] Synchroniser un paiement spécifique avec FedaPay",
+                "operationId": "adminPaymentSyncOne",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paiement synchronisé"
+                    },
+                    "400": {
+                        "description": "Aucun ID FedaPay associé"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Paiement introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/payments/{uuid}/refund": {
             "post": {
                 "tags": [
@@ -2132,6 +2241,46 @@
                                 }
                             }
                         }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments/{uuid}/release": {
+            "post": {
+                "tags": [
+                    "💳 Admin — Paiements"
+                ],
+                "summary": "[ADMIN] Libérer manuellement les fonds vers le conducteur",
+                "description": "Libère les fonds bloqués en escrow (`locked`) vers le portefeuille du conducteur.\n\nUtilisé quand :\n- Un avis critique (≤ 2★) a bloqué la libération automatique et l'admin décide de libérer quand même\n- Un litige est résolu en faveur du conducteur (alternative à la route `/disputes/{id}/pay-driver`)\n\nLe passager peut toujours rembourser via `POST /api/admin/payments/{uuid}/refund`.",
+                "operationId": "adminPaymentRelease",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fonds libérés vers le conducteur"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Paiement introuvable"
+                    },
+                    "422": {
+                        "description": "Le paiement n'est pas en escrow (locked)"
                     }
                 },
                 "security": [
@@ -2782,6 +2931,232 @@
                 ]
             }
         },
+        "/api/admin/reports": {
+            "get": {
+                "tags": [
+                    "📊 Admin — Rapports"
+                ],
+                "summary": "[ADMIN] Rapport global — KPIs, graphique revenus, top conducteurs, zones",
+                "description": "Retourne toutes les données de la page Rapports & Statistiques : 4 KPIs avec tendance, graphique revenus/trajets, top 5 conducteurs, répartition par zone.",
+                "operationId": "adminReportsIndex",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Période d'analyse : 7 derniers jours, 30 jours, ou 90 jours",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "7j",
+                            "enum": [
+                                "7j",
+                                "30j",
+                                "90j"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rapport généré avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Rapport généré."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "string",
+                                                    "example": "7j"
+                                                },
+                                                "kpis": {
+                                                    "description": "4 indicateurs clés avec tendance vs période précédente",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string",
+                                                                "example": "revenue"
+                                                            },
+                                                            "label": {
+                                                                "type": "string",
+                                                                "example": "Revenus"
+                                                            },
+                                                            "value": {
+                                                                "type": "string",
+                                                                "example": "1 250 000 FCFA"
+                                                            },
+                                                            "color": {
+                                                                "type": "string",
+                                                                "example": "#2563EB"
+                                                            },
+                                                            "trend": {
+                                                                "type": "string",
+                                                                "example": "+12.5%"
+                                                            },
+                                                            "up": {
+                                                                "type": "boolean",
+                                                                "example": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "revenueChart": {
+                                                    "description": "Données du graphique en barres (revenus + trajets par jour/semaine/mois)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "label": {
+                                                                "type": "string",
+                                                                "example": "lu 28"
+                                                            },
+                                                            "revenue": {
+                                                                "type": "integer",
+                                                                "example": 85000
+                                                            },
+                                                            "trips": {
+                                                                "type": "integer",
+                                                                "example": 12
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "topDrivers": {
+                                                    "description": "Top 5 conducteurs par revenus sur la période",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Kofi Mensah"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "example": "https://..."
+                                                            },
+                                                            "trips": {
+                                                                "type": "integer",
+                                                                "example": 24
+                                                            },
+                                                            "rating": {
+                                                                "type": "number",
+                                                                "example": 4.8
+                                                            },
+                                                            "revenue": {
+                                                                "type": "string",
+                                                                "example": "320 000 FCFA"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "byZone": {
+                                                    "description": "Répartition des trajets par ville de départ (max 8)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "zone": {
+                                                                "type": "string",
+                                                                "example": "Cotonou"
+                                                            },
+                                                            "trips": {
+                                                                "type": "integer",
+                                                                "example": 89
+                                                            },
+                                                            "percent": {
+                                                                "type": "integer",
+                                                                "example": 63
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reports/export": {
+            "get": {
+                "tags": [
+                    "📊 Admin — Rapports"
+                ],
+                "summary": "[ADMIN] Exporter le rapport en CSV (Excel) ou PDF",
+                "description": "Télécharge toutes les transactions de la période au format CSV (Excel) ou retourne un message JSON pour le PDF. Le CSV inclut : date, référence, passager, conducteur, trajet, montants.",
+                "operationId": "adminReportsExport",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "7j",
+                            "enum": [
+                                "7j",
+                                "30j",
+                                "90j"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "description": "excel → télécharge un fichier .csv. pdf → message JSON (à venir).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "excel",
+                            "enum": [
+                                "excel",
+                                "pdf"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier CSV téléchargé (Content-Type: text/csv) ou message JSON"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/reservations/metrics": {
             "get": {
                 "tags": [
@@ -3259,6 +3634,102 @@
                     },
                     "401": {
                         "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Réservation introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "🎫 Admin — Réservations"
+                ],
+                "summary": "[ADMIN] Modifier le statut d'une réservation",
+                "operationId": "adminReservationUpdate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "cancelled",
+                                        "enum": [
+                                            "pending",
+                                            "accepted",
+                                            "rejected",
+                                            "cancelled"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Réservation mise à jour"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Réservation introuvable"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "🎫 Admin — Réservations"
+                ],
+                "summary": "[ADMIN] Supprimer une réservation",
+                "operationId": "adminReservationDestroy",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réservation supprimée"
                     },
                     "403": {
                         "description": "Accès réservé aux administrateurs"
@@ -4797,6 +5268,76 @@
                 ]
             }
         },
+        "/api/admin/support/{uuid}": {
+            "get": {
+                "tags": [
+                    "🎧 Admin — Support"
+                ],
+                "summary": "[ADMIN] Détail d'un ticket support",
+                "operationId": "adminSupportShow",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ticket récupéré"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Ticket introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "🎧 Admin — Support"
+                ],
+                "summary": "[ADMIN] Supprimer un ticket support",
+                "operationId": "adminSupportDestroy",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ticket supprimé"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Ticket introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/tracking/trips": {
             "get": {
                 "tags": [
@@ -5212,6 +5753,68 @@
                     },
                     "404": {
                         "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "🗺️ Admin — Trajets"
+                ],
+                "summary": "[ADMIN] Modifier le statut d'un trajet",
+                "operationId": "adminTripUpdate",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "cancelled",
+                                        "enum": [
+                                            "pending",
+                                            "active",
+                                            "completed",
+                                            "cancelled"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Trajet mis à jour"
+                    },
+                    "403": {
+                        "description": "Accès réservé aux administrateurs"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    },
+                    "422": {
+                        "description": "Données invalides"
                     }
                 },
                 "security": [
@@ -9169,6 +9772,20 @@
                                                             "calculated_price": {
                                                                 "type": "integer",
                                                                 "example": 950
+                                                            },
+                                                            "payment_status": {
+                                                                "type": "string",
+                                                                "example": "escrow_locked",
+                                                                "enum": [
+                                                                    "unpaid",
+                                                                    "escrow_locked",
+                                                                    "released_to_driver",
+                                                                    "refunded"
+                                                                ]
+                                                            },
+                                                            "is_paid": {
+                                                                "type": "boolean",
+                                                                "example": true
                                                             }
                                                         },
                                                         "type": "object"
@@ -13807,23 +14424,26 @@
                                                     ]
                                                 },
                                                 "price_total": {
-                                                    "description": "Prix total conducteur (seats × price_per_seat)",
+                                                    "description": "Montant total à payer (base + 5% service fee)",
                                                     "type": "integer",
-                                                    "example": 1500
+                                                    "example": 630
                                                 },
                                                 "calculated_price": {
-                                                    "description": "Prix automatique calculé selon la distance du passager (XOF)",
+                                                    "description": "Prix proraté par place selon distance (XOF)",
                                                     "type": "integer",
-                                                    "example": 950
+                                                    "example": 600
+                                                },
+                                                "service_fee": {
+                                                    "description": "Frais de service Minizon 5% ajoutés au passager (XOF)",
+                                                    "type": "integer",
+                                                    "example": 30
                                                 },
                                                 "passenger_distance_km": {
-                                                    "description": "Distance passager calculée par Haversine (km)",
                                                     "type": "number",
                                                     "format": "float",
                                                     "example": 127.4
                                                 },
                                                 "trip_distance_km": {
-                                                    "description": "Distance totale du trajet principal (km)",
                                                     "type": "number",
                                                     "format": "float",
                                                     "example": 420
@@ -13880,8 +14500,8 @@
                 "tags": [
                     "👤 Passenger — Réservations"
                 ],
-                "summary": "Initier le paiement Mobile Money",
-                "description": "Crée le paiement en escrow via FedaPay (MTN / Moov / Celtiis). La réservation passe en `escrow_locked` après succès.",
+                "summary": "Initier le paiement (MoMo ou Carte bancaire)",
+                "description": "Crée le paiement en escrow via FedaPay. Supports :\n- **MTN / Moov / Celtiis** → `phone_number` requis, paiement push MoMo\n- **card** → `phone_number` non requis, paiement via page checkout FedaPay (WebView)\n\nDans tous les cas, `payment_url` est retourné — ouvrir en WebView Flutter pour finaliser.",
                 "operationId": "passengerBookingPay",
                 "parameters": [
                     {
@@ -13900,23 +14520,25 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "provider",
-                                    "phone_number"
+                                    "provider"
                                 ],
                                 "properties": {
                                     "provider": {
+                                        "description": "Mode de paiement. `card` = carte bancaire via checkout FedaPay.",
                                         "type": "string",
                                         "example": "mtn",
                                         "enum": [
                                             "mtn",
                                             "moov",
-                                            "celtiis"
+                                            "celtiis",
+                                            "card"
                                         ]
                                     },
                                     "phone_number": {
-                                        "description": "Numéro local béninois (8 chiffres sans indicatif)",
+                                        "description": "Requis pour mtn/moov/celtiis. Non requis pour card. Format : 8–12 chiffres sans indicatif.",
                                         "type": "string",
-                                        "example": "97000000"
+                                        "example": "97000000",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -13926,7 +14548,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Paiement initié — escrow en attente de validation conducteur",
+                        "description": "Paiement initié",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -13950,15 +14572,20 @@
                                                     "format": "uuid"
                                                 },
                                                 "amount": {
+                                                    "description": "Montant total débité au passager (XOF)",
                                                     "type": "integer",
-                                                    "example": 1500
+                                                    "example": 630
+                                                },
+                                                "provider": {
+                                                    "type": "string",
+                                                    "example": "mtn"
                                                 },
                                                 "status": {
                                                     "type": "string",
                                                     "example": "pending"
                                                 },
                                                 "payment_url": {
-                                                    "description": "URL FedaPay à ouvrir en WebView Flutter pour que le passager valide sur son téléphone Mobile Money.",
+                                                    "description": "Ouvrir en WebView Flutter. Valable pour tous les providers.",
                                                     "type": "string",
                                                     "example": "https://checkout.fedapay.com/payment-page/..."
                                                 },
@@ -13966,6 +14593,11 @@
                                                     "type": "integer",
                                                     "example": 12345,
                                                     "nullable": true
+                                                },
+                                                "requires_webview": {
+                                                    "description": "Toujours true — le passager complète le paiement sur la page FedaPay.",
+                                                    "type": "boolean",
+                                                    "example": true
                                                 }
                                             },
                                             "type": "object"
@@ -19557,20 +20189,28 @@
                 "type": "object"
             },
             "PassengerReservationItem": {
-                "description": "Correspond au modèle Flutter `ReservationItem`.",
+                "description": "Correspond au modèle Flutter `ReservationItem`. Contient tous les champs nécessaires à l'affichage liste + détail.",
                 "properties": {
                     "uuid": {
                         "type": "string",
                         "format": "uuid"
                     },
+                    "booking_ref": {
+                        "description": "Référence courte affichée en monospace.",
+                        "type": "string",
+                        "example": "BK-1A2B3C4D"
+                    },
+                    "trip_uuid": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
                     "conversation_uuid": {
-                        "description": "UUID de la conversation conducteur–passager liée à cette réservation. null si pas encore de conversation initiée.",
                         "type": "string",
                         "format": "uuid",
                         "nullable": true
                     },
                     "status": {
-                        "description": "Statut dérivé pour le Flutter — combinaison booking.status + trip.status.",
                         "type": "string",
                         "enum": [
                             "pending",
@@ -19584,6 +20224,15 @@
                         "type": "boolean",
                         "example": true
                     },
+                    "payment_status": {
+                        "type": "string",
+                        "example": "escrow_locked"
+                    },
+                    "payment_ref": {
+                        "type": "string",
+                        "example": "TXN-A1B2C3D4E5F6",
+                        "nullable": true
+                    },
                     "cancel_reason": {
                         "type": "string",
                         "nullable": true
@@ -19591,6 +20240,11 @@
                     "time_ago": {
                         "type": "string",
                         "example": "il y a 2h"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "driver_name": {
                         "type": "string",
@@ -19606,16 +20260,93 @@
                         "example": 4.8
                     },
                     "review_count": {
+                        "type": "integer",
+                        "example": 247
+                    },
+                    "review_count_label": {
                         "type": "string",
                         "example": "247 avis"
-                    },
-                    "total_price": {
-                        "type": "string",
-                        "example": "1 500 FCFA"
                     },
                     "seats_count": {
                         "type": "integer",
                         "example": 1
+                    },
+                    "total_price": {
+                        "description": "Montant total formaté (affiché côté passager).",
+                        "type": "string",
+                        "example": "630 FCFA"
+                    },
+                    "price_breakdown": {
+                        "description": "Détail complet du prix pour l'écran de détail.",
+                        "properties": {
+                            "calculated_price_per_seat": {
+                                "type": "integer",
+                                "example": 600
+                            },
+                            "calculated_price_per_seat_fmt": {
+                                "type": "string",
+                                "example": "600 FCFA"
+                            },
+                            "seats": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "subtotal": {
+                                "type": "integer",
+                                "example": 600
+                            },
+                            "subtotal_fmt": {
+                                "type": "string",
+                                "example": "600 FCFA"
+                            },
+                            "service_fee": {
+                                "type": "integer",
+                                "example": 30
+                            },
+                            "service_fee_fmt": {
+                                "type": "string",
+                                "example": "30 FCFA"
+                            },
+                            "service_fee_pct": {
+                                "type": "string",
+                                "example": "5%"
+                            },
+                            "total": {
+                                "type": "integer",
+                                "example": 630
+                            },
+                            "total_fmt": {
+                                "type": "string",
+                                "example": "630 FCFA"
+                            },
+                            "driver_commission": {
+                                "type": "integer",
+                                "example": 60
+                            },
+                            "driver_commission_fmt": {
+                                "type": "string",
+                                "example": "60 FCFA"
+                            },
+                            "driver_commission_pct": {
+                                "type": "string",
+                                "example": "10%"
+                            },
+                            "driver_payout": {
+                                "type": "integer",
+                                "example": 540
+                            },
+                            "driver_payout_fmt": {
+                                "type": "string",
+                                "example": "540 FCFA"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "passenger_distance_km": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 127.4,
+                        "nullable": true
                     },
                     "departure_city": {
                         "type": "string",
@@ -19623,7 +20354,23 @@
                     },
                     "departure_note": {
                         "type": "string",
-                        "example": "Cadjehoun"
+                        "example": "Akpakpa"
+                    },
+                    "departure_address": {
+                        "type": "string",
+                        "example": "Face pharmacie du centre"
+                    },
+                    "departure_latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6.3654,
+                        "nullable": true
+                    },
+                    "departure_longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 2.4183,
+                        "nullable": true
                     },
                     "arrival_city": {
                         "type": "string",
@@ -19633,6 +20380,30 @@
                         "type": "string",
                         "example": "Godomey"
                     },
+                    "arrival_address": {
+                        "type": "string",
+                        "example": "Carrefour étoile"
+                    },
+                    "arrival_latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6.45,
+                        "nullable": true
+                    },
+                    "arrival_longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 2.35,
+                        "nullable": true
+                    },
+                    "trip_origin": {
+                        "type": "string",
+                        "example": "Cotonou"
+                    },
+                    "trip_destination": {
+                        "type": "string",
+                        "example": "Parakou"
+                    },
                     "departure_time": {
                         "type": "string",
                         "example": "08h30"
@@ -19640,6 +20411,11 @@
                     "departure_date": {
                         "type": "string",
                         "example": "Sam. 05/07"
+                    },
+                    "departure_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "vehicle": {
                         "type": "string",
@@ -19841,6 +20617,10 @@
         {
             "name": "💳 Admin — Paiements",
             "description": "Supervision et gestion des transactions financières (Back-Office)"
+        },
+        {
+            "name": "📊 Admin — Rapports",
+            "description": "Statistiques et rapports de la plateforme (Back-Office)"
         },
         {
             "name": "🎫 Admin — Réservations",
