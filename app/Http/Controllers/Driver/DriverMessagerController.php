@@ -103,6 +103,7 @@ class DriverMessagerController extends Controller
 
         $query = Conversation::with([
             'participants.profile',
+            'participants.role',
             'lastMessage.sender',
             'booking',
             'trip',
@@ -201,9 +202,22 @@ class DriverMessagerController extends Controller
         [$statusLabel, $statusBg, $statusText] = $this->tripStatusColors($conv->trip?->status);
 
         // ── Rôle de l'interlocuteur ──────────────────────────────────────────
-        $isDriver      = $conv->trip && $other?->id === $conv->trip->user_id;
-        $roleLabel     = $isDriver ? 'Conducteur' : 'Passager';
-        $roleLabelColor = $isDriver ? self::COLOR_GREEN_TEXT : self::COLOR_BLUE_TEXT;
+        $otherRole = $other?->role?->name ?? '';
+        $isAdminConv = $otherRole === 'admin';
+        $isDriver    = ! $isAdminConv && $conv->trip && $other?->id === $conv->trip->user_id;
+
+        if ($isAdminConv) {
+            // Conversation directe avec l'admin Minizon
+            $name            = 'Admin Minizon';
+            $roleLabel       = 'Support Admin';
+            $roleLabelColor  = self::COLOR_ORANGE_TEXT;
+            $statusLabel     = 'Support';
+            $statusBg        = self::COLOR_ORANGE_BG;
+            $statusText      = self::COLOR_ORANGE_TEXT;
+        } else {
+            $roleLabel      = $isDriver ? 'Conducteur' : 'Passager';
+            $roleLabelColor = $isDriver ? self::COLOR_GREEN_TEXT : self::COLOR_BLUE_TEXT;
+        }
 
         return [
             'uuid'                    => $conv->uuid,

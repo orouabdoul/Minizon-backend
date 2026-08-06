@@ -4,30 +4,24 @@ use App\Http\Controllers\Admin\AdminMessagingController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
-//  👑 ADMIN — Messagerie directe Admin ↔ Conducteur
-//
-//  Distinct de /admin/conversations (modération driver-passenger).
-//  Ces conversations n'ont pas de trip_id ni booking_id.
-//
-//  Flux frontend (MessagingScreen) :
-//    GET  /api/admin/messaging/conversations            → liste + totalUnread
-//    GET  /api/admin/messaging/conversations/{uuid}     → messages + marque lu
-//    POST /api/admin/messaging/conversations/{uuid}/messages → envoyer
-//    POST /api/admin/messaging/broadcast                → diffuser (tous|en_ligne|en_trajet)
+//  👑 ADMIN — Messagerie directe Admin ↔ Conducteur/Passager
 // ============================================================
 
 Route::middleware('auth:sanctum')->prefix('admin/messaging')->group(function () {
 
-    Route::get('conversations',
-        [AdminMessagingController::class, 'conversations']);
+    // ── Recherche utilisateurs (pour démarrer une nouvelle conversation) ──────
+    Route::get('users', [AdminMessagingController::class, 'searchUsers']);
 
-    Route::get('conversations/{uuid}',
-        [AdminMessagingController::class, 'show']);
+    // ── Démarrer / retrouver une conversation avec un utilisateur spécifique ──
+    Route::post('start', [AdminMessagingController::class, 'startConversation']);
 
-    Route::post('conversations/{uuid}/messages',
-        [AdminMessagingController::class, 'sendMessage']);
+    // ── Diffuser un message à plusieurs utilisateurs ──────────────────────────
+    Route::post('broadcast', [AdminMessagingController::class, 'broadcast']);
 
-    Route::post('broadcast',
-        [AdminMessagingController::class, 'broadcast']);
+    // ── CRUD conversations — routes nommées AVANT les wildcards {uuid} ────────
+    Route::get('conversations', [AdminMessagingController::class, 'conversations']);
 
+    // ── Wildcards ─────────────────────────────────────────────────────────────
+    Route::get('conversations/{uuid}',         [AdminMessagingController::class, 'show']);
+    Route::post('conversations/{uuid}/messages', [AdminMessagingController::class, 'sendMessage']);
 });

@@ -98,6 +98,7 @@ class PassengerMessagerController extends Controller
 
         $query = Conversation::with([
             'participants.profile',
+            'participants.role',
             'lastMessage.sender',
             'booking',
             'trip',
@@ -163,9 +164,21 @@ class PassengerMessagerController extends Controller
 
         [$statusLabel, $statusBg, $statusText] = $this->tripStatusColors($conv->trip?->status);
 
-        $isDriver       = $conv->trip && $other?->id === $conv->trip->user_id;
-        $roleLabel      = $isDriver ? 'Conducteur' : 'Passager';
-        $roleLabelColor = $isDriver ? self::COLOR_GREEN_TEXT : self::COLOR_BLUE_TEXT;
+        $otherRole   = $other?->role?->name ?? '';
+        $isAdminConv = $otherRole === 'admin';
+        $isDriver    = ! $isAdminConv && $conv->trip && $other?->id === $conv->trip->user_id;
+
+        if ($isAdminConv) {
+            $name           = 'Admin Minizon';
+            $roleLabel      = 'Support Admin';
+            $roleLabelColor = self::COLOR_RED_TEXT;
+            $statusLabel    = 'Support';
+            $statusBg       = self::COLOR_RED_BG;
+            $statusText     = self::COLOR_RED_TEXT;
+        } else {
+            $roleLabel      = $isDriver ? 'Conducteur' : 'Passager';
+            $roleLabelColor = $isDriver ? self::COLOR_GREEN_TEXT : self::COLOR_BLUE_TEXT;
+        }
 
         return [
             'uuid'                    => $conv->uuid,

@@ -1006,19 +1006,216 @@
                 ]
             }
         },
+        "/api/admin/messaging/users": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "[ADMIN] Rechercher des utilisateurs à contacter",
+                "description": "Retourne la liste des conducteurs et/ou passagers avec indication si une conversation directe existe déjà. Utilisé pour l'auto-complétion \"Nouveau message\".",
+                "operationId": "adminMessagingUsers",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "Recherche par nom ou téléphone",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "driver",
+                                "passenger"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste d'utilisateurs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "uuid": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Koffi Mensah"
+                                                    },
+                                                    "phone": {
+                                                        "type": "string",
+                                                        "example": "+22997000000"
+                                                    },
+                                                    "avatar": {
+                                                        "type": "string"
+                                                    },
+                                                    "role": {
+                                                        "type": "string",
+                                                        "example": "driver"
+                                                    },
+                                                    "roleLabel": {
+                                                        "type": "string",
+                                                        "example": "Conducteur"
+                                                    },
+                                                    "conversationUuid": {
+                                                        "description": "UUID conversation existante, null si aucune",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/messaging/start": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "[ADMIN] Démarrer une conversation avec un utilisateur",
+                "description": "Crée ou retrouve la conversation directe admin ↔ utilisateur (driver ou passenger). Retourne la conversation et les messages existants.",
+                "operationId": "adminMessagingStart",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_uuid"
+                                ],
+                                "properties": {
+                                    "user_uuid": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "abc-123"
+                                    },
+                                    "message": {
+                                        "description": "Message optionnel à envoyer immédiatement",
+                                        "type": "string",
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Conversation créée ou retrouvée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "conversation": {
+                                                    "type": "object"
+                                                },
+                                                "messages": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                "created": {
+                                                    "description": "true si nouvelle conversation",
+                                                    "type": "boolean"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur introuvable"
+                    },
+                    "422": {
+                        "description": "UUID invalide ou utilisateur admin"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/messaging/conversations": {
             "get": {
                 "tags": [
                     "👑 Admin — Messagerie"
                 ],
-                "summary": "Liste des conversations admin ↔ conducteur",
-                "description": "Retourne toutes les conversations directes entre l'admin et des conducteurs, triées par non-lus puis par date. Filtre optionnel par statut conducteur.",
+                "summary": "[ADMIN] Liste des conversations directes (conducteurs & passagers)",
+                "description": "Retourne toutes les conversations directes admin ↔ utilisateur, triées par date (plus récente en premier). Filtres combinables : rôle (driver/passenger), recherche textuelle, statut en ligne.",
                 "operationId": "adminMessagingList",
                 "parameters": [
                     {
+                        "name": "role",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "driver",
+                                "passenger"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Filtre par nom ou téléphone",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "name": "status",
                         "in": "query",
-                        "description": "Filtrer par statut conducteur",
+                        "description": "Filtre par statut conducteur (ignoré pour les passagers)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -1047,9 +1244,7 @@
                                             "properties": {
                                                 "conversations": {
                                                     "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/AdminConversation"
-                                                    }
+                                                    "items": {}
                                                 },
                                                 "totalUnread": {
                                                     "type": "integer",
@@ -1077,7 +1272,7 @@
                 "tags": [
                     "👑 Admin — Messagerie"
                 ],
-                "summary": "Ouvrir une conversation — messages + marquer lu",
+                "summary": "[ADMIN] Ouvrir une conversation — messages + marquer lu",
                 "operationId": "adminMessagingShow",
                 "parameters": [
                     {
@@ -1110,7 +1305,7 @@
                 "tags": [
                     "👑 Admin — Messagerie"
                 ],
-                "summary": "Envoyer un message à un conducteur",
+                "summary": "[ADMIN] Envoyer un message",
                 "operationId": "adminMessagingSend",
                 "parameters": [
                     {
@@ -1163,8 +1358,8 @@
                 "tags": [
                     "👑 Admin — Messagerie"
                 ],
-                "summary": "Diffuser un message à plusieurs conducteurs",
-                "description": "Envoie le message dans la conversation admin-driver de chaque conducteur correspondant au filtre. Crée la conversation si elle n'existe pas encore.",
+                "summary": "[ADMIN] Diffuser un message à plusieurs utilisateurs",
+                "description": "Envoie le message dans la conversation admin-user de chaque utilisateur correspondant au filtre. Crée la conversation si elle n'existe pas encore. Envoie une notification push FCM à chaque destinataire.",
                 "operationId": "adminMessagingBroadcast",
                 "requestBody": {
                     "required": true,
@@ -1185,6 +1380,8 @@
                                         "type": "string",
                                         "example": "en_ligne",
                                         "enum": [
+                                            "tous_conducteurs",
+                                            "tous_passagers",
                                             "tous",
                                             "en_ligne",
                                             "en_trajet"
@@ -18666,62 +18863,6 @@
                 },
                 "type": "object"
             },
-            "AdminConversation": {
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "driverName": {
-                        "type": "string",
-                        "example": "Koffi Mensah"
-                    },
-                    "driverAvatar": {
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "driverPhone": {
-                        "type": "string",
-                        "example": "+22997000000"
-                    },
-                    "driverStatus": {
-                        "type": "string",
-                        "enum": [
-                            "en_ligne",
-                            "en_trajet",
-                            "hors_ligne"
-                        ]
-                    },
-                    "activeTripId": {
-                        "type": "string",
-                        "example": "CF304AE1",
-                        "nullable": true
-                    },
-                    "unreadCount": {
-                        "type": "integer",
-                        "example": 2
-                    },
-                    "lastMessage": {
-                        "type": "string",
-                        "example": "Bonjour, problème sur l'autoroute"
-                    },
-                    "lastMessageAt": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "priority": {
-                        "type": "string",
-                        "nullable": true,
-                        "enum": [
-                            "",
-                            "panne",
-                            "urgence",
-                            "retard"
-                        ]
-                    }
-                },
-                "type": "object"
-            },
             "TariffRule": {
                 "properties": {
                     "id": {
@@ -20611,6 +20752,10 @@
             "description": "Supervision et arbitrage des litiges passager/conducteur (Back-Office)"
         },
         {
+            "name": "👑 Admin — Messagerie",
+            "description": "Centre de messagerie directe Admin ↔ Conducteur/Passager (Back-Office)"
+        },
+        {
             "name": "🔔 Admin — Notifications",
             "description": "Centre de notifications back-office + push vers les utilisateurs"
         },
@@ -20657,10 +20802,6 @@
         {
             "name": "👑 Admin — Audit & Sécurité",
             "description": "👑 Admin — Audit & Sécurité"
-        },
-        {
-            "name": "👑 Admin — Messagerie",
-            "description": "👑 Admin — Messagerie"
         },
         {
             "name": "👑 Admin — Virements",
