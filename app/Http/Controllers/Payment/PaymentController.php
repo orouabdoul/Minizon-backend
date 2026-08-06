@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payment;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Commission;
 use App\Models\Payment;
 use App\Models\TripValidation;
 use FedaPay\FedaPay;
@@ -18,8 +19,18 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    private const SERVICE_FEE_RATE  = 0.05;  // +5%  ajouté au passager
-    private const DRIVER_COMMISSION = 0.10;  // -10% prélevé sur la part conducteur
+    private function commissionRates(): array
+    {
+        $rows = Commission::whereIn('type', ['covoiturage_standard', 'frais_service_passager'])
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('type');
+
+        return [
+            'service_fee'  => ($rows['frais_service_passager']?->rate_percent ?? 5.0) / 100,
+            'driver_cut'   => ($rows['covoiturage_standard']?->rate_percent   ?? 10.0) / 100,
+        ];
+    }
 
     // =========================================================================
     //  POST /api/bookings/{uuid}/pay
@@ -58,14 +69,15 @@ class PaymentController extends Controller
 
         $trip = $booking->trip;
 
-        // ── Calcul des montants ────────────────────────────────────────────────
+        // ── Calcul des montants (taux lus depuis la table commissions) ───────────
+        $rates            = $this->commissionRates();
         $base             = (int) $booking->calculated_price * (int) $booking->seats_booked;
         $serviceFee       = (int) ($booking->service_fee > 0
             ? $booking->service_fee
-            : round($base * self::SERVICE_FEE_RATE));
+            : round($base * $rates['service_fee']));
         $grossAmount      = $booking->total_price ?: ($base + $serviceFee);  // débité au passager
-        $driverCommission = (int) round($base * self::DRIVER_COMMISSION);    // 10% Minizon côté conducteur
-        $netAmount        = $base - $driverCommission;                        // 90% du base → conducteur
+        $driverCommission = (int) round($base * $rates['driver_cut']);        // % Minizon côté conducteur
+        $netAmount        = $base - $driverCommission;                        // part nette → conducteur
         $commissionAmount = $serviceFee + $driverCommission;                  // total Minizon
 
         // ── Profil passager pour FedaPay ──────────────────────────────────────

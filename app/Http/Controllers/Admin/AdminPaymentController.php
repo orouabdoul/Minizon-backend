@@ -10,6 +10,7 @@ use FedaPay\Transaction as FedaTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
@@ -720,6 +721,52 @@ class AdminPaymentController extends Controller
             return $this->apiResponse(false, 'Paiement introuvable.', [], 404);
         }
 
+        // ── Auto-sync si le paiement est pending (webhook non reçu) ──────────
+        if ($payment->status === 'pending' && ! empty($payment->provider_reference)) {
+            try {
+                FedaPay::setApiKey(config('fedapay.secret_key'));
+                FedaPay::setEnvironment(config('fedapay.environment'));
+
+                $fedaTx = FedaTransaction::retrieve((int) $payment->provider_reference);
+
+                if (($fedaTx->status ?? null) === 'approved') {
+                    DB::transaction(function () use ($payment) {
+                        $payment->update(['status' => 'locked']);
+
+                        if ($payment->booking) {
+                            $payment->booking->update(['payment_status' => 'escrow_locked']);
+
+                            TripValidation::firstOrCreate(
+                                ['booking_id' => $payment->booking->id],
+                                [
+                                    'trip_id'             => $payment->booking->trip_id,
+                                    'passenger_confirmed' => false,
+                                    'auto_release_at'     => now()->addHours(24),
+                                    'status'              => 'waiting',
+                                ]
+                            );
+                        }
+                    });
+
+                    $payment->refresh()->load([
+                        'booking.trip.user.profile',
+                        'booking.passenger.profile',
+                        'booking.tripValidation',
+                    ]);
+
+                    Log::info('Refund auto-sync: paiement passé à locked', [
+                        'payment_uuid' => $payment->uuid,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Refund auto-sync FedaPay échoué', [
+                    'payment_uuid' => $payment->uuid,
+                    'error'        => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // ── Vérifier que le statut permet le remboursement ───────────────────
         if ($payment->status !== 'locked') {
             return $this->apiResponse(
                 false,
@@ -729,6 +776,59 @@ class AdminPaymentController extends Controller
             );
         }
 
+        // ── Appel API FedaPay pour créer le vrai remboursement ───────────────
+        if (! empty($payment->provider_reference)) {
+            $baseUrl = config('fedapay.environment') === 'live'
+                ? 'https://api.fedapay.com/v1'
+                : 'https://sandbox-api.fedapay.com/v1';
+
+            try {
+                $fedaResponse = Http::withToken(config('fedapay.secret_key'))
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->post("{$baseUrl}/transactions/{$payment->provider_reference}/refund");
+
+                if (! $fedaResponse->successful()) {
+                    $errorMsg = $fedaResponse->json('message')
+                        ?? $fedaResponse->json('error')
+                        ?? $fedaResponse->body();
+
+                    Log::error('FedaPay refund API échoué', [
+                        'payment_uuid' => $payment->uuid,
+                        'fedapay_id'   => $payment->provider_reference,
+                        'http_status'  => $fedaResponse->status(),
+                        'response'     => $fedaResponse->body(),
+                    ]);
+
+                    return $this->apiResponse(
+                        false,
+                        'FedaPay a refusé le remboursement : ' . $errorMsg,
+                        ['fedapay_status' => $fedaResponse->status()],
+                        502
+                    );
+                }
+
+                Log::info('FedaPay remboursement créé', [
+                    'payment_uuid' => $payment->uuid,
+                    'fedapay_id'   => $payment->provider_reference,
+                    'response'     => $fedaResponse->json(),
+                ]);
+
+            } catch (\Throwable $e) {
+                Log::error('FedaPay refund exception', [
+                    'payment_uuid' => $payment->uuid,
+                    'error'        => $e->getMessage(),
+                ]);
+
+                return $this->apiResponse(
+                    false,
+                    'Erreur lors de l\'appel FedaPay : ' . $e->getMessage(),
+                    [],
+                    502
+                );
+            }
+        }
+
+        // ── Mettre à jour la base locale ──────────────────────────────────────
         DB::transaction(function () use ($payment) {
             $payment->update(['status' => 'refunded']);
 
@@ -748,5 +848,69 @@ class AdminPaymentController extends Controller
         ]);
 
         return $this->apiResponse(true, 'Remboursement effectué avec succès.', $this->format($payment));
+    }
+
+    // =========================================================================
+    //  RELEASE  POST /api/admin/payments/{uuid}/release
+    //  Libération manuelle par l'admin (après avis critique ou litige résolu)
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/admin/payments/{uuid}/release',
+        operationId: 'adminPaymentRelease',
+        summary: '[ADMIN] Libérer manuellement les fonds vers le conducteur',
+        description: "Libère les fonds bloqués en escrow (`locked`) vers le portefeuille du conducteur.\n\nUtilisé quand :\n- Un avis critique (≤ 2★) a bloqué la libération automatique et l'admin décide de libérer quand même\n- Un litige est résolu en faveur du conducteur (alternative à la route `/disputes/{id}/pay-driver`)\n\nLe passager peut toujours rembourser via `POST /api/admin/payments/{uuid}/refund`.",
+        tags: ['💳 Admin — Paiements'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Fonds libérés vers le conducteur'),
+            new OA\Response(response: 403, description: 'Accès réservé aux administrateurs'),
+            new OA\Response(response: 404, description: 'Paiement introuvable'),
+            new OA\Response(response: 422, description: 'Le paiement n\'est pas en escrow (locked)'),
+        ]
+    )]
+    public function release(Request $request, string $uuid): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $payment = $this->baseQuery()->where('uuid', $uuid)->first();
+
+        if (! $payment) {
+            return $this->apiResponse(false, 'Paiement introuvable.', [], 404);
+        }
+
+        if ($payment->status !== 'locked') {
+            return $this->apiResponse(
+                false,
+                'Ce paiement ne peut pas être libéré (statut : ' . $this->statusLabel($payment->status) . ').',
+                [],
+                422
+            );
+        }
+
+        DB::transaction(function () use ($payment) {
+            $payment->update(['status' => 'success']);
+
+            if ($payment->booking) {
+                $payment->booking->update(['payment_status' => 'released_to_driver']);
+
+                TripValidation::where('booking_id', $payment->booking_id)
+                    ->whereIn('status', ['waiting', 'disputed'])
+                    ->update(['status' => 'released']);
+            }
+        });
+
+        $payment->refresh()->load([
+            'booking.trip.user.profile',
+            'booking.passenger.profile',
+            'booking.tripValidation',
+        ]);
+
+        return $this->apiResponse(true, 'Fonds libérés vers le portefeuille du conducteur.', $this->format($payment));
     }
 }
