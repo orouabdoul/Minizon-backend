@@ -107,6 +107,7 @@ class DriverDetailMessagerController extends Controller
 
         $conversation = Conversation::with([
             'participants.profile',
+            'participants.role',
             'booking',
             'trip',
         ])->where('uuid', $uuid)->first();
@@ -152,22 +153,28 @@ class DriverDetailMessagerController extends Controller
         $other   = $conversation->participants->first(fn ($p) => $p->id !== $userId);
         $profile = $other?->profile;
 
+        $isAdminConv = $conversation->trip_id === null && $conversation->booking_id === null
+            && ($other?->role?->name === 'admin');
+
         $avatarUrl = '';
-        if ($profile?->selfie_front) {
+        if (! $isAdminConv && $profile?->selfie_front) {
             $avatarUrl = Storage::disk('public')->url($profile->selfie_front);
         }
 
+        $otherName = $isAdminConv
+            ? 'Admin Minizon'
+            : ($profile ? trim("{$profile->first_name} {$profile->last_name}") : ($other?->phone ?? '—'));
+
         $threadContext = [
-            'uuid'         => $conversation->uuid,
-            'booking_uuid' => $conversation->booking?->uuid,
-            'other_user'   => [
+            'uuid'                 => $conversation->uuid,
+            'booking_uuid'         => $conversation->booking?->uuid,
+            'is_admin_conversation' => $isAdminConv,
+            'other_user'           => [
                 'uuid'       => $other?->uuid,
-                'name'       => $profile
-                    ? trim("{$profile->first_name} {$profile->last_name}")
-                    : ($other?->phone ?? '—'),
-                'phone'      => $other?->phone,
+                'name'       => $otherName,
+                'phone'      => $isAdminConv ? null : $other?->phone,
                 'avatar_url' => $avatarUrl,
-                'is_online'  => false, // nécessite WebSocket pour être réel
+                'is_online'  => false,
             ],
             'trip' => $this->formatTripContext($conversation->trip),
         ];
@@ -177,7 +184,7 @@ class DriverDetailMessagerController extends Controller
             'messages'        => $messages,
             'has_more'        => $hasMore,
             'next_before_id'  => $rawMessages->first()?->id,
-            'send_endpoint'   => 'POST /api/conversations/' . $conversation->uuid . '/messages',
+            'send_endpoint'   => 'POST /api/driver/conversations/' . $conversation->uuid . '/messages',
         ]);
     }
 
