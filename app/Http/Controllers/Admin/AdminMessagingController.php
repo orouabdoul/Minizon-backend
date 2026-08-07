@@ -47,7 +47,7 @@ class AdminMessagingController extends Controller
             return $existing;
         }
 
-        $conv = Conversation::create([]);
+        $conv = Conversation::create(['trip_id' => null, 'booking_id' => null]);
         $conv->participants()->attach([$adminId, $userId]);
 
         return $conv;
