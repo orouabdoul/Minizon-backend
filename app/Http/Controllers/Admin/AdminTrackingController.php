@@ -120,16 +120,18 @@ MD,
         } elseif ($filter === 'panne') {
             $query->whereHas('incidents', fn ($q) => $q->where('type', 'panne')->whereNull('resolved_at'));
         } elseif ($filter === 'en_retard') {
+            $nowStr = now()->format('Y-m-d H:i:s');
             // Trajet encore actif APRÈS l'heure d'arrivée estimée
             $query->where('status', 'active')
-                  ->where(function ($q) {
+                  ->where(function ($q) use ($nowStr) {
                       $q->where(fn ($x) =>
                           $x->whereNotNull('estimated_arrival_time')
-                            ->where('estimated_arrival_time', '<', now())
+                            ->where('estimated_arrival_time', '<', $nowStr)
                       )->orWhere(fn ($x) =>
                           $x->whereNull('estimated_arrival_time')
                             ->whereNotNull('started_at')
-                            ->whereRaw('started_at + INTERVAL estimated_duration_minutes MINUTE < ?', [now()])
+                            ->whereNotNull('estimated_duration_minutes')
+                            ->whereRaw('started_at + INTERVAL estimated_duration_minutes MINUTE < ?', [$nowStr])
                       );
                   });
         } elseif ($filter === 'actif') {
@@ -203,8 +205,6 @@ MD,
     )]
     public function live(): JsonResponse
     {
-        $now = now();
-
         $trips = Trip::with('activeIncident')
             ->where('status', 'active')
             ->select([
@@ -217,13 +217,13 @@ MD,
             ])
             ->get();
 
-        $positions = $trips->map(function (Trip $t) use ($now) {
+        $positions = $trips->map(function (Trip $t) {
             // Détection retard
             $isLate = false;
             if ($t->estimated_arrival_time) {
-                $isLate = $t->estimated_arrival_time->lt($now);
-            } elseif ($t->started_at && $t->estimated_duration_minutes) {
-                $isLate = $t->started_at->addMinutes($t->estimated_duration_minutes)->lt($now);
+                $isLate = $t->estimated_arrival_time->isPast();
+            } elseif ($t->started_at && $t->estimated_duration_minutes > 0) {
+                $isLate = $t->started_at->addMinutes($t->estimated_duration_minutes)->isPast();
             }
 
             return [
@@ -288,10 +288,10 @@ MD,
     )]
     public function stats(): JsonResponse
     {
-        $now = now();
+        $nowStr  = now()->format('Y-m-d H:i:s');
+        $todayStr = today()->toDateString();
 
-        $activeTrips = Trip::where('status', 'active')->count();
-
+        $activeTrips  = Trip::where('status', 'active')->count();
         $pendingTrips = Trip::where('status', 'pending')->count();
 
         $incidents = TripIncident::whereNull('resolved_at')
@@ -303,31 +303,31 @@ MD,
             ->whereHas('trip', fn ($q) => $q->where('status', 'active'))
             ->count();
 
-        // Trajets actifs en retard
+        // Trajets actifs dépassant leur heure d'arrivée estimée
         $lateTrips = Trip::where('status', 'active')
-            ->where(function ($q) use ($now) {
+            ->where(function ($q) use ($nowStr) {
                 $q->where(fn ($x) =>
                     $x->whereNotNull('estimated_arrival_time')
-                      ->where('estimated_arrival_time', '<', $now)
+                      ->where('estimated_arrival_time', '<', $nowStr)
                 )->orWhere(fn ($x) =>
                     $x->whereNull('estimated_arrival_time')
                       ->whereNotNull('started_at')
-                      ->whereRaw('started_at + INTERVAL estimated_duration_minutes MINUTE < ?', [$now])
+                      ->whereNotNull('estimated_duration_minutes')
+                      ->whereRaw(
+                          'started_at + INTERVAL estimated_duration_minutes MINUTE < ?',
+                          [$nowStr]
+                      )
                 );
             })->count();
 
-        $driversOnline = Trip::where('status', 'active')
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $tripsToday     = Trip::whereDate('departure_time', today())->count();
-        $completedToday = Trip::where('status', 'completed')->whereDate('completed_at', today())->count();
-        $cancelledToday = Trip::where('status', 'cancelled')->whereDate('updated_at', today())->count();
+        $driversOnline  = Trip::where('status', 'active')->distinct('user_id')->count('user_id');
+        $tripsToday     = Trip::whereDate('departure_time', $todayStr)->count();
+        $completedToday = Trip::where('status', 'completed')->whereDate('completed_at', $todayStr)->count();
+        $cancelledToday = Trip::where('status', 'cancelled')->whereDate('updated_at', $todayStr)->count();
         $flaggedTrips   = Trip::where('is_flagged', true)->count();
 
-        // Passagers embarqués aujourd'hui
         $passengersToday = Booking::where('status', 'accepted')
-            ->whereHas('trip', fn ($q) => $q->whereDate('departure_time', today()))
+            ->whereHas('trip', fn ($q) => $q->whereDate('departure_time', $todayStr))
             ->sum('seats_booked');
 
         return $this->apiResponse(true, 'Stats suivi.', [
@@ -508,9 +508,9 @@ MD,
         $isLate = false;
         if ($trip->status === 'active') {
             if ($trip->estimated_arrival_time) {
-                $isLate = $trip->estimated_arrival_time->lt($now);
-            } elseif ($trip->started_at && $trip->estimated_duration_minutes) {
-                $isLate = $trip->started_at->addMinutes($trip->estimated_duration_minutes)->lt($now);
+                $isLate = $trip->estimated_arrival_time->isPast();
+            } elseif ($trip->started_at && $trip->estimated_duration_minutes > 0) {
+                $isLate = $trip->started_at->addMinutes($trip->estimated_duration_minutes)->isPast();
             }
         }
 
