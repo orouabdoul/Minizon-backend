@@ -5712,39 +5712,94 @@
                 "tags": [
                     "👑 Admin — Suivi temps réel"
                 ],
-                "summary": "Suivi temps réel — liste des trajets actifs",
-                "description": "Retourne tous les trajets avec status=active, enrichis de la position GPS actuelle du conducteur et de l'incident actif éventuel. Polling recommandé toutes les 15 secondes.",
+                "summary": "Suivi — liste paginée de tous les trajets",
+                "description": "Retourne tous les trajets avec filtres avancés : statut, incidents, pannes, retards,\ntris par jour / mois / année. Inclut position GPS actuelle et incident actif.",
                 "operationId": "adminTrackingList",
                 "parameters": [
                     {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "active",
+                                "pending",
+                                "completed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
                         "name": "filter",
                         "in": "query",
-                        "required": false,
                         "schema": {
                             "type": "string",
                             "default": "all",
                             "enum": [
                                 "all",
                                 "actif",
-                                "incident"
+                                "incident",
+                                "panne",
+                                "en_retard",
+                                "flagged"
                             ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "schema": {
+                            "description": "Filtre par jour exact (YYYY-MM-DD)",
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "schema": {
+                            "description": "Filtre par mois (YYYY-MM)",
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}$"
+                        }
+                    },
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "schema": {
+                            "description": "Filtre par année",
+                            "type": "integer",
+                            "example": 2026
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "description": "Recherche conducteur, ville départ/arrivée, ID trajet",
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 30
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Liste des trajets tracés",
+                        "description": "Liste des trajets",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Trajets actifs."
+                                            "type": "boolean"
                                         },
                                         "body": {
                                             "properties": {
@@ -5752,6 +5807,97 @@
                                                     "type": "array",
                                                     "items": {
                                                         "$ref": "#/components/schemas/TrackedTrip"
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "page": {
+                                                    "type": "integer"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/live": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Positions GPS temps réel (polling 5s)",
+                "description": "Retourne uniquement les données GPS des trajets actifs. Réponse volontairement légère\npour un polling côté client toutes les 5 secondes sans surcharger le réseau.",
+                "operationId": "adminTrackingLive",
+                "responses": {
+                    "200": {
+                        "description": "Positions GPS",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "server_time": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "positions": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "uuid": {
+                                                                "type": "string",
+                                                                "format": "uuid"
+                                                            },
+                                                            "lat": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "nullable": true
+                                                            },
+                                                            "lng": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "nullable": true
+                                                            },
+                                                            "speed": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "nullable": true
+                                                            },
+                                                            "status": {
+                                                                "type": "string"
+                                                            },
+                                                            "has_incident": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "is_late": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "location_updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
                                                     }
                                                 }
                                             },
@@ -5776,8 +5922,8 @@
                 "tags": [
                     "👑 Admin — Suivi temps réel"
                 ],
-                "summary": "KPIs du suivi temps réel",
-                "description": "Retourne les compteurs de la barre de statistiques : trajets actifs, incidents en cours, conducteurs en ligne, trajets du jour.",
+                "summary": "KPIs enrichis du suivi temps réel",
+                "description": "Retourne les compteurs de la barre de statistiques avec ventilation par statut et tendance du jour.",
                 "operationId": "adminTrackingStats",
                 "responses": {
                     "200": {
@@ -5787,26 +5933,53 @@
                                 "schema": {
                                     "properties": {
                                         "success": {
-                                            "type": "boolean",
-                                            "example": true
+                                            "type": "boolean"
                                         },
                                         "body": {
                                             "properties": {
-                                                "activeTrips": {
+                                                "active_trips": {
                                                     "type": "integer",
                                                     "example": 5
+                                                },
+                                                "pending_trips": {
+                                                    "type": "integer",
+                                                    "example": 8
                                                 },
                                                 "incidents": {
                                                     "type": "integer",
                                                     "example": 1
                                                 },
-                                                "driversOnline": {
+                                                "pannes": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "late_trips": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "drivers_online": {
                                                     "type": "integer",
                                                     "example": 5
                                                 },
-                                                "tripsToday": {
+                                                "trips_today": {
                                                     "type": "integer",
                                                     "example": 12
+                                                },
+                                                "completed_today": {
+                                                    "type": "integer",
+                                                    "example": 7
+                                                },
+                                                "cancelled_today": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "flagged_trips": {
+                                                    "type": "integer",
+                                                    "example": 0
+                                                },
+                                                "passengers_today": {
+                                                    "type": "integer",
+                                                    "example": 28
                                                 }
                                             },
                                             "type": "object"
@@ -5825,12 +5998,125 @@
                 ]
             }
         },
+        "/api/admin/tracking/incidents": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Liste de tous les incidents (actifs + historique)",
+                "operationId": "adminTrackingIncidents",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "panne",
+                                "urgence",
+                                "autre"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "resolved",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}$"
+                        }
+                    },
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 30
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des incidents"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/{uuid}": {
+            "get": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Détail complet d'un trajet",
+                "description": "Retourne toutes les informations du trajet : GPS, passagers avec points de prise/dépôt GPS, historique incidents, timeline.",
+                "operationId": "adminTrackingDetail",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détail du trajet"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/tracking/{uuid}/incident": {
             "post": {
                 "tags": [
                     "👑 Admin — Suivi temps réel"
                 ],
-                "summary": "Signaler un incident sur un trajet actif",
+                "summary": "Signaler un incident sur un trajet",
                 "operationId": "adminReportIncident",
                 "parameters": [
                     {
@@ -5854,7 +6140,6 @@
                                 "properties": {
                                     "type": {
                                         "type": "string",
-                                        "example": "panne",
                                         "enum": [
                                             "panne",
                                             "urgence",
@@ -5863,8 +6148,8 @@
                                     },
                                     "notes": {
                                         "type": "string",
-                                        "example": "Crevaison signalée par le conducteur",
-                                        "nullable": true
+                                        "nullable": true,
+                                        "maxLength": 500
                                     }
                                 },
                                 "type": "object"
@@ -5908,6 +6193,23 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "resolution_note": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "maxLength": 500
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
                         "description": "Incident résolu"
@@ -5923,13 +6225,13 @@
                 ]
             }
         },
-        "/api/admin/tracking/{uuid}": {
-            "get": {
+        "/api/admin/tracking/{uuid}/flag": {
+            "patch": {
                 "tags": [
                     "👑 Admin — Suivi temps réel"
                 ],
-                "summary": "Détail d'un trajet tracé",
-                "operationId": "adminTrackingDetail",
+                "summary": "Flaguer / déflaguer un trajet (modération)",
+                "operationId": "adminFlagTrip",
                 "parameters": [
                     {
                         "name": "uuid",
@@ -5941,9 +6243,93 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "flag"
+                                ],
+                                "properties": {
+                                    "flag": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "moderation_note": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "maxLength": 500
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Détail du trajet"
+                        "description": "Trajet mis à jour"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/tracking/{uuid}/notify-driver": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Envoyer une notification FCM au conducteur d'un trajet",
+                "operationId": "adminNotifyDriver",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "message"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "example": "Message de l'administration",
+                                        "nullable": true
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "example": "Veuillez contacter le support."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Notification envoyée"
+                    },
+                    "400": {
+                        "description": "Conducteur sans token FCM"
                     },
                     "404": {
                         "description": "Trajet introuvable"
@@ -19109,11 +19495,11 @@
             },
             "TrackedTrip": {
                 "properties": {
-                    "id": {
+                    "uuid": {
                         "type": "string",
                         "format": "uuid"
                     },
-                    "tripId": {
+                    "trip_id": {
                         "type": "string",
                         "example": "CF304AE1"
                     },
@@ -19125,32 +19511,58 @@
                         "type": "string",
                         "example": "Parakou"
                     },
-                    "driverName": {
+                    "departure_time": {
                         "type": "string",
-                        "example": "Koffi Mensah"
-                    },
-                    "driverPhone": {
-                        "type": "string",
-                        "example": "+22997000000"
-                    },
-                    "driverAvatar": {
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "passengerCount": {
-                        "type": "integer",
-                        "example": 3
-                    },
-                    "estimatedArrival": {
-                        "type": "string",
-                        "example": "14:30"
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "status": {
                         "type": "string",
                         "enum": [
                             "actif",
-                            "incident"
+                            "incident",
+                            "en_attente",
+                            "terminé",
+                            "annulé"
                         ]
+                    },
+                    "raw_status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "pending",
+                            "completed",
+                            "cancelled"
+                        ]
+                    },
+                    "is_flagged": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "driver_name": {
+                        "type": "string",
+                        "example": "Koffi Mensah"
+                    },
+                    "driver_phone": {
+                        "type": "string",
+                        "example": "+22997000000"
+                    },
+                    "driver_avatar": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "passenger_count": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "total_seats": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "estimated_arrival": {
+                        "type": "string",
+                        "example": "14:30",
+                        "nullable": true
                     },
                     "position": {
                         "properties": {
