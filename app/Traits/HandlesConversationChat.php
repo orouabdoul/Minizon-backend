@@ -184,10 +184,34 @@ trait HandlesConversationChat
             return $this->apiResponse(false, 'Conversation introuvable.', [], 404);
         }
 
+        // Récupérer les expéditeurs AVANT de marquer comme lus (double croche)
+        $unreadSenderIds = $conversation->messages()
+            ->where('sender_id', '!=', $userId)
+            ->whereNull('read_at')
+            ->pluck('sender_id')
+            ->unique();
+
         $conversation->messages()
             ->where('sender_id', '!=', $userId)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        // Push FCM aux expéditeurs → double croche côté expéditeur (WhatsApp style)
+        if ($unreadSenderIds->isNotEmpty()) {
+            $senderTokens = \App\Models\User::whereIn('id', $unreadSenderIds)
+                ->whereNotNull('fcm_token')
+                ->pluck('fcm_token')
+                ->all();
+
+            if (! empty($senderTokens)) {
+                app(FcmService::class)->sendToMultiple(
+                    $senderTokens,
+                    '',
+                    '',
+                    ['type' => 'messages_read', 'conversation_uuid' => $conversation->uuid]
+                );
+            }
+        }
 
         return $this->apiResponse(true, 'Messages marqués comme lus.');
     }
@@ -215,6 +239,8 @@ trait HandlesConversationChat
             'body'       => $msg->body,
             'time'       => $msg->created_at->setTimezone($tz)->format('H:i'),
             'raw_date'   => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_read'    => $msg->read_at !== null,
+            'is_edited'  => $msg->updated_at->gt($msg->created_at),
             'read_at'    => $msg->read_at?->toIso8601String(),
             'attachment' => $attachment,
         ];

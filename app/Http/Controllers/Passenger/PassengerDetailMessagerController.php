@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Trip;
+use App\Services\FcmService;
 use App\Traits\HandlesConversationChat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -415,9 +416,24 @@ class PassengerDetailMessagerController extends Controller
 
         $message->update(['body' => $newBody]);
 
+        // Push FCM → destinataire voit le message modifié en temps réel
+        $message->load('conversation.participants');
+        $conv   = $message->conversation;
+        $others = $conv->participants->filter(fn ($u) => $u->id !== $request->user()->id);
+        $tokens = $others->pluck('fcm_token')->filter()->values()->all();
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple($tokens, '', '', [
+                'type'              => 'message_edited',
+                'conversation_uuid' => $conv->uuid,
+                'message_uuid'      => $message->uuid,
+                'new_body'          => $message->body,
+            ]);
+        }
+
         return $this->apiResponse(true, 'Message modifié.', [
             'uuid'      => $message->uuid,
             'body'      => $message->body,
+            'is_edited' => true,
             'edited_at' => $message->updated_at->toIso8601String(),
         ]);
     }
@@ -454,11 +470,26 @@ class PassengerDetailMessagerController extends Controller
             return $this->apiResponse(false, 'Vous ne pouvez supprimer que vos propres messages.', [], 403);
         }
 
+        // Push FCM AVANT de supprimer
+        $message->load('conversation.participants');
+        $conv    = $message->conversation;
+        $msgUuid = $message->uuid;
+        $others  = $conv->participants->filter(fn ($u) => $u->id !== $request->user()->id);
+        $tokens  = $others->pluck('fcm_token')->filter()->values()->all();
+
         if ($message->attachment_path) {
             Storage::disk('public')->delete($message->attachment_path);
         }
 
         $message->delete();
+
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple($tokens, '', '', [
+                'type'              => 'message_deleted',
+                'conversation_uuid' => $conv->uuid,
+                'message_uuid'      => $msgUuid,
+            ]);
+        }
 
         return $this->apiResponse(true, 'Message supprimé.');
     }
@@ -486,6 +517,8 @@ class PassengerDetailMessagerController extends Controller
             'message'      => $msg->body,
             'time'         => $timeLabel,
             'raw_date'     => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_read'      => $msg->read_at !== null,
+            'is_edited'    => $msg->updated_at->gt($msg->created_at),
             'title'        => null,
             'subtitle'     => null,
             'action_label' => null,

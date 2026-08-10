@@ -15,13 +15,20 @@ Route::middleware('auth:sanctum')->prefix('admin/messaging')->group(function () 
     // ── Démarrer / retrouver une conversation avec un utilisateur spécifique ──
     Route::post('start', [AdminMessagingController::class, 'startConversation']);
 
-    // ── Diffuser un message à plusieurs utilisateurs ──────────────────────────
+    // ── Diffuser un message à tous les utilisateurs d'un groupe ──────────────
     Route::post('broadcast', [AdminMessagingController::class, 'broadcast']);
+
+    // ── Envoyer un message à des utilisateurs sélectionnés (multi-select) ────
+    Route::post('send-to-selected', [AdminMessagingController::class, 'sendToSelected']);
 
     // ── CRUD conversations — routes nommées AVANT les wildcards {uuid} ────────
     Route::get('conversations', [AdminMessagingController::class, 'conversations']);
 
     // ── Wildcards ─────────────────────────────────────────────────────────────
-    Route::get('conversations/{uuid}',         [AdminMessagingController::class, 'show']);
+    Route::get('conversations/{uuid}',          [AdminMessagingController::class, 'show']);
     Route::post('conversations/{uuid}/messages', [AdminMessagingController::class, 'sendMessage']);
+
+    // ── Modifier / Supprimer un message admin ─────────────────────────────────
+    Route::patch('messages/{uuid}',  [AdminMessagingController::class, 'editMessage']);
+    Route::delete('messages/{uuid}', [AdminMessagingController::class, 'deleteMessage']);
 });

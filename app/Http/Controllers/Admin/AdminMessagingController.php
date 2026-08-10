@@ -303,11 +303,13 @@ class AdminMessagingController extends Controller
         $conv->load(['participants.profile', 'participants.role', 'messages', 'lastMessage']);
 
         $messages = $conv->messages->map(fn (Message $m) => [
-            'id'      => $m->uuid,
-            'content' => $m->body,
-            'sender'  => $m->sender_id === $adminId ? 'admin' : 'user',
-            'sentAt'  => $m->created_at->toIso8601String(),
-            'status'  => $m->read_at ? 'lu' : 'envoyé',
+            'id'        => $m->uuid,
+            'content'   => $m->body,
+            'sender'    => $m->sender_id === $adminId ? 'admin' : 'user',
+            'sentAt'    => $m->created_at->toIso8601String(),
+            'status'    => $m->read_at ? 'lu' : 'envoyé',
+            'is_read'   => $m->read_at !== null,
+            'is_edited' => $m->updated_at->gt($m->created_at),
         ]);
 
         return $this->apiResponse(true, $existed ? 'Conversation retrouvée.' : 'Conversation créée.', [
@@ -456,18 +458,41 @@ class AdminMessagingController extends Controller
             'lastMessage',
         ])->where('uuid', $uuid)->firstOrFail();
 
+        // Récupérer expéditeurs non lus AVANT update (pour FCM double croche)
+        $unreadSenderIds = $conversation->messages()
+            ->where('sender_id', '!=', $adminId)
+            ->whereNull('read_at')
+            ->pluck('sender_id')
+            ->unique();
+
         // Marquer les messages entrants comme lus
         $conversation->messages()
             ->where('sender_id', '!=', $adminId)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
+        // Push FCM double croche aux expéditeurs
+        if ($unreadSenderIds->isNotEmpty()) {
+            $senderTokens = User::whereIn('id', $unreadSenderIds)
+                ->whereNotNull('fcm_token')
+                ->pluck('fcm_token')
+                ->all();
+            if (! empty($senderTokens)) {
+                app(FcmService::class)->sendToMultiple($senderTokens, '', '', [
+                    'type'              => 'messages_read',
+                    'conversation_uuid' => $conversation->uuid,
+                ]);
+            }
+        }
+
         $messages = $conversation->messages->map(fn (Message $m) => [
-            'id'      => $m->uuid,
-            'content' => $m->body,
-            'sender'  => $m->sender_id === $adminId ? 'admin' : 'user',
-            'sentAt'  => $m->created_at->toIso8601String(),
-            'status'  => $m->read_at ? 'lu' : 'envoyé',
+            'id'        => $m->uuid,
+            'content'   => $m->body,
+            'sender'    => $m->sender_id === $adminId ? 'admin' : 'user',
+            'sentAt'    => $m->created_at->toIso8601String(),
+            'status'    => $m->read_at ? 'lu' : 'envoyé',
+            'is_read'   => $m->read_at !== null,
+            'is_edited' => $m->updated_at->gt($m->created_at),
         ]);
 
         return $this->apiResponse(true, 'Conversation.', [
@@ -648,5 +673,231 @@ class AdminMessagingController extends Controller
             'sent_to' => $sentCount,
             'target'  => $validated['target'],
         ]);
+    }
+
+    // =========================================================================
+    //  POST /api/admin/messaging/send-to-selected
+    //  Envoyer un message à une liste d'utilisateurs sélectionnés
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/admin/messaging/send-to-selected',
+        operationId: 'adminMessagingSendToSelected',
+        summary: '[ADMIN] Envoyer un message à des utilisateurs sélectionnés',
+        description: 'Envoie le même message à une liste précise d\'UUIDs d\'utilisateurs (conducteurs ou passagers). Crée les conversations si elles n\'existent pas encore.',
+        tags: ['👑 Admin — Messagerie'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['user_uuids', 'content'],
+                properties: [
+                    new OA\Property(property: 'user_uuids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), example: ['abc-123', 'def-456'], description: 'UUIDs des utilisateurs destinataires (max 100)'),
+                    new OA\Property(property: 'content',    type: 'string', maxLength: 2000, example: 'Votre trajet est confirmé.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Messages envoyés',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success', type: 'boolean', example: true),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'sent_to',   type: 'integer', example: 3),
+                                new OA\Property(property: 'not_found', type: 'integer', example: 0, description: 'UUIDs non trouvés ou bloqués'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function sendToSelected(Request $request): JsonResponse
+    {
+        $adminId = auth()->id();
+
+        $validated = $request->validate([
+            'user_uuids'   => 'required|array|min:1|max:100',
+            'user_uuids.*' => 'required|string|uuid',
+            'content'      => 'required|string|max:2000',
+        ]);
+
+        $users = User::whereIn('uuid', $validated['user_uuids'])
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['driver', 'passenger']))
+            ->where('is_blocked', false)
+            ->get();
+
+        $sentCount = 0;
+        $fcmTokens = [];
+
+        foreach ($users as $user) {
+            $conv = $this->findOrCreateConversation($adminId, $user->id);
+
+            Message::create([
+                'conversation_id' => $conv->id,
+                'sender_id'       => $adminId,
+                'body'            => $validated['content'],
+            ]);
+
+            $conv->touch();
+
+            if ($user->fcm_token) {
+                $fcmTokens[] = $user->fcm_token;
+            }
+
+            $sentCount++;
+        }
+
+        if (! empty($fcmTokens)) {
+            app(FcmService::class)->sendToMultiple(
+                $fcmTokens,
+                'Minizon Admin',
+                $validated['content'],
+                ['type' => 'admin_message']
+            );
+        }
+
+        return $this->apiResponse(true, "Message envoyé à {$sentCount} utilisateur(s).", [
+            'sent_to'   => $sentCount,
+            'not_found' => count($validated['user_uuids']) - $sentCount,
+        ]);
+    }
+
+    // =========================================================================
+    //  PATCH /api/admin/messaging/messages/{uuid}
+    //  Modifier un message envoyé par l'admin
+    // =========================================================================
+
+    #[OA\Patch(
+        path: '/api/admin/messaging/messages/{uuid}',
+        operationId: 'adminMessagingEdit',
+        summary: '[ADMIN] Modifier un message',
+        description: 'Modifie le texte d\'un message envoyé par l\'admin. Envoie une notification FCM au destinataire.',
+        tags: ['👑 Admin — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['content'],
+                properties: [
+                    new OA\Property(property: 'content', type: 'string', maxLength: 2000, example: 'Message corrigé.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Message modifié'),
+            new OA\Response(response: 403, description: 'Pas l\'expéditeur'),
+            new OA\Response(response: 404, description: 'Message introuvable'),
+        ]
+    )]
+    public function editMessage(Request $request, string $uuid): JsonResponse
+    {
+        $adminId = auth()->id();
+        $message = Message::with('conversation.participants')->where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $adminId) {
+            return $this->apiResponse(false, 'Vous ne pouvez modifier que vos propres messages.', [], 403);
+        }
+
+        if ($message->body === null && $message->attachment_path) {
+            return $this->apiResponse(false, 'Un message sans texte ne peut pas être modifié.', [], 422);
+        }
+
+        $validated = $request->validate(['content' => ['required', 'string', 'max:2000']]);
+        $newBody   = trim($validated['content']);
+
+        if ($newBody === '') {
+            return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
+        }
+
+        $message->update(['body' => $newBody]);
+
+        // FCM → destinataire reçoit la modification en temps réel
+        $conv       = $message->conversation;
+        $recipients = $conv->participants->filter(fn ($u) => $u->id !== $adminId);
+        $tokens     = $recipients->pluck('fcm_token')->filter()->values()->all();
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple($tokens, '', '', [
+                'type'              => 'message_edited',
+                'conversation_uuid' => $conv->uuid,
+                'message_uuid'      => $message->uuid,
+                'new_body'          => $newBody,
+            ]);
+        }
+
+        return $this->apiResponse(true, 'Message modifié.', [
+            'id'        => $message->uuid,
+            'content'   => $message->body,
+            'is_edited' => true,
+            'edited_at' => $message->updated_at->toIso8601String(),
+        ]);
+    }
+
+    // =========================================================================
+    //  DELETE /api/admin/messaging/messages/{uuid}
+    //  Supprimer un message envoyé par l'admin
+    // =========================================================================
+
+    #[OA\Delete(
+        path: '/api/admin/messaging/messages/{uuid}',
+        operationId: 'adminMessagingDelete',
+        summary: '[ADMIN] Supprimer un message',
+        description: 'Supprime un message envoyé par l\'admin et notifie le destinataire via FCM.',
+        tags: ['👑 Admin — Messagerie'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Message supprimé'),
+            new OA\Response(response: 403, description: 'Pas l\'expéditeur'),
+            new OA\Response(response: 404, description: 'Message introuvable'),
+        ]
+    )]
+    public function deleteMessage(Request $request, string $uuid): JsonResponse
+    {
+        $adminId = auth()->id();
+        $message = Message::with('conversation.participants')->where('uuid', $uuid)->first();
+
+        if (! $message) {
+            return $this->apiResponse(false, 'Message introuvable.', [], 404);
+        }
+
+        if ($message->sender_id !== $adminId) {
+            return $this->apiResponse(false, 'Vous ne pouvez supprimer que vos propres messages.', [], 403);
+        }
+
+        $conv    = $message->conversation;
+        $msgUuid = $message->uuid;
+        $recipients = $conv->participants->filter(fn ($u) => $u->id !== $adminId);
+        $tokens     = $recipients->pluck('fcm_token')->filter()->values()->all();
+
+        if ($message->attachment_path) {
+            Storage::disk('public')->delete($message->attachment_path);
+        }
+
+        $message->delete();
+
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple($tokens, '', '', [
+                'type'              => 'message_deleted',
+                'conversation_uuid' => $conv->uuid,
+                'message_uuid'      => $msgUuid,
+            ]);
+        }
+
+        return $this->apiResponse(true, 'Message supprimé.');
     }
 }
