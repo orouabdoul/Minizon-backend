@@ -114,8 +114,16 @@ class AdminAuditController extends Controller
 
         $items = collect($paginated->items())->map(fn (AuditLog $log) => $this->formatLog($log));
 
+        // Stats globales (non affectées par la pagination) pour les KPI cards
+        $stats = [
+            'today_count'    => AuditLog::whereDate('created_at', today())->count(),
+            'critique_count' => AuditLog::where('severity', 'critique')->count(),
+            'total'          => $paginated->total(),
+        ];
+
         return $this->apiResponse(true, 'Journal d\'audit.', [
             'logs'     => $items,
+            'stats'    => $stats,
             'total'    => $paginated->total(),
             'page'     => $paginated->currentPage(),
             'per_page' => $paginated->perPage(),

@@ -1431,6 +1431,178 @@
                 ]
             }
         },
+        "/api/admin/messaging/send-to-selected": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "[ADMIN] Envoyer un message à des utilisateurs sélectionnés",
+                "description": "Envoie le même message à une liste précise d'UUIDs d'utilisateurs (conducteurs ou passagers). Crée les conversations si elles n'existent pas encore.",
+                "operationId": "adminMessagingSendToSelected",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_uuids",
+                                    "content"
+                                ],
+                                "properties": {
+                                    "user_uuids": {
+                                        "description": "UUIDs des utilisateurs destinataires (max 100)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "example": [
+                                            "abc-123",
+                                            "def-456"
+                                        ]
+                                    },
+                                    "content": {
+                                        "type": "string",
+                                        "example": "Votre trajet est confirmé.",
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Messages envoyés",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "sent_to": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "not_found": {
+                                                    "description": "UUIDs non trouvés ou bloqués",
+                                                    "type": "integer",
+                                                    "example": 0
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/messaging/messages/{uuid}": {
+            "delete": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "[ADMIN] Supprimer un message",
+                "description": "Supprime un message envoyé par l'admin et notifie le destinataire via FCM.",
+                "operationId": "adminMessagingDelete",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Message supprimé"
+                    },
+                    "403": {
+                        "description": "Pas l'expéditeur"
+                    },
+                    "404": {
+                        "description": "Message introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "👑 Admin — Messagerie"
+                ],
+                "summary": "[ADMIN] Modifier un message",
+                "description": "Modifie le texte d'un message envoyé par l'admin. Envoie une notification FCM au destinataire.",
+                "operationId": "adminMessagingEdit",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "example": "Message corrigé.",
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Message modifié"
+                    },
+                    "403": {
+                        "description": "Pas l'expéditeur"
+                    },
+                    "404": {
+                        "description": "Message introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/notifications/metrics": {
             "get": {
                 "tags": [
