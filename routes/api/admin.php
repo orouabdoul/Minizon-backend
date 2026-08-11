@@ -8,6 +8,12 @@ use Illuminate\Support\Facades\Route;
 //  👑 ROUTES ADMIN — Tableau de bord & Audit
 // ============================================================
 
+// ── Route publique — page de login (sans auth) ────────────────────────────────
+// Métriques vitrine : utilisateurs actifs, trajets du jour, transactions sécurisées, uptime
+Route::get('admin/platform-stats', [DashboardController::class, 'platformStats'])
+    ->name('admin.platform-stats');
+
+// ── Routes protégées ──────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
 
     // Tableau de bord global

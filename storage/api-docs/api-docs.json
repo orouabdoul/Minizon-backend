@@ -7303,6 +7303,111 @@
                 ]
             }
         },
+        "/api/admin/platform-stats": {
+            "get": {
+                "tags": [
+                    "👑 Administration"
+                ],
+                "summary": "Métriques vitrine — page de connexion admin",
+                "description": "Endpoint public (sans authentification) retournant les 4 indicateurs clés affichés\nsur la page de login de la plateforme Minizon Admin.\nPolling recommandé toutes les 60 secondes côté client.",
+                "operationId": "adminPlatformStats",
+                "responses": {
+                    "200": {
+                        "description": "Métriques vitrine",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "active_users": {
+                                                    "properties": {
+                                                        "value": {
+                                                            "type": "integer",
+                                                            "example": 24573
+                                                        },
+                                                        "label": {
+                                                            "type": "string",
+                                                            "example": "Utilisateurs actifs"
+                                                        },
+                                                        "badge": {
+                                                            "type": "string",
+                                                            "example": "TODAY"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "daily_trips": {
+                                                    "properties": {
+                                                        "value": {
+                                                            "type": "integer",
+                                                            "example": 1847
+                                                        },
+                                                        "label": {
+                                                            "type": "string",
+                                                            "example": "Trajets quotidiens"
+                                                        },
+                                                        "badge": {
+                                                            "type": "string",
+                                                            "example": "TODAY"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "secure_transactions": {
+                                                    "properties": {
+                                                        "value": {
+                                                            "type": "string",
+                                                            "example": "99.9%"
+                                                        },
+                                                        "label": {
+                                                            "type": "string",
+                                                            "example": "Transactions sécurisées"
+                                                        },
+                                                        "badge": {
+                                                            "type": "string",
+                                                            "example": "SECURE"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "uptime": {
+                                                    "properties": {
+                                                        "value": {
+                                                            "type": "string",
+                                                            "example": "100%"
+                                                        },
+                                                        "label": {
+                                                            "type": "string",
+                                                            "example": "Disponibilité plateforme"
+                                                        },
+                                                        "badge": {
+                                                            "type": "string",
+                                                            "example": "UP"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "generated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/dashboard": {
             "get": {
                 "tags": [
