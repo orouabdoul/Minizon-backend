@@ -188,16 +188,17 @@ class AdminVehicleController extends Controller
 
         $counts = Vehicle::selectRaw(
             'COUNT(*) as total,
-             SUM(CASE WHEN verification_status = "approved"  THEN 1 ELSE 0 END) as actif,
-             SUM(CASE WHEN verification_status = "pending"   THEN 1 ELSE 0 END) as inspection,
-             SUM(CASE WHEN verification_status IN ("rejected","suspended") THEN 1 ELSE 0 END) as suspendu'
+             SUM(CASE WHEN verification_status = ? THEN 1 ELSE 0 END) as actif,
+             SUM(CASE WHEN verification_status = ? THEN 1 ELSE 0 END) as inspection,
+             SUM(CASE WHEN verification_status IN (?,?) THEN 1 ELSE 0 END) as suspendu',
+            ['approved', 'pending', 'rejected', 'suspended']
         )->first();
 
         return $this->apiResponse(true, 'Métriques récupérées.', [
-            'total'      => (int) $counts->total,
-            'actif'      => (int) $counts->actif,
-            'inspection' => (int) $counts->inspection,
-            'suspendu'   => (int) $counts->suspendu,
+            'total'      => (int) ($counts->total      ?? 0),
+            'actif'      => (int) ($counts->actif      ?? 0),
+            'inspection' => (int) ($counts->inspection ?? 0),
+            'suspendu'   => (int) ($counts->suspendu   ?? 0),
         ]);
     }
 
