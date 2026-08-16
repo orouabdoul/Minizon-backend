@@ -87,11 +87,19 @@ class AuthController extends Controller
     public function sendOtp(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+            'phone' => ['required', 'string'],
         ]);
 
         if ($validator->fails()) {
-            return $this->apiResponse(false, 'Format de numéro de téléphone invalide.', $validator->errors(), 422);
+            return $this->apiResponse(false, 'Le numéro de téléphone est requis.', $validator->errors(), 422);
+        }
+
+        // Validation ARCEP Bénin : strip +229 si présent, puis valider les 10 chiffres locaux
+        $localNumber = preg_replace('/^\+229/', '', trim($request->phone));
+        if (! preg_match('/^01(2[0-4289]|[4-6]\d|9\d)\d{6}$/', $localNumber)) {
+            return $this->apiResponse(false, 'Le numéro de téléphone n\'est pas valide pour le Bénin.', [
+                'code' => 'INVALID_PHONE_FORMAT',
+            ], 422);
         }
 
         $passengerRole = Role::where('name', 'passenger')->first();
@@ -411,8 +419,9 @@ class AuthController extends Controller
 
             $chosenRole = Role::where('name', $request->role_name)->first();
             $user->update([
-                'role_id'     => $chosenRole?->id ?? $user->role_id,
-                'is_verified' => false,
+                'role_id'              => $chosenRole?->id ?? $user->role_id,
+                'is_verified'          => false,
+                'is_profile_complete'  => true,
             ]);
 
             $token = $user->createToken('mobile_auth_token')->plainTextToken;

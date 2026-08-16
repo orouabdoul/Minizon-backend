@@ -167,7 +167,7 @@ class PassengerDetailMessagerController extends Controller
             'other_user'            => [
                 'uuid'       => $other?->uuid,
                 'name'       => $otherName,
-                'phone'      => $isAdminConv ? null : $other?->phone,
+                'phone'      => ($isAdminConv || $conversation->booking?->status !== 'accepted') ? null : $other?->phone,
                 'avatar_url' => $avatarUrl,
                 'is_online'  => false,
             ],
@@ -282,7 +282,7 @@ class PassengerDetailMessagerController extends Controller
                     schema: new OA\Schema(
                         properties: [
                             new OA\Property(property: 'body',       type: 'string', nullable: true, description: 'Texte du message', example: 'Je serai là dans 5 minutes.'),
-                            new OA\Property(property: 'attachment', type: 'string', format: 'binary', nullable: true, description: 'Fichier à joindre'),
+                            new OA\Property(property: 'attachment', type: 'string', format: 'binary', nullable: true, description: 'Fichier à joindre (image, document ou audio)'),
                         ]
                     )
                 ),
@@ -309,7 +309,7 @@ class PassengerDetailMessagerController extends Controller
                                 new OA\Property(property: 'attachment', type: 'object', nullable: true,
                                     properties: [
                                         new OA\Property(property: 'url',  type: 'string'),
-                                        new OA\Property(property: 'type', type: 'string', enum: ['image', 'document']),
+                                        new OA\Property(property: 'type', type: 'string', enum: ['image', 'document', 'audio']),
                                     ]
                                 ),
                             ]

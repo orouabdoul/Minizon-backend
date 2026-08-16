@@ -184,14 +184,13 @@ class PassengerHomeController extends Controller
     {
         $hour  = (int) now()->format('H');
         $salut = match (true) {
-            $hour >= 5  && $hour < 12 => 'Bonjour',
-            $hour >= 12 && $hour < 18 => 'Bon après-midi',
-            $hour >= 18 && $hour < 22 => 'Bonsoir',
-            default                   => 'Bonne nuit',
+            $hour < 12 => 'Bonjour',
+            $hour < 18 => 'Bon après-midi',
+            default    => 'Bon retour',
         };
 
         $firstName = $user->profile?->first_name ?? '';
-        return $firstName ? "$salut, $firstName" : $salut;
+        return $firstName ? "$salut, $firstName 👋" : "$salut 👋";
     }
 
     private function upcomingTrip(User $user): ?array

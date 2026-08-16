@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmergencyContact;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,9 +81,31 @@ class PassengerSafetyController extends Controller
     )]
     public function context(Request $request): JsonResponse
     {
-        $profile = $request->user()->profile;
+        $user    = $request->user();
+        $profile = $user->profile;
         $meta    = $this->getMeta($profile);
-        $rawContacts = $profile?->emergency_contacts ?? [];
+
+        // Contacts enregistrés lors de l'inscription (table emergency_contacts)
+        $dbContacts = EmergencyContact::where('user_id', $user->id)
+            ->get()
+            ->map(fn ($c) => [
+                'id'       => (string) $c->id,
+                'name'     => $c->name,
+                'phone'    => $c->phone,
+                'relation' => $c->relationship,
+            ])
+            ->toArray();
+
+        // Contacts ajoutés depuis la page Sécurité (JSON sur le profil)
+        $profileContacts = (array) ($profile?->emergency_contacts ?? []);
+
+        // Fusionner les deux sources en dédupliquant par numéro de téléphone
+        $knownPhones = array_column($dbContacts, 'phone');
+        foreach ($profileContacts as $pc) {
+            if (! in_array($pc['phone'] ?? '', $knownPhones, true)) {
+                $dbContacts[] = $pc;
+            }
+        }
 
         return $this->apiResponse(true, 'Données de sécurité.', [
             'sos_active'         => (bool) ($meta['sos_active'] ?? false),
@@ -90,7 +113,7 @@ class PassengerSafetyController extends Controller
                 'active' => (bool) ($meta['trip_share_active'] ?? false),
                 'code'   => $meta['trip_share_code'] ?? null,
             ],
-            'emergency_contacts' => $this->formatContacts((array) $rawContacts),
+            'emergency_contacts' => $this->formatContacts($dbContacts),
         ]);
     }
 

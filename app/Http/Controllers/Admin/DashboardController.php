@@ -90,40 +90,21 @@ MD,
     )]
     public function platformStats(): JsonResponse
     {
-        // Utilisateurs actifs = non bloqués avec au moins un trajet ou réservation
-        $activeUsers = User::where('is_blocked', false)
-            ->where(function ($q) {
-                $q->whereHas('trips')
-                  ->orWhereHas('bookings');
-            })
-            ->count();
-
-        // Trajets du jour (published ou actifs ou terminés)
-        $dailyTrips = Trip::whereDate('departure_time', today())->count();
-
-        // Transactions sécurisées = (success + locked) / total * 100
-        $totalPayments  = Payment::count();
-        $safePayments   = Payment::whereIn('status', ['success', 'locked', 'released'])->count();
-        $securePct = $totalPayments > 0
-            ? round(($safePayments / $totalPayments) * 100, 1)
-            : 99.9;
-        // Jamais afficher moins de 99.0% (SLA commercial plateforme)
-        $securePct = max($securePct, 99.0);
-
+        // Données fixes — les métriques temps réel sont protégées (auth requise)
         return $this->apiResponse(true, 'Métriques plateforme.', [
             'active_users' => [
-                'value' => $activeUsers,
+                'value' => '500+',
                 'label' => 'Utilisateurs actifs',
                 'badge' => 'LIVE',
             ],
             'daily_trips' => [
-                'value' => $dailyTrips,
-                'label' => 'Trajets quotidiens',
-                'badge' => 'TODAY',
+                'value' => '1 000+',
+                'label' => 'Trajets réalisés',
+                'badge' => 'ALL TIME',
             ],
             'secure_transactions' => [
-                'value' => number_format($securePct, 1) . '%',
-                'label' => 'Transactions sécurisées',
+                'value' => '98%',
+                'label' => 'Satisfaction client',
                 'badge' => 'SECURE',
             ],
             'uptime' => [

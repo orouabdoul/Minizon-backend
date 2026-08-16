@@ -21,6 +21,7 @@ class User extends Authenticatable
         'otp_expires_at',
         'phone_verified_at',
         'is_verified',
+        'is_profile_complete',
         'is_blocked',
         'blocked_until',
         'penalty_points',
@@ -39,8 +40,9 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'is_verified'       => 'boolean',
-        'is_blocked'        => 'boolean',
+        'is_verified'          => 'boolean',
+        'is_profile_complete'  => 'boolean',
+        'is_blocked'           => 'boolean',
         'is_online'             => 'boolean',
         'auto_availability'     => 'boolean',
         'notifications_enabled' => 'boolean',

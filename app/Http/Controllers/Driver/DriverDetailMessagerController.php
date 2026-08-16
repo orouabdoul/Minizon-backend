@@ -315,7 +315,7 @@ class DriverDetailMessagerController extends Controller
                                 new OA\Property(property: 'attachment', type: 'object', nullable: true,
                                     properties: [
                                         new OA\Property(property: 'url',  type: 'string'),
-                                        new OA\Property(property: 'type', type: 'string', enum: ['image', 'document']),
+                                        new OA\Property(property: 'type', type: 'string', enum: ['image', 'document', 'audio']),
                                     ]
                                 ),
                             ]
@@ -522,7 +522,7 @@ class DriverDetailMessagerController extends Controller
                 nullable: true,
                 properties: [
                     new OA\Property(property: 'url',  type: 'string', example: 'https://…/chat/conv-uuid/photo.jpg'),
-                    new OA\Property(property: 'type', type: 'string', enum: ['image', 'document']),
+                    new OA\Property(property: 'type', type: 'string', enum: ['image', 'document', 'audio']),
                 ]
             ),
         ]

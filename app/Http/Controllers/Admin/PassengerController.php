@@ -22,6 +22,7 @@ class PassengerController extends Controller
     {
         return User::query()
             ->whereHas('role', fn ($q) => $q->where('name', 'passenger'))
+            ->where('is_profile_complete', true)
             ->with('profile')
             ->withCount('bookings')
             ->withSum(

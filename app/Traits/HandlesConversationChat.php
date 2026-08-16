@@ -115,7 +115,7 @@ trait HandlesConversationChat
 
         $validated = $request->validate([
             'body'       => ['nullable', 'string', 'max:4000'],
-            'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpeg,png,webp,gif,pdf,doc,docx'],
+            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr'],
         ]);
 
         $hasText = ! empty(trim($validated['body'] ?? ''));
@@ -129,9 +129,13 @@ trait HandlesConversationChat
         $attachmentType = null;
 
         if ($hasFile) {
-            $file           = $request->file('attachment');
-            $mime           = $file->getMimeType() ?? '';
-            $attachmentType = str_starts_with($mime, 'image/') ? 'image' : 'document';
+            $file = $request->file('attachment');
+            $mime = $file->getMimeType() ?? '';
+            $attachmentType = match (true) {
+                str_starts_with($mime, 'image/') => 'image',
+                str_starts_with($mime, 'audio/') => 'audio',
+                default                          => 'document',
+            };
             $ext            = $file->getClientOriginalExtension();
             $filename       = Str::uuid() . '.' . $ext;
             $attachmentPath = $file->storeAs('chat/' . $conversation->uuid, $filename, 'public');
@@ -158,7 +162,13 @@ trait HandlesConversationChat
 
         if (! empty($fcmTokens)) {
             $senderName = 'Nouveau message';
-            $bodyText   = $hasText ? trim($validated['body'] ?? '') : '📎 Pièce jointe';
+            $bodyText   = $hasText
+                ? trim($validated['body'] ?? '')
+                : match ($attachmentType) {
+                    'audio'  => '🎙️ Message vocal',
+                    'image'  => '📷 Photo',
+                    default  => '📎 Pièce jointe',
+                };
 
             app(FcmService::class)->sendToMultiple(
                 $fcmTokens,
