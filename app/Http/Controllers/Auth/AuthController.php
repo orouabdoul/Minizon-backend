@@ -250,7 +250,7 @@ class AuthController extends Controller
                         'register_token', 'role_name', 'first_name', 'last_name',
                         'gender', 'city', 'neighborhood',
                         'selfie_front', 'selfie_left', 'selfie_right',
-                        'id_card_front', 'id_card_back',
+                        'id_card_front',
                     ],
                     properties: [
                         // — Identité
@@ -268,7 +268,7 @@ class AuthController extends Controller
                         new OA\Property(property: 'selfie_left',     type: 'string', format: 'binary', description: 'Photo de profil gauche'),
                         new OA\Property(property: 'selfie_right',    type: 'string', format: 'binary', description: 'Photo de profil droit'),
                         new OA\Property(property: 'id_card_front',   type: 'string', format: 'binary', description: 'Recto CNI / passeport'),
-                        new OA\Property(property: 'id_card_back',    type: 'string', format: 'binary', description: 'Verso CNI'),
+                        new OA\Property(property: 'id_card_back',    type: 'string', format: 'binary', description: 'Verso CNI (optionnel)', nullable: true),
                         // — Conducteur uniquement
                         new OA\Property(property: 'driving_license_number', type: 'string', example: '120452026',   description: '[driver] Numéro permis'),
                         new OA\Property(property: 'driving_license_photo',  type: 'string', format: 'binary',       description: '[driver] Photo permis'),
@@ -325,7 +325,7 @@ class AuthController extends Controller
             'selfie_left'                        => ['required', 'image', 'max:5120'],
             'selfie_right'                       => ['required', 'image', 'max:5120'],
             'id_card_front'                      => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
-            'id_card_back'                       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+            'id_card_back'                       => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
             'emergency_contacts'                 => ['nullable', 'array', 'max:5'],
             'emergency_contacts.*.name'          => ['required_with:emergency_contacts', 'string', 'max:80'],
             'emergency_contacts.*.relationship'  => ['required_with:emergency_contacts', 'string', 'max:40'],
@@ -372,7 +372,7 @@ class AuthController extends Controller
             $selfieLeft  = $request->file('selfie_left')->store('kyc/selfies',     'public');
             $selfieRight = $request->file('selfie_right')->store('kyc/selfies',    'public');
             $idFront     = $request->file('id_card_front')->store('kyc/documents', 'public');
-            $idBack      = $request->file('id_card_back')->store('kyc/documents',  'public');
+            $idBack      = $request->hasFile('id_card_back') ? $request->file('id_card_back')->store('kyc/documents', 'public') : null;
 
             $chosenRole = Role::where('name', $request->role_name)->first();
 
