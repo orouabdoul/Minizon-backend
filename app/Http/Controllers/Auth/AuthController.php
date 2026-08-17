@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -102,44 +103,32 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $passengerRole = Role::where('name', 'passenger')->first();
-
-        $user = User::firstOrCreate(
-            ['phone' => $request->phone],
-            [
-                'role_id'     => $passengerRole?->id ?? 2,
-                'is_verified' => false,
-            ]
-        );
-
-        // Cooldown de 60 secondes entre deux envois d'OTP.
-        // Protège contre le double-appel (instance Render lente) qui écrasait
-        // l'OTP en base pendant que l'ancien était encore en transit vers le client.
-        $otpTtl        = 10; // minutes
+        $phone          = $request->phone;
+        $otpTtl         = 10; // minutes
         $resendCooldown = 60; // secondes
-        $cooldownUntil = now()->addMinutes($otpTtl)->subSeconds($resendCooldown);
+        $cooldownKey    = 'otp_cooldown_' . md5($phone);
+        $otpKey         = 'otp_' . md5($phone);
 
-        if ($user->otp_expires_at && $user->otp_expires_at->gt($cooldownUntil)) {
-            $secondsLeft = (int) now()->diffInSeconds($user->otp_expires_at->subMinutes($otpTtl)->addSeconds($resendCooldown), false);
-            $secondsLeft = max(1, $secondsLeft);
+        if (Cache::has($cooldownKey)) {
+            $secondsLeft = (int) Cache::get($cooldownKey . '_ttl', $resendCooldown);
 
             return $this->apiResponse(false, 'Un code OTP a déjà été envoyé. Veuillez patienter avant d\'en demander un nouveau.', [
-                'phone'               => $user->phone,
-                'resend_available_in' => $secondsLeft,
+                'phone'               => $phone,
+                'resend_available_in' => max(1, $secondsLeft),
             ], 429);
         }
 
         $otpCode = (string) random_int(100000, 999999);
 
-        $user->update([
-            'otp_code'       => $otpCode,
-            'otp_expires_at' => now()->addMinutes($otpTtl),
-        ]);
+        // Stockage en Cache uniquement — aucune écriture en base de données
+        Cache::put($otpKey, $otpCode, now()->addMinutes($otpTtl));
+        Cache::put($cooldownKey, true, now()->addSeconds($resendCooldown));
+        Cache::put($cooldownKey . '_ttl', $resendCooldown, now()->addSeconds($resendCooldown));
 
         // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
 
         return $this->apiResponse(true, 'Code OTP généré avec succès.', [
-            'phone'               => $user->phone,
+            'phone'               => $phone,
             'otp_code'            => $otpCode,
             'resend_available_in' => $resendCooldown,
         ]);
@@ -198,29 +187,47 @@ class AuthController extends Controller
             return $this->apiResponse(false, 'Données fournies incomplètes.', $validator->errors(), 422);
         }
 
-        $user = User::where('phone', $request->phone)
-            ->where('otp_code', $request->otp_code)
-            ->where('otp_expires_at', '>', now('UTC'))
-            ->first();
+        $phone  = $request->phone;
+        $otpKey = 'otp_' . md5($phone);
 
-        if (! $user) {
+        $storedOtp = Cache::get($otpKey);
+
+        if (! $storedOtp || $storedOtp !== $request->otp_code) {
             return $this->apiResponse(false, 'Code OTP incorrect ou expiré.', [], 401);
         }
 
-        $user->update([
-            'phone_verified_at' => now(),
-            'otp_code'          => null,
-            'otp_expires_at'    => null,
-        ]);
+        // OTP consommé — suppression du Cache
+        Cache::forget($otpKey);
+        Cache::forget('otp_cooldown_' . md5($phone));
+        Cache::forget('otp_cooldown_' . md5($phone) . '_ttl');
 
-        $profile = Profile::where('user_id', $user->id)->first();
-        $token   = $user->createToken('mobile_auth_token')->plainTextToken;
+        // Utilisateur déjà inscrit (compte existant avec profil complet)
+        $existingUser = User::where('phone', $phone)->first();
 
-        return $this->apiResponse(true, 'Authentification réussie.', [
-            'token'            => $token,
-            'profile_complete' => ! is_null($profile),
-            'is_verified'      => (bool) $user->is_verified,
-            'user'             => $this->getUserWithDetails($user),
+        if ($existingUser) {
+            $existingUser->update(['phone_verified_at' => now()]);
+            $token   = $existingUser->createToken('mobile_auth_token')->plainTextToken;
+            $profile = Profile::where('user_id', $existingUser->id)->first();
+
+            return $this->apiResponse(true, 'Authentification réussie.', [
+                'token'            => $token,
+                'is_new_user'      => false,
+                'profile_complete' => ! is_null($profile),
+                'is_verified'      => (bool) $existingUser->is_verified,
+                'user'             => $this->getUserWithDetails($existingUser),
+            ]);
+        }
+
+        // Nouveau numéro — token temporaire valable 20 min pour finaliser l'inscription
+        $registerToken    = (string) Str::uuid();
+        $registerTokenKey = 'reg_token_' . $registerToken;
+
+        Cache::put($registerTokenKey, $phone, now()->addMinutes(20));
+
+        return $this->apiResponse(true, 'Numéro vérifié. Veuillez compléter votre profil.', [
+            'register_token'   => $registerToken,
+            'is_new_user'      => true,
+            'profile_complete' => false,
         ]);
     }
 
@@ -240,14 +247,14 @@ class AuthController extends Controller
                 mediaType: 'multipart/form-data',
                 schema: new OA\Schema(
                     required: [
-                        'user_uuid', 'role_name', 'first_name', 'last_name',
+                        'register_token', 'role_name', 'first_name', 'last_name',
                         'gender', 'city', 'neighborhood',
                         'selfie_front', 'selfie_left', 'selfie_right',
                         'id_card_front', 'id_card_back',
                     ],
                     properties: [
                         // — Identité
-                        new OA\Property(property: 'user_uuid',        type: 'string',  format: 'uuid',   example: '8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8'),
+                        new OA\Property(property: 'register_token',   type: 'string',  format: 'uuid',   example: '8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8', description: 'Token temporaire reçu après verify-otp (valable 20 min)'),
                         new OA\Property(property: 'role_name',        type: 'string',  enum: ['passenger', 'driver'], example: 'passenger'),
                         new OA\Property(property: 'first_name',       type: 'string',  example: 'Jean'),
                         new OA\Property(property: 'last_name',        type: 'string',  example: 'DOSSOU'),
@@ -305,7 +312,7 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $rules = [
-            'user_uuid'                          => ['required', 'uuid', 'exists:users,uuid'],
+            'register_token'                     => ['required', 'string', 'uuid'],
             'role_name'                          => ['required', 'string', 'in:passenger,driver'],
             'first_name'                         => ['required', 'string', 'max:100'],
             'last_name'                          => ['required', 'string', 'max:100'],
@@ -348,9 +355,15 @@ class AuthController extends Controller
             return $this->apiResponse(false, 'Erreur de validation des données.', $validator->errors(), 422);
         }
 
-        $user = User::where('uuid', $request->user_uuid)->first();
-        if (! $user) {
-            return $this->apiResponse(false, 'Utilisateur introuvable à partir de l\'UUID fourni.', [], 404);
+        $registerTokenKey = 'reg_token_' . $request->register_token;
+        $phone            = Cache::get($registerTokenKey);
+
+        if (! $phone) {
+            return $this->apiResponse(false, 'Token d\'inscription invalide ou expiré. Veuillez recommencer la vérification OTP.', [], 401);
+        }
+
+        if (User::where('phone', $phone)->exists()) {
+            return $this->apiResponse(false, 'Un compte existe déjà pour ce numéro de téléphone.', [], 409);
         }
 
         DB::beginTransaction();
@@ -360,6 +373,17 @@ class AuthController extends Controller
             $selfieRight = $request->file('selfie_right')->store('kyc/selfies',    'public');
             $idFront     = $request->file('id_card_front')->store('kyc/documents', 'public');
             $idBack      = $request->file('id_card_back')->store('kyc/documents',  'public');
+
+            $chosenRole = Role::where('name', $request->role_name)->first();
+
+            $user = User::create([
+                'uuid'                => (string) Str::uuid(),
+                'phone'               => $phone,
+                'role_id'             => $chosenRole?->id ?? 2,
+                'is_verified'         => false,
+                'is_profile_complete' => true,
+                'phone_verified_at'   => now(),
+            ]);
 
             $profileData = [
                 'user_id'         => $user->id,
@@ -417,16 +441,12 @@ class AuthController extends Controller
                 ]);
             }
 
-            $chosenRole = Role::where('name', $request->role_name)->first();
-            $user->update([
-                'role_id'              => $chosenRole?->id ?? $user->role_id,
-                'is_verified'          => false,
-                'is_profile_complete'  => true,
-            ]);
-
             $token = $user->createToken('mobile_auth_token')->plainTextToken;
 
             DB::commit();
+
+            // Token temporaire consommé
+            Cache::forget($registerTokenKey);
 
             return $this->apiResponse(true, 'Dossier d\'inscription soumis. En attente de validation.', [
                 'token' => $token,
