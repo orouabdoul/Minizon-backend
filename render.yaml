@@ -86,6 +86,65 @@ services:
       - key: ORS_API_KEY
         sync: false
 
+  - type: cron
+    name: minizon-scheduler
+    env: docker
+    plan: free
+    branch: main
+    schedule: "* * * * *"
+    startCommand: php artisan schedule:run
+    envVars:
+      - key: APP_NAME
+        value: Minizon
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        value: https://minizon-api-iubm.onrender.com
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: minizon-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: minizon-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: minizon-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: minizon-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: minizon-db
+          property: password
+      - key: FEDAPAY_SECRET_KEY
+        sync: false
+      - key: FEDAPAY_PUBLIC_KEY
+        sync: false
+      - key: FEDAPAY_ENVIRONMENT
+        value: sandbox
+      - key: FEDAPAY_WEBHOOK_SECRET
+        sync: false
+
 databases:
   - name: minizon-db
     databaseName: minizon_db
