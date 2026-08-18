@@ -5,9 +5,8 @@ namespace App\Http\Controllers\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
+use App\Notifications\BookingStatusChanged;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class DriverBookingsController extends Controller
@@ -204,24 +203,11 @@ class DriverBookingsController extends Controller
 
     private function notifyPassenger(Booking $booking, string $action): void
     {
+        if (! $booking->passenger) return;
+
         try {
-            $label = $action === 'accepted' ? 'accepté' : 'refusé';
-            DB::table('notifications')->insert([
-                'id'              => (string) Str::uuid(),
-                'type'            => 'booking_' . $action,
-                'notifiable_type' => 'App\Models\User',
-                'notifiable_id'   => $booking->passenger_id,
-                'data'            => json_encode([
-                    'title'        => 'Réservation ' . $label,
-                    'body'         => 'Votre réservation pour le trajet ' .
-                                     ($booking->trip?->departure_city ?? '') . ' → ' .
-                                     ($booking->trip?->arrival_city ?? '') . ' a été ' . $label . '.',
-                    'booking_uuid' => $booking->uuid,
-                ]),
-                'read_at'    => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            // BookingStatusChanged gère DB + FCM push
+            $booking->passenger->notify(new BookingStatusChanged($booking));
         } catch (\Throwable) {
             // non-bloquant
         }

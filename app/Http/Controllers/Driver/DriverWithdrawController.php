@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalRequested;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 /**
@@ -234,6 +236,12 @@ MD,
         }
 
         $withdrawal = Withdrawal::create($withdrawalData);
+
+        try {
+            $user->notify(new WithdrawalRequested($withdrawal));
+        } catch (\Throwable $e) {
+            Log::warning('DriverWithdrawController: notif retrait échouée', ['error' => $e->getMessage()]);
+        }
 
         return $this->apiResponse(true, 'Retrait initié. Traitement sous 24h.', [
             'reference' => $withdrawal->reference,

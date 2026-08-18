@@ -9,6 +9,8 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
+use App\Notifications\AccountStatusChanged;
+use App\Notifications\KycStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -334,8 +336,8 @@ class AuthController extends Controller
 
         if ($request->input('role_name') === 'driver') {
             $rules = array_merge($rules, [
-                'driving_license_number' => ['required', 'string', 'max:50'],
-                'driving_license_photo'  => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+                'driving_license_number' => ['nullable', 'required_unless:vehicle_type,moto', 'string', 'max:50'],
+                'driving_license_photo'  => ['nullable', 'required_unless:vehicle_type,moto', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
                 'vehicle_type'           => ['required', 'string', 'exists:vehicle_types,slug'],
                 'brand'                  => ['required', 'string'],
                 'model'                  => ['required', 'string'],
@@ -402,10 +404,9 @@ class AuthController extends Controller
                 'kyc_status'      => 'pending',
             ];
 
-            if ($request->role_name === 'driver') {
-                $licensePhoto                          = $request->file('driving_license_photo')->store('kyc/documents', 'public');
+            if ($request->role_name === 'driver' && $request->input('vehicle_type') !== 'moto') {
                 $profileData['driving_license_number'] = $request->driving_license_number;
-                $profileData['driving_license_photo']  = $licensePhoto;
+                $profileData['driving_license_photo']  = $request->file('driving_license_photo')->store('kyc/documents', 'public');
             }
 
             Profile::create($profileData);
@@ -886,6 +887,11 @@ class AuthController extends Controller
 
             DB::commit();
 
+            // Notifier l'utilisateur du résultat de son dossier KYC
+            try {
+                $user->notify(new KycStatusChanged($request->status));
+            } catch (\Throwable) {}
+
             return $this->apiResponse(true, 'Le statut KYC a été mis à jour avec succès.', $this->getUserWithDetails($user));
 
         } catch (\Throwable $e) {
@@ -933,6 +939,11 @@ class AuthController extends Controller
         $message = $newStatus
             ? 'L\'utilisateur a été suspendu de la plateforme.'
             : 'La suspension de l\'utilisateur a été levée.';
+
+        // Notifier l'utilisateur du changement de statut de son compte
+        try {
+            $user->notify(new AccountStatusChanged($newStatus));
+        } catch (\Throwable) {}
 
         return $this->apiResponse(true, $message, $this->getUserWithDetails($user));
     }

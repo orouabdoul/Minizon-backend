@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Dispute;
 use App\Models\TripValidation;
+use App\Models\User;
+use App\Notifications\NewDisputeFiled;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
@@ -251,6 +254,19 @@ class PassengerRefundController extends Controller
         TripValidation::where('booking_id', $booking->id)
             ->whereNotIn('status', ['disputed', 'resolved_driver', 'resolved_passenger'])
             ->update(['status' => 'disputed']);
+
+        // Notifier tous les admins
+        try {
+            $dispute->load('booking.trip');
+            User::whereHas('role', fn ($q) => $q->where('name', 'admin'))
+                ->where('is_blocked', false)
+                ->get()
+                ->each(function (User $admin) use ($dispute) {
+                    $admin->notify(new NewDisputeFiled($dispute));
+                });
+        } catch (\Throwable $e) {
+            Log::warning('PassengerRefundController: notif litige admin échouée', ['error' => $e->getMessage()]);
+        }
 
         $amount = $booking->payment ? (int) $booking->payment->gross_amount : (int) $booking->total_price;
 

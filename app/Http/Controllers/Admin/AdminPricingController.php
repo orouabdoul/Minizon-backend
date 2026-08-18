@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\PromoCode;
+use App\Models\Role;
 use App\Models\TariffRule;
+use App\Models\User;
+use App\Notifications\PromoCodePublished;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 /**
@@ -272,6 +276,11 @@ class AdminPricingController extends Controller
             userAgent:   $request->userAgent(),
         );
 
+        // Notifier tous les conducteurs et passagers si le code est actif à la création
+        if ($promo->active) {
+            $this->notifyAllUsersPromo($promo);
+        }
+
         return $this->apiResponse(true, 'Code promo créé.', ['promo' => $this->formatPromo($promo)], 201);
     }
 
@@ -296,7 +305,13 @@ class AdminPricingController extends Controller
     public function togglePromo(Request $request, string $uuid): JsonResponse
     {
         $promo = PromoCode::where('uuid', $uuid)->firstOrFail();
+        $wasInactive = ! $promo->active;
         $promo->update(['active' => ! $promo->active]);
+
+        // Notifier tous les utilisateurs uniquement lors de l'activation
+        if ($wasInactive && $promo->active) {
+            $this->notifyAllUsersPromo($promo);
+        }
 
         return $this->apiResponse(true, $promo->active ? 'Code promo activé.' : 'Code promo désactivé.', [
             'active' => $promo->active,
@@ -345,6 +360,25 @@ class AdminPricingController extends Controller
     // =========================================================================
     //  HELPER PRIVÉ
     // =========================================================================
+
+    private function notifyAllUsersPromo(PromoCode $promo): void
+    {
+        try {
+            $roles = Role::whereIn('name', ['passenger', 'driver'])->pluck('id');
+
+            User::whereIn('role_id', $roles)
+                ->where('is_blocked', false)
+                ->where('is_profile_complete', true)
+                ->whereNotNull('fcm_token')
+                ->chunk(200, function ($users) use ($promo) {
+                    foreach ($users as $user) {
+                        $user->notify(new PromoCodePublished($promo));
+                    }
+                });
+        } catch (\Throwable $e) {
+            Log::warning('AdminPricingController: notif promo échouée', ['error' => $e->getMessage()]);
+        }
+    }
 
     private function formatPromo(PromoCode $p): array
     {

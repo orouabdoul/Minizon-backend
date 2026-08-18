@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Trip;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
+use App\Notifications\TripCompleted;
+use App\Notifications\TripStarted;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 /**
@@ -170,6 +173,22 @@ class TripController extends Controller
             'started_at' => now(),
         ]);
 
+        // Notifier tous les passagers avec une réservation acceptée
+        try {
+            $passengers = Booking::with('passenger')
+                ->where('trip_id', $trip->id)
+                ->where('status', 'accepted')
+                ->get()
+                ->pluck('passenger')
+                ->filter();
+
+            foreach ($passengers as $passenger) {
+                $passenger->notify(new TripStarted($trip));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('TripController startTrip: notif passagers échouée', ['error' => $e->getMessage()]);
+        }
+
         return $this->apiResponse(true, 'Trajet démarré.', [
             'uuid'       => $trip->uuid,
             'status'     => 'active',
@@ -212,6 +231,25 @@ class TripController extends Controller
             'status'       => 'completed',
             'completed_at' => now(),
         ]);
+
+        // Notifier les passagers et le conducteur
+        try {
+            $passengers = Booking::with('passenger')
+                ->where('trip_id', $trip->id)
+                ->where('status', 'accepted')
+                ->get()
+                ->pluck('passenger')
+                ->filter();
+
+            foreach ($passengers as $passenger) {
+                $passenger->notify(new TripCompleted($trip, 'passenger'));
+            }
+
+            // Notifier le conducteur pour la libération des fonds sous 24h
+            $trip->user?->notify(new TripCompleted($trip, 'driver'));
+        } catch (\Throwable $e) {
+            Log::warning('TripController endTrip: notif échouée', ['error' => $e->getMessage()]);
+        }
 
         return $this->apiResponse(true, 'Trajet terminé.', [
             'uuid'         => $trip->uuid,

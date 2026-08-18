@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Payment;
 use App\Models\TripValidation;
+use App\Notifications\PaymentConfirmed;
 use FedaPay\FedaPay;
 use FedaPay\Transaction as FedaTransaction;
 use FedaPay\Webhook;
@@ -280,6 +281,16 @@ class PaymentController extends Controller
                         'booking_uuid' => $booking->uuid,
                         'amount'       => $payment->gross_amount,
                     ]);
+
+                    // Notifier le passager que son paiement est confirmé
+                    try {
+                        $passenger = $booking->passenger;
+                        if ($passenger) {
+                            $passenger->notify(new PaymentConfirmed($payment));
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('PaymentController webhook: notif passager échouée', ['error' => $e->getMessage()]);
+                    }
                 }
             } elseif (in_array($eventType, ['transaction.declined', 'transaction.cancelled'], true)) {
                 // Paiement refusé ou annulé

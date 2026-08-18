@@ -9,6 +9,8 @@ use App\Models\Role;
 use App\Models\Trip;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Notifications\AccountStatusChanged;
+use App\Notifications\KycStatusChanged;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -588,6 +590,8 @@ class UserController extends Controller
             Vehicle::where('user_id', $user->id)->update(['is_approved' => true]);
         });
 
+        try { $user->notify(new KycStatusChanged('approved')); } catch (\Throwable) {}
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'KYC approuvé avec succès.', $this->format($user));
@@ -630,6 +634,8 @@ class UserController extends Controller
         $user->profile?->update(['kyc_status' => 'rejected']);
         $user->update(['is_verified' => false]);
 
+        try { $user->notify(new KycStatusChanged('rejected')); } catch (\Throwable) {}
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'KYC rejeté.', $this->format($user));
@@ -670,6 +676,9 @@ class UserController extends Controller
         }
 
         $user->update(['is_blocked' => true, 'blocked_until' => now()->addYears(10)]);
+
+        try { $user->notify(new AccountStatusChanged(true)); } catch (\Throwable) {}
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'Utilisateur suspendu.', $this->format($user));
@@ -710,6 +719,9 @@ class UserController extends Controller
         }
 
         $user->update(['is_blocked' => false, 'blocked_until' => null]);
+
+        try { $user->notify(new AccountStatusChanged(false)); } catch (\Throwable) {}
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'Suspension levée.', $this->format($user));

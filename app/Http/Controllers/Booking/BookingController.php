@@ -6,6 +6,8 @@ use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
+use App\Notifications\BookingStatusChanged;
+use App\Notifications\NewBookingRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -279,29 +281,16 @@ class BookingController extends Controller
 
     private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
     {
-        if (! $trip) return;
+        if (! $trip?->user) return;
 
         try {
-            $title = $cancelled ? 'Réservation annulée' : 'Nouvelle demande de réservation';
-            $body  = $cancelled
-                ? "Un passager a annulé sa réservation pour {$trip->departure_city} → {$trip->arrival_city}."
-                : "Un passager souhaite réserver {$booking->seats_booked} place(s) pour {$trip->departure_city} → {$trip->arrival_city}.";
-
-            DB::table('notifications')->insert([
-                'id'              => (string) Str::uuid(),
-                'type'            => $cancelled ? 'booking_cancelled' : 'booking_request',
-                'notifiable_type' => 'App\Models\User',
-                'notifiable_id'   => $trip->user_id,
-                'data'            => json_encode([
-                    'title'        => $title,
-                    'body'         => $body,
-                    'booking_uuid' => $booking->uuid,
-                    'trip_uuid'    => $trip->uuid,
-                ]),
-                'read_at'    => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            if ($cancelled) {
+                // Réservation annulée par le passager → notif BookingStatusChanged au conducteur
+                $trip->user->notify(new BookingStatusChanged($booking));
+            } else {
+                // Nouvelle demande → notif NewBookingRequest au conducteur (DB + FCM)
+                $trip->user->notify(new NewBookingRequest($booking));
+            }
         } catch (\Throwable) {
             // non-bloquant
         }

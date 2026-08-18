@@ -7,9 +7,11 @@ use App\Models\AuditLog;
 use App\Models\DriverPayout;
 use App\Models\Trip;
 use App\Models\User;
+use App\Notifications\PayoutPaid;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 /**
@@ -289,6 +291,15 @@ class AdminPayoutsController extends Controller
             'status'  => 'payé',
             'paid_at' => now(),
         ]);
+
+        try {
+            $payout->load('driver');
+            if ($payout->driver) {
+                $payout->driver->notify(new PayoutPaid($payout));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('AdminPayoutsController: notif paiement conducteur échouée', ['error' => $e->getMessage()]);
+        }
 
         AuditLog::record(
             action:      'payout.paid',

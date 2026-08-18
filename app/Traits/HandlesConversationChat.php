@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Notifications\NewMessage;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -155,27 +156,14 @@ trait HandlesConversationChat
             return $msg;
         });
 
-        // Push FCM aux autres participants (notamment l'admin pour les conv directes)
-        $conversation->load('participants.role');
-        $others    = $conversation->participants->filter(fn ($u) => $u->id !== $userId);
-        $fcmTokens = $others->pluck('fcm_token')->filter()->values()->all();
-
-        if (! empty($fcmTokens)) {
-            $senderName = 'Nouveau message';
-            $bodyText   = $hasText
-                ? trim($validated['body'] ?? '')
-                : match ($attachmentType) {
-                    'audio'  => '🎙️ Message vocal',
-                    'image'  => '📷 Photo',
-                    default  => '📎 Pièce jointe',
-                };
-
-            app(FcmService::class)->sendToMultiple(
-                $fcmTokens,
-                $senderName,
-                $bodyText,
-                ['type' => 'chat_message', 'conversation_uuid' => $conversation->uuid]
-            );
+        // Notification DB + push FCM aux autres participants via NewMessage
+        $conversation->load('participants');
+        $msg->load('sender.profile');
+        $others = $conversation->participants->filter(fn ($u) => $u->id !== $userId);
+        foreach ($others as $recipient) {
+            try {
+                $recipient->notify(new NewMessage($msg, $conversation));
+            } catch (\Throwable) {}
         }
 
         return $this->apiResponse(true, 'Message envoyé.', $this->formatChatMessage($msg, $userId), 201);
