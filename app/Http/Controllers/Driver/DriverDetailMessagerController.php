@@ -536,30 +536,39 @@ class DriverDetailMessagerController extends Controller
     /** Formate un message DB en DetailMessage Flutter. */
     private function formatDetailMessage(\App\Models\Message $msg, int $myUserId): array
     {
-        $isOutgoing   = $msg->sender_id === $myUserId;
-        $tz           = 'Africa/Porto-Novo';
-        $timeLabel    = $msg->created_at->setTimezone($tz)->format('H:i');
+        $isOutgoing = $msg->sender_id === $myUserId;
+        $tz         = 'Africa/Porto-Novo';
+        $attachType = $msg->attachment_type ?? 'document';
 
         $attachment = null;
         if ($msg->attachment_path) {
             $attachment = [
                 'url'  => Storage::disk('public')->url($msg->attachment_path),
-                'type' => $msg->attachment_type ?? 'image',
+                'type' => $attachType,
             ];
         }
 
+        $messageType = $msg->body && $msg->attachment_path
+            ? 'mixed'
+            : ($msg->attachment_path ? $attachType : 'text');
+
+        $textContent = $msg->body;
+
         return [
-            'id'           => $msg->id,
-            'kind'         => $isOutgoing ? 'outgoing' : 'incoming',
-            'message'      => $msg->body,
-            'time'         => $timeLabel,
-            'raw_date'     => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
-            'is_read'      => $msg->read_at !== null,
-            'is_edited'    => $msg->updated_at->gt($msg->created_at),
-            'title'        => null,
-            'subtitle'     => null,
-            'action_label' => null,
-            'attachment'   => $attachment,
+            'id'               => $msg->id,
+            'kind'             => $isOutgoing ? 'outgoing' : 'incoming',
+            'message'          => $textContent,
+            'body'             => $textContent,   // alias — cohérence avec send()
+            'message_type'     => $messageType,   // text | audio | image | document | mixed
+            'is_voice_message' => $attachType === 'audio' && $msg->attachment_path !== null,
+            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
+            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_read'          => $msg->read_at !== null,
+            'is_edited'        => $msg->updated_at->gt($msg->created_at),
+            'title'            => null,
+            'subtitle'         => null,
+            'action_label'     => null,
+            'attachment'       => $attachment,
         ];
     }
 

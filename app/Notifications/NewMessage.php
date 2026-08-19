@@ -31,7 +31,12 @@ class NewMessage extends Notification
 
         $preview = $this->message->body
             ? (strlen($this->message->body) > 60 ? substr($this->message->body, 0, 57) . '...' : $this->message->body)
-            : '📷 Image';
+            : match ($this->message->attachment_type) {
+                'audio'    => '🎙️ Message vocal',
+                'image'    => '📷 Photo',
+                'document' => '📄 Document',
+                default    => '📎 Pièce jointe',
+            };
 
         /** @var \App\Models\User $notifiable */
         if ($notifiable->fcm_token) {

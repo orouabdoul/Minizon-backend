@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 /**
@@ -33,6 +34,37 @@ class AdminMessagingController extends Controller
             return Storage::disk('public')->url($path);
         }
         return 'https://ui-avatars.com/api/?name=' . urlencode(trim($name) ?: 'U') . '&background=' . $color . '&color=fff&size=64';
+    }
+
+    private function formatAdminMessage(Message $m, int $adminId): array
+    {
+        $attachType = $m->attachment_type ?? 'document';
+        $attachment = null;
+        if ($m->attachment_path) {
+            $attachment = [
+                'url'  => Storage::disk('public')->url($m->attachment_path),
+                'type' => $attachType,
+            ];
+        }
+
+        $messageType = $m->body && $m->attachment_path
+            ? 'mixed'
+            : ($m->attachment_path ? $attachType : 'text');
+
+        return [
+            'id'               => $m->uuid,
+            'content'          => $m->body,
+            'body'             => $m->body,     // alias
+            'message'          => $m->body,     // alias
+            'sender'           => $m->sender_id === $adminId ? 'admin' : 'user',
+            'sentAt'           => $m->created_at->toIso8601String(),
+            'status'           => $m->read_at ? 'lu' : 'envoyé',
+            'is_read'          => $m->read_at !== null,
+            'is_edited'        => $m->updated_at->gt($m->created_at),
+            'message_type'     => $messageType,
+            'is_voice_message' => $attachType === 'audio' && $m->attachment_path !== null,
+            'attachment'       => $attachment,
+        ];
     }
 
     private function findOrCreateConversation(int $adminId, int $userId): Conversation
@@ -95,7 +127,13 @@ class AdminMessagingController extends Controller
             'roleLabel'     => $roleLabel,
             'driverStatus'  => $driverStatus,
             'unreadCount'   => $unreadCount,
-            'lastMessage'   => $last?->body ?? '',
+            'lastMessage'   => $last?->body ?? match ($last?->attachment_type) {
+                'audio'    => '🎙️ Message vocal',
+                'image'    => '📷 Photo',
+                'document' => '📄 Document',
+                null       => '',
+                default    => '📎 Pièce jointe',
+            },
             'lastMessageAt' => ($last?->created_at ?? $conv->created_at)?->toIso8601String(),
         ];
     }
@@ -302,15 +340,7 @@ class AdminMessagingController extends Controller
 
         $conv->load(['participants.profile', 'participants.role', 'messages', 'lastMessage']);
 
-        $messages = $conv->messages->map(fn (Message $m) => [
-            'id'        => $m->uuid,
-            'content'   => $m->body,
-            'sender'    => $m->sender_id === $adminId ? 'admin' : 'user',
-            'sentAt'    => $m->created_at->toIso8601String(),
-            'status'    => $m->read_at ? 'lu' : 'envoyé',
-            'is_read'   => $m->read_at !== null,
-            'is_edited' => $m->updated_at->gt($m->created_at),
-        ]);
+        $messages = $conv->messages->map(fn (Message $m) => $this->formatAdminMessage($m, $adminId));
 
         return $this->apiResponse(true, $existed ? 'Conversation retrouvée.' : 'Conversation créée.', [
             'conversation' => $this->formatConversation($conv, $adminId),
@@ -485,15 +515,7 @@ class AdminMessagingController extends Controller
             }
         }
 
-        $messages = $conversation->messages->map(fn (Message $m) => [
-            'id'        => $m->uuid,
-            'content'   => $m->body,
-            'sender'    => $m->sender_id === $adminId ? 'admin' : 'user',
-            'sentAt'    => $m->created_at->toIso8601String(),
-            'status'    => $m->read_at ? 'lu' : 'envoyé',
-            'is_read'   => $m->read_at !== null,
-            'is_edited' => $m->updated_at->gt($m->created_at),
-        ]);
+        $messages = $conversation->messages->map(fn (Message $m) => $this->formatAdminMessage($m, $adminId));
 
         return $this->apiResponse(true, 'Conversation.', [
             'conversation' => $this->formatConversation($conversation, $adminId),
@@ -508,7 +530,8 @@ class AdminMessagingController extends Controller
     #[OA\Post(
         path: '/api/admin/messaging/conversations/{uuid}/messages',
         operationId: 'adminMessagingSend',
-        summary: '[ADMIN] Envoyer un message',
+        summary: '[ADMIN] Envoyer un message (texte, image, audio ou document)',
+        description: "Envoie un message texte et/ou une pièce jointe.\n\n**Content-Type : `multipart/form-data`** si un fichier est joint.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n- **Audio** : mp3, m4a, aac, ogg, opus, wav, amr (max 25 Mo)",
         tags: ['👑 Admin — Messagerie'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -516,16 +539,20 @@ class AdminMessagingController extends Controller
         ],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(
-                required: ['content'],
-                properties: [
-                    new OA\Property(property: 'content', type: 'string', maxLength: 2000, example: 'Votre passager vous attend.'),
-                ]
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: 'content',    type: 'string', nullable: true, maxLength: 2000, example: 'Votre passager vous attend.'),
+                        new OA\Property(property: 'attachment', type: 'string', format: 'binary', nullable: true, description: 'Fichier à joindre'),
+                    ]
+                )
             )
         ),
         responses: [
             new OA\Response(response: 201, description: 'Message envoyé'),
             new OA\Response(response: 404, description: 'Conversation introuvable'),
+            new OA\Response(response: 422, description: 'Message vide ou fichier invalide'),
         ]
     )]
     public function sendMessage(Request $request, string $uuid): JsonResponse
@@ -537,16 +564,51 @@ class AdminMessagingController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'content' => 'required|string|max:2000',
+            'content'    => ['nullable', 'string', 'max:2000'],
+            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
         ]);
+
+        $hasText = ! empty(trim($validated['content'] ?? ''));
+        $hasFile = $request->hasFile('attachment');
+
+        if (! $hasText && ! $hasFile) {
+            return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
+        }
+
+        $attachmentPath = null;
+        $attachmentType = null;
+
+        if ($hasFile) {
+            $file           = $request->file('attachment');
+            $mime           = $file->getMimeType() ?? '';
+            $attachmentType = match (true) {
+                str_starts_with($mime, 'image/') => 'image',
+                str_starts_with($mime, 'audio/') => 'audio',
+                default                          => 'document',
+            };
+            $filename       = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $attachmentPath = $file->storeAs('chat/' . $conversation->uuid, $filename, 'public');
+        }
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id'       => $adminId,
-            'body'            => $validated['content'],
+            'body'            => $hasText ? trim($validated['content']) : null,
+            'attachment_path' => $attachmentPath,
+            'attachment_type' => $attachmentType,
         ]);
 
         $conversation->touch();
+
+        // Preview pour FCM
+        $bodyText = $hasText
+            ? trim($validated['content'])
+            : match ($attachmentType) {
+                'audio'    => '🎙️ Message vocal',
+                'image'    => '📷 Photo',
+                'document' => '📄 Document',
+                default    => '📎 Pièce jointe',
+            };
 
         // Push FCM au(x) destinataire(s)
         $recipients = $conversation->participants->filter(fn ($u) => $u->id !== $adminId);
@@ -556,19 +618,13 @@ class AdminMessagingController extends Controller
             app(FcmService::class)->sendToMultiple(
                 $fcmTokens,
                 'Minizon Admin',
-                $validated['content'],
+                $bodyText,
                 ['type' => 'admin_message', 'conversation_uuid' => $conversation->uuid]
             );
         }
 
         return $this->apiResponse(true, 'Message envoyé.', [
-            'message' => [
-                'id'      => $message->uuid,
-                'content' => $message->body,
-                'sender'  => 'admin',
-                'sentAt'  => $message->created_at->toIso8601String(),
-                'status'  => 'envoyé',
-            ],
+            'message' => $this->formatAdminMessage($message, $adminId),
         ], 201);
     }
 

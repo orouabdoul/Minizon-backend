@@ -116,7 +116,7 @@ trait HandlesConversationChat
 
         $validated = $request->validate([
             'body'       => ['nullable', 'string', 'max:4000'],
-            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr'],
+            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
         ]);
 
         $hasText = ! empty(trim($validated['body'] ?? ''));
@@ -222,25 +222,35 @@ trait HandlesConversationChat
     {
         $tz         = 'Africa/Porto-Novo';
         $attachment = null;
+        $attachType = $msg->attachment_type ?? 'document';
 
         if ($msg->attachment_path) {
             $attachment = [
                 'url'  => Storage::disk('public')->url($msg->attachment_path),
-                'type' => $msg->attachment_type ?? 'image',
+                'type' => $attachType,
             ];
         }
 
+        $messageType = $msg->body && $msg->attachment_path
+            ? 'mixed'
+            : ($msg->attachment_path ? $attachType : 'text');
+
+        $textContent = $msg->body;
+
         return [
-            'id'         => $msg->id,
-            'uuid'       => $msg->uuid,
-            'kind'       => $myUserId > 0 && $msg->sender_id === $myUserId ? 'outgoing' : 'incoming',
-            'body'       => $msg->body,
-            'time'       => $msg->created_at->setTimezone($tz)->format('H:i'),
-            'raw_date'   => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
-            'is_read'    => $msg->read_at !== null,
-            'is_edited'  => $msg->updated_at->gt($msg->created_at),
-            'read_at'    => $msg->read_at?->toIso8601String(),
-            'attachment' => $attachment,
+            'id'               => $msg->id,
+            'uuid'             => $msg->uuid,
+            'kind'             => $myUserId > 0 && $msg->sender_id === $myUserId ? 'outgoing' : 'incoming',
+            'body'             => $textContent,
+            'message'          => $textContent,   // alias — cohérence avec thread()
+            'message_type'     => $messageType,   // text | audio | image | document | mixed
+            'is_voice_message' => $attachType === 'audio' && $msg->attachment_path !== null,
+            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
+            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_read'          => $msg->read_at !== null,
+            'is_edited'        => $msg->updated_at->gt($msg->created_at),
+            'read_at'          => $msg->read_at?->toIso8601String(),
+            'attachment'       => $attachment,
         ];
     }
 }
