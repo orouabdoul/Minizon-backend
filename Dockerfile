@@ -33,11 +33,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
 
-CMD php artisan config:cache && \
-    (php artisan route:cache || true) && \
-    php artisan migrate --force && \
-    (php artisan db:seed --force || true) && \
-    (php artisan storage:link || true) && \
-    apache2-foreground
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
