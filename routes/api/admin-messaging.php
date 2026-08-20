@@ -26,7 +26,8 @@ Route::middleware('auth:sanctum')->prefix('admin/messaging')->group(function () 
 
     // ── Wildcards ─────────────────────────────────────────────────────────────
     Route::get('conversations/{uuid}',          [AdminMessagingController::class, 'show']);
-    Route::post('conversations/{uuid}/messages', [AdminMessagingController::class, 'sendMessage']);
+    Route::post('conversations/{uuid}/messages', [AdminMessagingController::class, 'sendMessage'])
+        ->middleware('throttle:60,1');
 
     // ── Modifier / Supprimer un message admin ─────────────────────────────────
     Route::patch('messages/{uuid}',  [AdminMessagingController::class, 'editMessage']);

@@ -158,19 +158,23 @@ class PassengerMessagerController extends Controller
             $isMe    = $lastMsg->sender_id === $userId;
             $prefix  = $isMe ? 'Vous : ' : '';
             $preview = $lastMsg->attachment_path && ! $lastMsg->body
-                ? $prefix . ($lastMsg->attachment_type === 'document' ? '📄 Document' : '📷 Image')
+                ? $prefix . match ($lastMsg->attachment_type) {
+                    'audio'    => '🎙️ Vocal',
+                    'image'    => '📷 Photo',
+                    'document' => '📄 Document',
+                    default    => '📎 Pièce jointe',
+                }
                 : $prefix . ($lastMsg->body ?? '—');
         }
 
         [$statusLabel, $statusBg, $statusText] = $this->tripStatusColors($conv->trip?->status);
 
-        $otherRole   = $other?->role?->name ?? '';
-        $isAdminConv = $otherRole === 'admin';
+        $isAdminConv = $conv->type === 'support';
         $isDriver    = ! $isAdminConv && $conv->trip && $other?->id === $conv->trip->user_id;
 
         if ($isAdminConv) {
             $name           = 'Admin Minizon';
-            $roleLabel      = 'Support Admin';
+            $roleLabel      = 'Support';
             $roleLabelColor = self::COLOR_RED_TEXT;
             $statusLabel    = 'Support';
             $statusBg       = self::COLOR_RED_BG;

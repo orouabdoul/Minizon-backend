@@ -15,6 +15,7 @@ class NewMessage extends Notification
     public function __construct(
         private readonly Message      $message,
         private readonly Conversation $conversation,
+        private readonly string       $senderName = '',
     ) {}
 
     public function via(object $notifiable): array
@@ -24,10 +25,13 @@ class NewMessage extends Notification
 
     public function toArray(object $notifiable): array
     {
-        $sender     = $this->message->sender;
-        $senderName = $sender->profile
-            ? trim("{$sender->profile->first_name} {$sender->profile->last_name}")
-            : $sender->phone;
+        $sender = $this->message->sender;
+
+        $displayName = $this->senderName !== ''
+            ? $this->senderName
+            : ($sender->profile
+                ? trim("{$sender->profile->first_name} {$sender->profile->last_name}")
+                : $sender->phone);
 
         $preview = $this->message->body
             ? (strlen($this->message->body) > 60 ? substr($this->message->body, 0, 57) . '...' : $this->message->body)
@@ -42,12 +46,13 @@ class NewMessage extends Notification
         if ($notifiable->fcm_token) {
             app(FcmService::class)->send(
                 $notifiable->fcm_token,
-                $senderName,
+                $displayName,
                 $preview,
                 [
                     'type'              => 'new_message',
                     'conversation_uuid' => $this->conversation->uuid,
                     'message_uuid'      => $this->message->uuid,
+                    'message_type'      => $this->message->attachment_type ?? 'text',
                 ]
             );
         }
@@ -56,7 +61,7 @@ class NewMessage extends Notification
             'type'              => 'new_message',
             'conversation_uuid' => $this->conversation->uuid,
             'message_uuid'      => $this->message->uuid,
-            'sender_name'       => $senderName,
+            'sender_name'       => $displayName,
             'preview'           => $preview,
         ];
     }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Passenger\PassengerDetailMessagerController;
 use App\Http\Controllers\Passenger\PassengerMessagerController;
+use App\Http\Controllers\Support\SupportConversationController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
@@ -34,12 +35,17 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     Route::get('conversations/{uuid}/messages', [PassengerDetailMessagerController::class, 'messages'])
         ->name('passenger.conversations.messages');
 
-    // ✉️  Envoyer un message (texte ou fichier)
+    // ✉️  Envoyer un message (texte ou fichier) — limité à 60 msg/min
     Route::post('conversations/{uuid}/messages', [PassengerDetailMessagerController::class, 'send'])
+        ->middleware('throttle:60,1')
         ->name('passenger.conversations.send');
 
     // ✅ Marquer tous les messages comme lus
     Route::post('conversations/{uuid}/read', [PassengerDetailMessagerController::class, 'markRead'])
         ->name('passenger.conversations.read');
+
+    // 🆘 Démarrer / retrouver la conversation support avec Admin Minizon
+    Route::post('support/conversation', [SupportConversationController::class, 'start'])
+        ->name('passenger.support.conversation');
 
 });

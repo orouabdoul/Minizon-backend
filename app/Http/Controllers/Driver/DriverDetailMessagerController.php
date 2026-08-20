@@ -28,13 +28,14 @@ class DriverDetailMessagerController extends Controller
         path: '/api/driver/conversations/{uuid}/thread',
         operationId: 'driverConversationThread',
         summary: 'Contexte + messages d\'une conversation (conducteur)',
-        description: "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
+        description: "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n- Sync incrémentale via `since_id` (polling).\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
         tags: ['💬 Driver — Messagerie'],
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'uuid',      in: 'path',  required: true,  schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'per_page',  in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 50)),
             new OA\Parameter(name: 'before_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Cursor pour charger les messages plus anciens (scroll infini)'),
+            new OA\Parameter(name: 'since_id',  in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Sync incrémentale : retourne uniquement les messages après cet ID'),
         ],
         responses: [
             new OA\Response(
@@ -87,6 +88,7 @@ class DriverDetailMessagerController extends Controller
                                 ),
                                 new OA\Property(property: 'has_more',       type: 'boolean', example: false),
                                 new OA\Property(property: 'next_before_id', type: 'integer', nullable: true),
+                                new OA\Property(property: 'latest_id',      type: 'integer', nullable: true, description: 'ID du dernier message — à passer en since_id au prochain poll'),
                                 new OA\Property(
                                     property: 'send_endpoint',
                                     type: 'string',
@@ -121,13 +123,59 @@ class DriverDetailMessagerController extends Controller
             return $this->apiResponse(false, 'Accès refusé.', [], 403);
         }
 
-        // ── Messages paginés ──────────────────────────────────────────────────
-        $perPage  = min((int) $request->input('per_page', 20), 50);
-        $beforeId = (int) $request->input('before_id', 0);
+        // ── Contexte du thread (toujours calculé) ─────────────────────────────
+        $other       = $conversation->participants->first(fn ($p) => $p->id !== $userId);
+        $profile     = $other?->profile;
+        $isAdminConv = $conversation->type === 'support';
+        $avatarUrl   = (! $isAdminConv && $profile?->selfie_front)
+            ? Storage::disk('public')->url($profile->selfie_front)
+            : null;
+        $otherName   = $isAdminConv
+            ? 'Admin Minizon'
+            : ($profile ? trim("{$profile->first_name} {$profile->last_name}") : ($other?->phone ?? '—'));
 
-        $query = $conversation->messages()
-            ->with('sender.profile')
-            ->orderByDesc('id');
+        $threadContext = [
+            'uuid'                  => $conversation->uuid,
+            'booking_uuid'          => $isAdminConv ? '' : ($conversation->booking?->uuid ?? ''),
+            'is_admin_conversation' => $isAdminConv,
+            'other_user'            => [
+                'uuid'       => $isAdminConv ? '' : ($other?->uuid ?? ''),
+                'name'       => $otherName,
+                'phone'      => $isAdminConv ? '' : ($other?->phone ?? ''),
+                'avatar_url' => $avatarUrl,
+                'is_online'  => $isAdminConv ? false : ($other?->is_online ?? false),
+            ],
+            'trip' => $isAdminConv ? null : $this->formatTripContext($conversation->trip),
+        ];
+
+        $sendEndpoint = 'POST /api/driver/conversations/' . $conversation->uuid . '/messages';
+
+        // ── Sync incrémentale : since_id ──────────────────────────────────────
+        $sinceId  = (int) $request->input('since_id', 0);
+        $beforeId = (int) $request->input('before_id', 0);
+        $perPage  = min((int) $request->input('per_page', 20), 50);
+
+        if ($sinceId > 0) {
+            $raw = $conversation->messages()
+                ->with('sender.profile')
+                ->where('id', '>', $sinceId)
+                ->orderBy('id')
+                ->limit(100)
+                ->get();
+
+            $this->markDelivered($conversation, $userId, $raw);
+
+            return $this->apiResponse(true, 'Thread chargé.', [
+                'thread'        => $threadContext,
+                'messages'      => $raw->map(fn ($m) => $this->formatDetailMessage($m, $userId))->values(),
+                'has_more'      => false,
+                'latest_id'     => $raw->last()?->id ?? $sinceId,
+                'send_endpoint' => $sendEndpoint,
+            ]);
+        }
+
+        // ── Historique paginé : before_id ────────────────────────────────────
+        $query = $conversation->messages()->with('sender.profile')->orderByDesc('id');
 
         if ($beforeId > 0) {
             $query->where('id', '<', $beforeId);
@@ -139,10 +187,11 @@ class DriverDetailMessagerController extends Controller
             ->where('id', '<', $rawMessages->first()?->id ?? PHP_INT_MAX)
             ->exists();
 
+        $this->markDelivered($conversation, $userId, $rawMessages);
+
         $messages = $rawMessages->map(fn ($m) => $this->formatDetailMessage($m, $userId))->values()->all();
 
-        // ── Injection du rappel de départ ──────────────────────────────────────
-        // Injecté en tête des messages uniquement sur la première page (pas de before_id)
+        // Rappel de départ injecté uniquement sur la première page
         if ($beforeId === 0) {
             $reminder = $this->buildReminderIfNeeded($conversation->trip);
             if ($reminder !== null) {
@@ -150,42 +199,13 @@ class DriverDetailMessagerController extends Controller
             }
         }
 
-        // ── Contexte du thread ────────────────────────────────────────────────
-        $other   = $conversation->participants->first(fn ($p) => $p->id !== $userId);
-        $profile = $other?->profile;
-
-        $isAdminConv = $conversation->trip_id === null && $conversation->booking_id === null
-            && ($other?->role?->name === 'admin');
-
-        $avatarUrl = '';
-        if (! $isAdminConv && $profile?->selfie_front) {
-            $avatarUrl = Storage::disk('public')->url($profile->selfie_front);
-        }
-
-        $otherName = $isAdminConv
-            ? 'Admin Minizon'
-            : ($profile ? trim("{$profile->first_name} {$profile->last_name}") : ($other?->phone ?? '—'));
-
-        $threadContext = [
-            'uuid'                 => $conversation->uuid,
-            'booking_uuid'         => $conversation->booking?->uuid,
-            'is_admin_conversation' => $isAdminConv,
-            'other_user'           => [
-                'uuid'       => $other?->uuid,
-                'name'       => $otherName,
-                'phone'      => $isAdminConv ? null : $other?->phone,
-                'avatar_url' => $avatarUrl,
-                'is_online'  => false,
-            ],
-            'trip' => $this->formatTripContext($conversation->trip),
-        ];
-
         return $this->apiResponse(true, 'Thread chargé.', [
             'thread'          => $threadContext,
             'messages'        => $messages,
             'has_more'        => $hasMore,
             'next_before_id'  => $rawMessages->first()?->id,
-            'send_endpoint'   => 'POST /api/driver/conversations/' . $conversation->uuid . '/messages',
+            'latest_id'       => $rawMessages->last()?->id,
+            'send_endpoint'   => $sendEndpoint,
         ]);
     }
 
@@ -240,6 +260,7 @@ class DriverDetailMessagerController extends Controller
             new OA\Parameter(name: 'uuid',      in: 'path',  required: true,  schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'per_page',  in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 50)),
             new OA\Parameter(name: 'before_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Curseur pour charger les messages plus anciens'),
+            new OA\Parameter(name: 'since_id',  in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Sync incrémentale : retourne uniquement les messages après cet ID'),
         ],
         responses: [
             new OA\Response(
@@ -256,6 +277,7 @@ class DriverDetailMessagerController extends Controller
                                 new OA\Property(property: 'items',          type: 'array', items: new OA\Items(ref: '#/components/schemas/DetailMessage')),
                                 new OA\Property(property: 'has_more',       type: 'boolean'),
                                 new OA\Property(property: 'next_before_id', type: 'integer', nullable: true),
+                                new OA\Property(property: 'latest_id',      type: 'integer', nullable: true),
                             ]
                         ),
                     ]
@@ -476,18 +498,14 @@ class DriverDetailMessagerController extends Controller
             return $this->apiResponse(false, 'Vous ne pouvez supprimer que vos propres messages.', [], 403);
         }
 
-        // Push FCM AVANT de supprimer (après, participants.conv serait inaccessible)
+        // Push FCM AVANT le soft-delete (après, participants.conv serait inaccessible)
         $message->load('conversation.participants');
         $conv    = $message->conversation;
         $msgUuid = $message->uuid;
         $others  = $conv->participants->filter(fn ($u) => $u->id !== $request->user()->id);
         $tokens  = $others->pluck('fcm_token')->filter()->values()->all();
 
-        if ($message->attachment_path) {
-            Storage::disk('public')->delete($message->attachment_path);
-        }
-
-        $message->delete();
+        $message->delete(); // soft delete — fichier conservé en stockage
 
         if (! empty($tokens)) {
             app(FcmService::class)->sendToMultiple($tokens, '', '', [
@@ -508,14 +526,20 @@ class DriverDetailMessagerController extends Controller
         schema: 'DetailMessage',
         description: 'Message formaté pour DetailMessagerView Flutter',
         properties: [
-            new OA\Property(property: 'id',           type: 'integer', nullable: true, description: 'null pour les messages virtuels (reminder)'),
-            new OA\Property(property: 'kind',         type: 'string',  enum: ['incoming', 'outgoing', 'info', 'reminder']),
-            new OA\Property(property: 'message',      type: 'string',  nullable: true, description: 'Texte pour incoming/outgoing/reminder'),
-            new OA\Property(property: 'time',         type: 'string',  example: '09:15'),
-            new OA\Property(property: 'raw_date',     type: 'string',  nullable: true, format: 'date', example: '2026-07-14', description: 'Date ISO (Y-m-d) du message — utilisée par le Flutter pour insérer les séparateurs de dates'),
-            new OA\Property(property: 'title',        type: 'string',  nullable: true, description: 'Titre pour kind=info (LocationCard)'),
-            new OA\Property(property: 'subtitle',     type: 'string',  nullable: true, description: 'Sous-titre pour kind=info'),
-            new OA\Property(property: 'action_label', type: 'string',  nullable: true, description: 'Bouton action pour kind=info'),
+            new OA\Property(property: 'id',               type: 'integer', nullable: true, description: 'null pour les messages virtuels (reminder)'),
+            new OA\Property(property: 'kind',             type: 'string',  enum: ['incoming', 'outgoing', 'info', 'reminder']),
+            new OA\Property(property: 'message',          type: 'string',  nullable: true, description: 'Texte pour incoming/outgoing/reminder'),
+            new OA\Property(property: 'body',             type: 'string',  nullable: true, description: 'Alias de message'),
+            new OA\Property(property: 'message_type',     type: 'string',  enum: ['text', 'audio', 'image', 'document', 'mixed']),
+            new OA\Property(property: 'is_voice_message', type: 'boolean'),
+            new OA\Property(property: 'is_delivered',     type: 'boolean'),
+            new OA\Property(property: 'is_read',          type: 'boolean'),
+            new OA\Property(property: 'is_edited',        type: 'boolean'),
+            new OA\Property(property: 'time',             type: 'string',  example: '09:15'),
+            new OA\Property(property: 'raw_date',         type: 'string',  nullable: true, format: 'date', example: '2026-07-14'),
+            new OA\Property(property: 'title',            type: 'string',  nullable: true, description: 'Titre pour kind=info (LocationCard)'),
+            new OA\Property(property: 'subtitle',         type: 'string',  nullable: true, description: 'Sous-titre pour kind=info'),
+            new OA\Property(property: 'action_label',     type: 'string',  nullable: true, description: 'Bouton action pour kind=info'),
             new OA\Property(
                 property: 'attachment',
                 type: 'object',
@@ -558,13 +582,17 @@ class DriverDetailMessagerController extends Controller
             'id'               => $msg->id,
             'kind'             => $isOutgoing ? 'outgoing' : 'incoming',
             'message'          => $textContent,
-            'body'             => $textContent,   // alias — cohérence avec send()
-            'message_type'     => $messageType,   // text | audio | image | document | mixed
+            'body'             => $textContent,
+            'message_type'     => $messageType,
             'is_voice_message' => $attachType === 'audio' && $msg->attachment_path !== null,
-            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
-            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_delivered'     => $msg->delivered_at !== null,
             'is_read'          => $msg->read_at !== null,
             'is_edited'        => $msg->updated_at->gt($msg->created_at),
+            'delivered_at'     => $msg->delivered_at?->toIso8601String(),
+            'read_at'          => $msg->read_at?->toIso8601String(),
+            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
+            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'reply_to_id'      => $msg->reply_to_id,
             'title'            => null,
             'subtitle'         => null,
             'action_label'     => null,
@@ -580,17 +608,15 @@ class DriverDetailMessagerController extends Controller
     {
         if (! $trip || ! in_array($trip->status, ['pending', 'active'])) return null;
 
-        $now        = now();
-        $departsAt  = $trip->departure_time;
+        $now       = now();
+        $departsAt = $trip->departure_time;
 
-        // Fenêtre : si le départ est dans les prochaines 24h (et pas encore passé de plus de 2h)
         if ($departsAt->diffInHours($now, false) > 2 || $departsAt->isBefore($now->copy()->subHours(2))) {
             return null;
         }
 
-        $route    = $trip->departure_city . ' → ' . $trip->arrival_city;
-        $timeStr  = $departsAt->setTimezone('Africa/Porto-Novo')->format('H:i');
-
+        $route      = $trip->departure_city . ' → ' . $trip->arrival_city;
+        $timeStr    = $departsAt->setTimezone('Africa/Porto-Novo')->format('H:i');
         $hoursUntil = (int) $now->diffInHours($departsAt, false);
         $label = $hoursUntil <= 0
             ? "Votre trajet {$route} commence maintenant !"
@@ -623,10 +649,10 @@ class DriverDetailMessagerController extends Controller
             'cancelled' => 'Annulé',
         ];
 
-        $tz         = 'Africa/Porto-Novo';
-        $departsAt  = $trip->departure_time->setTimezone($tz);
-        $now        = now()->setTimezone($tz);
-        $diffDays   = (int) $now->diffInDays($departsAt, false);
+        $tz        = 'Africa/Porto-Novo';
+        $departsAt = $trip->departure_time->setTimezone($tz);
+        $now       = now()->setTimezone($tz);
+        $diffDays  = (int) $now->diffInDays($departsAt, false);
 
         $timeLabel = $departsAt->format('H:i');
         $dateLabel = match (true) {

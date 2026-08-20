@@ -63,6 +63,9 @@ class AdminMessagingController extends Controller
             'is_edited'        => $m->updated_at->gt($m->created_at),
             'message_type'     => $messageType,
             'is_voice_message' => $attachType === 'audio' && $m->attachment_path !== null,
+            'is_delivered'     => $m->delivered_at !== null,
+            'delivered_at'     => $m->delivered_at?->toIso8601String(),
+            'reply_to_id'      => $m->reply_to_id,
             'attachment'       => $attachment,
         ];
     }
@@ -79,7 +82,7 @@ class AdminMessagingController extends Controller
             return $existing;
         }
 
-        $conv = Conversation::create(['trip_id' => null, 'booking_id' => null]);
+        $conv = Conversation::create(['type' => 'support', 'trip_id' => null, 'booking_id' => null]);
         $conv->participants()->attach([$adminId, $userId]);
 
         return $conv;
@@ -564,8 +567,9 @@ class AdminMessagingController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'content'    => ['nullable', 'string', 'max:2000'],
-            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
+            'content'               => ['nullable', 'string', 'max:2000'],
+            'reply_to_message_uuid' => ['nullable', 'string', 'uuid'],
+            'attachment'            => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
         ]);
 
         $hasText = ! empty(trim($validated['content'] ?? ''));
@@ -575,18 +579,30 @@ class AdminMessagingController extends Controller
             return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
         }
 
+        $replyToId = null;
+        if (! empty($validated['reply_to_message_uuid'])) {
+            $replyToId = Message::where('uuid', $validated['reply_to_message_uuid'])
+                ->where('conversation_id', $conversation->id)
+                ->value('id');
+        }
+
         $attachmentPath = null;
         $attachmentType = null;
 
         if ($hasFile) {
-            $file           = $request->file('attachment');
-            $mime           = $file->getMimeType() ?? '';
+            $file = $request->file('attachment');
+            $mime = strtolower($file->getMimeType() ?? '');
+            $ext  = strtolower($file->getClientOriginalExtension());
+
+            // MIME check first; fallback to extension because .m4a → video/mp4, .webm → video/webm on many systems
             $attachmentType = match (true) {
-                str_starts_with($mime, 'image/') => 'image',
-                str_starts_with($mime, 'audio/') => 'audio',
-                default                          => 'document',
+                str_starts_with($mime, 'image/')                                                      => 'image',
+                str_starts_with($mime, 'audio/')                                                      => 'audio',
+                in_array($ext, ['mp3', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'amr', 'webm', 'flac']) => 'audio',
+                in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'])                        => 'image',
+                default                                                                               => 'document',
             };
-            $filename       = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $filename       = Str::uuid() . '.' . $ext;
             $attachmentPath = $file->storeAs('chat/' . $conversation->uuid, $filename, 'public');
         }
 
@@ -594,6 +610,7 @@ class AdminMessagingController extends Controller
             'conversation_id' => $conversation->id,
             'sender_id'       => $adminId,
             'body'            => $hasText ? trim($validated['content']) : null,
+            'reply_to_id'     => $replyToId,
             'attachment_path' => $attachmentPath,
             'attachment_type' => $attachmentType,
         ]);
@@ -940,11 +957,7 @@ class AdminMessagingController extends Controller
         $recipients = $conv->participants->filter(fn ($u) => $u->id !== $adminId);
         $tokens     = $recipients->pluck('fcm_token')->filter()->values()->all();
 
-        if ($message->attachment_path) {
-            Storage::disk('public')->delete($message->attachment_path);
-        }
-
-        $message->delete();
+        $message->delete(); // soft delete — fichier conservé en stockage
 
         if (! empty($tokens)) {
             app(FcmService::class)->sendToMultiple($tokens, '', '', [

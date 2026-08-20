@@ -194,22 +194,25 @@ class DriverMessagerController extends Controller
             $isMe    = $lastMsg->sender_id === $userId;
             $prefix  = $isMe ? 'Vous : ' : '';
             $preview = $lastMsg->attachment_path && ! $lastMsg->body
-                ? $prefix . ($lastMsg->attachment_type === 'document' ? '📄 Document' : '📷 Image')
+                ? $prefix . match ($lastMsg->attachment_type) {
+                    'audio'    => '🎙️ Vocal',
+                    'image'    => '📷 Photo',
+                    'document' => '📄 Document',
+                    default    => '📎 Pièce jointe',
+                }
                 : $prefix . ($lastMsg->body ?? '—');
         }
 
         // ── Statut du trajet ─────────────────────────────────────────────────
         [$statusLabel, $statusBg, $statusText] = $this->tripStatusColors($conv->trip?->status);
 
-        // ── Rôle de l'interlocuteur ──────────────────────────────────────────
-        $otherRole = $other?->role?->name ?? '';
-        $isAdminConv = $otherRole === 'admin';
+        // ── Type de conversation ──────────────────────────────────────────────
+        $isAdminConv = $conv->type === 'support';
         $isDriver    = ! $isAdminConv && $conv->trip && $other?->id === $conv->trip->user_id;
 
         if ($isAdminConv) {
-            // Conversation directe avec l'admin Minizon
             $name            = 'Admin Minizon';
-            $roleLabel       = 'Support Admin';
+            $roleLabel       = 'Support';
             $roleLabelColor  = self::COLOR_ORANGE_TEXT;
             $statusLabel     = 'Support';
             $statusBg        = self::COLOR_ORANGE_BG;

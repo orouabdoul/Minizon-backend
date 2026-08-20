@@ -12,6 +12,7 @@ class Conversation extends Model
 
     protected $fillable = [
         'uuid',
+        'type',
         'trip_id',
         'booking_id',
     ];

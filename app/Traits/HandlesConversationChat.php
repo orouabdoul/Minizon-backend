@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
 use App\Notifications\NewMessage;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,7 @@ trait HandlesConversationChat
     }
 
     // -------------------------------------------------------------------------
-    //  Messages paginés (scroll infini)
+    //  Messages paginés + sync incrémentale (scroll infini + polling)
     // -------------------------------------------------------------------------
 
     public function messages(Request $request, string $uuid): JsonResponse
@@ -76,9 +77,29 @@ trait HandlesConversationChat
             return $this->apiResponse(false, 'Accès refusé.', [], 403);
         }
 
-        $perPage  = min((int) $request->input('per_page', 20), 50);
+        $sinceId  = (int) $request->input('since_id', 0);
         $beforeId = (int) $request->input('before_id', 0);
+        $perPage  = min((int) $request->input('per_page', 20), 50);
 
+        // ── Mode sync incrémentale : since_id > 0 ────────────────────────────
+        if ($sinceId > 0) {
+            $raw = $conversation->messages()
+                ->with('sender.profile')
+                ->where('id', '>', $sinceId)
+                ->orderBy('id')
+                ->limit(100)
+                ->get();
+
+            $this->markDelivered($conversation, $userId, $raw);
+
+            return $this->apiResponse(true, 'Messages.', [
+                'items'     => $raw->map(fn ($m) => $this->formatChatMessage($m, $userId))->values(),
+                'latest_id' => $raw->last()?->id ?? $sinceId,
+                'has_more'  => false,
+            ]);
+        }
+
+        // ── Mode historique paginé : before_id ───────────────────────────────
         $query = $conversation->messages()->with('sender.profile')->orderByDesc('id');
 
         if ($beforeId > 0) {
@@ -90,10 +111,13 @@ trait HandlesConversationChat
             ->where('id', '<', $raw->first()?->id ?? PHP_INT_MAX)
             ->exists();
 
+        $this->markDelivered($conversation, $userId, $raw);
+
         return $this->apiResponse(true, 'Messages.', [
             'items'          => $raw->map(fn ($m) => $this->formatChatMessage($m, $userId))->values(),
             'has_more'       => $hasMore,
             'next_before_id' => $raw->first()?->id,
+            'latest_id'      => $raw->last()?->id,
         ]);
     }
 
@@ -115,8 +139,9 @@ trait HandlesConversationChat
         }
 
         $validated = $request->validate([
-            'body'       => ['nullable', 'string', 'max:4000'],
-            'attachment' => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
+            'body'                  => ['nullable', 'string', 'max:4000'],
+            'reply_to_message_uuid' => ['nullable', 'string', 'uuid'],
+            'attachment'            => ['nullable', 'file', 'max:25600', 'mimes:jpeg,png,webp,gif,pdf,doc,docx,mp3,m4a,aac,ogg,opus,wav,amr,webm,mp4'],
         ]);
 
         $hasText = ! empty(trim($validated['body'] ?? ''));
@@ -126,27 +151,39 @@ trait HandlesConversationChat
             return $this->apiResponse(false, 'Le message ne peut pas être vide.', [], 422);
         }
 
+        $replyToId = null;
+        if (! empty($validated['reply_to_message_uuid'])) {
+            $replyToId = Message::where('uuid', $validated['reply_to_message_uuid'])
+                ->where('conversation_id', $conversation->id)
+                ->value('id');
+        }
+
         $attachmentPath = null;
         $attachmentType = null;
 
         if ($hasFile) {
             $file = $request->file('attachment');
-            $mime = $file->getMimeType() ?? '';
+            $mime = strtolower($file->getMimeType() ?? '');
+            $ext  = strtolower($file->getClientOriginalExtension());
+
+            // MIME check first; fallback to extension because .m4a → video/mp4, .webm → video/webm on many systems
             $attachmentType = match (true) {
-                str_starts_with($mime, 'image/') => 'image',
-                str_starts_with($mime, 'audio/') => 'audio',
-                default                          => 'document',
+                str_starts_with($mime, 'image/')                                                      => 'image',
+                str_starts_with($mime, 'audio/')                                                      => 'audio',
+                in_array($ext, ['mp3', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'amr', 'webm', 'flac']) => 'audio',
+                in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'])                        => 'image',
+                default                                                                               => 'document',
             };
-            $ext            = $file->getClientOriginalExtension();
             $filename       = Str::uuid() . '.' . $ext;
             $attachmentPath = $file->storeAs('chat/' . $conversation->uuid, $filename, 'public');
         }
 
-        $msg = DB::transaction(function () use ($conversation, $userId, $validated, $attachmentPath, $attachmentType, $hasText) {
+        $msg = DB::transaction(function () use ($conversation, $userId, $validated, $attachmentPath, $attachmentType, $hasText, $replyToId) {
             $msg = Message::create([
                 'conversation_id' => $conversation->id,
                 'sender_id'       => $userId,
                 'body'            => $hasText ? trim($validated['body']) : null,
+                'reply_to_id'     => $replyToId,
                 'attachment_path' => $attachmentPath,
                 'attachment_type' => $attachmentType,
             ]);
@@ -196,7 +233,7 @@ trait HandlesConversationChat
 
         // Push FCM aux expéditeurs → double croche côté expéditeur (WhatsApp style)
         if ($unreadSenderIds->isNotEmpty()) {
-            $senderTokens = \App\Models\User::whereIn('id', $unreadSenderIds)
+            $senderTokens = User::whereIn('id', $unreadSenderIds)
                 ->whereNotNull('fcm_token')
                 ->pluck('fcm_token')
                 ->all();
@@ -212,6 +249,48 @@ trait HandlesConversationChat
         }
 
         return $this->apiResponse(true, 'Messages marqués comme lus.');
+    }
+
+    // -------------------------------------------------------------------------
+    //  Helper — marquer les messages entrants comme délivrés
+    // -------------------------------------------------------------------------
+
+    private function markDelivered(Conversation $conversation, int $userId, $messages): void
+    {
+        $undeliveredIds = $messages
+            ->filter(fn ($m) => $m->sender_id !== $userId && $m->delivered_at === null)
+            ->pluck('id');
+
+        if ($undeliveredIds->isEmpty()) {
+            return;
+        }
+
+        Message::whereIn('id', $undeliveredIds)->update(['delivered_at' => now()]);
+
+        // Rafraîchir les instances en mémoire pour que formatChatMessage reflète delivered_at
+        foreach ($messages as $m) {
+            if ($undeliveredIds->contains($m->id)) {
+                $m->delivered_at = now();
+            }
+        }
+
+        // Push silencieux message_delivered à l'expéditeur
+        $senderIds = $messages
+            ->filter(fn ($m) => $undeliveredIds->contains($m->id))
+            ->pluck('sender_id')
+            ->unique();
+
+        $tokens = User::whereIn('id', $senderIds)
+            ->whereNotNull('fcm_token')
+            ->pluck('fcm_token')
+            ->all();
+
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple($tokens, '', '', [
+                'type'              => 'message_delivered',
+                'conversation_uuid' => $conversation->uuid,
+            ]);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -242,14 +321,17 @@ trait HandlesConversationChat
             'uuid'             => $msg->uuid,
             'kind'             => $myUserId > 0 && $msg->sender_id === $myUserId ? 'outgoing' : 'incoming',
             'body'             => $textContent,
-            'message'          => $textContent,   // alias — cohérence avec thread()
-            'message_type'     => $messageType,   // text | audio | image | document | mixed
+            'message'          => $textContent,
+            'message_type'     => $messageType,
             'is_voice_message' => $attachType === 'audio' && $msg->attachment_path !== null,
-            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
-            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'is_delivered'     => $msg->delivered_at !== null,
             'is_read'          => $msg->read_at !== null,
             'is_edited'        => $msg->updated_at->gt($msg->created_at),
+            'delivered_at'     => $msg->delivered_at?->toIso8601String(),
             'read_at'          => $msg->read_at?->toIso8601String(),
+            'time'             => $msg->created_at->setTimezone($tz)->format('H:i'),
+            'raw_date'         => $msg->created_at->setTimezone($tz)->format('Y-m-d'),
+            'reply_to_id'      => $msg->reply_to_id,
             'attachment'       => $attachment,
         ];
     }

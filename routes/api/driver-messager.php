@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Driver\DriverDetailMessagerController;
 use App\Http\Controllers\Driver\DriverMessagerController;
+use App\Http\Controllers\Support\SupportConversationController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
@@ -34,12 +35,17 @@ Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(functio
     Route::get('conversations/{uuid}/messages', [DriverDetailMessagerController::class, 'messages'])
         ->name('driver.conversations.messages');
 
-    // ✉️  Envoyer un message (texte ou fichier)
+    // ✉️  Envoyer un message (texte ou fichier) — limité à 60 msg/min
     Route::post('conversations/{uuid}/messages', [DriverDetailMessagerController::class, 'send'])
+        ->middleware('throttle:60,1')
         ->name('driver.conversations.send');
 
     // ✅ Marquer tous les messages comme lus
     Route::post('conversations/{uuid}/read', [DriverDetailMessagerController::class, 'markRead'])
         ->name('driver.conversations.read');
+
+    // 🆘 Démarrer / retrouver la conversation support avec Admin Minizon
+    Route::post('support/conversation', [SupportConversationController::class, 'start'])
+        ->name('driver.support.conversation');
 
 });
