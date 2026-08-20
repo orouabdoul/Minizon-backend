@@ -111,21 +111,29 @@ class AuthController extends Controller
         $cooldownKey    = 'otp_cooldown_' . md5($phone);
         $otpKey         = 'otp_' . md5($phone);
 
-        if (Cache::has($cooldownKey)) {
-            $secondsLeft = (int) Cache::get($cooldownKey . '_ttl', $resendCooldown);
+        try {
+            if (Cache::has($cooldownKey)) {
+                $secondsLeft = (int) Cache::get($cooldownKey . '_ttl', $resendCooldown);
 
-            return $this->apiResponse(false, 'Un code OTP a déjà été envoyé. Veuillez patienter avant d\'en demander un nouveau.', [
-                'phone'               => $phone,
-                'resend_available_in' => max(1, $secondsLeft),
-            ], 429);
+                return $this->apiResponse(false, 'Un code OTP a déjà été envoyé. Veuillez patienter avant d\'en demander un nouveau.', [
+                    'phone'               => $phone,
+                    'resend_available_in' => max(1, $secondsLeft),
+                ], 429);
+            }
+        } catch (\Throwable) {
+            // Cache indisponible (redémarrage serveur) — on ignore le cooldown et on continue
         }
 
         $otpCode = (string) random_int(100000, 999999);
 
-        // Stockage en Cache uniquement — aucune écriture en base de données
-        Cache::put($otpKey, $otpCode, now()->addMinutes($otpTtl));
-        Cache::put($cooldownKey, true, now()->addSeconds($resendCooldown));
-        Cache::put($cooldownKey . '_ttl', $resendCooldown, now()->addSeconds($resendCooldown));
+        // Stockage en Cache — si le cache est indisponible on continue quand même (OTP retourné en clair)
+        try {
+            Cache::put($otpKey, $otpCode, now()->addMinutes($otpTtl));
+            Cache::put($cooldownKey, true, now()->addSeconds($resendCooldown));
+            Cache::put($cooldownKey . '_ttl', $resendCooldown, now()->addSeconds($resendCooldown));
+        } catch (\Throwable) {
+            // Cache indisponible — l'OTP reste valide via la réponse; verify-otp échouera si cache toujours down
+        }
 
         // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
 
