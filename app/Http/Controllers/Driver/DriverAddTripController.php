@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Trip;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -459,6 +460,25 @@ class DriverAddTripController extends Controller
             'is_published' => $isPublished,
             'published_at' => $isPublished ? now() : null,
         ]);
+
+        // Notifier les admins du nouveau trajet publié
+        if ($isPublished) {
+            try {
+                $profile    = $request->user()->profile;
+                $driverName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $request->user()->phone;
+                $route      = ucfirst(strtolower($validated['departure_city'])) . ' → ' . ucfirst(strtolower($validated['arrival_city']));
+
+                AdminNotification::notifyAdmins(
+                    type:        'driver',
+                    priority:    'normal',
+                    title:       'Nouveau trajet publié',
+                    description: "{$driverName} a publié un trajet {$route} pour le " . $trip->departure_time?->format('d/m/Y à H:i') . '.',
+                    refType:     'trip',
+                    refId:       $trip->uuid,
+                    userId:      $request->user()->id,
+                );
+            } catch (\Throwable) {}
+        }
 
         return $this->apiResponse(true, $isPublished ? 'Trajet publié avec succès.' : 'Brouillon sauvegardé.', [
             'uuid'                       => $trip->uuid,

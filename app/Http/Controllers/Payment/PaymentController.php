@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Payment;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Payment;
 use App\Models\TripValidation;
+use App\Notifications\PassengerPaymentReceived;
 use App\Notifications\PaymentConfirmed;
 use FedaPay\FedaPay;
 use FedaPay\Transaction as FedaTransaction;
@@ -290,6 +292,37 @@ class PaymentController extends Controller
                         }
                     } catch (\Throwable $e) {
                         Log::warning('PaymentController webhook: notif passager échouée', ['error' => $e->getMessage()]);
+                    }
+
+                    // Notifier le conducteur du trajet que le passager a payé
+                    try {
+                        $driver = $booking->trip?->user;
+                        if ($driver) {
+                            $driver->notify(new PassengerPaymentReceived($booking));
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('PaymentController webhook: notif conducteur échouée', ['error' => $e->getMessage()]);
+                    }
+
+                    // Notifier les admins du paiement reçu
+                    try {
+                        $amount    = number_format((int) $payment->gross_amount, 0, '.', ' ');
+                        $trip      = $booking->trip;
+                        $route     = $trip ? "{$trip->departure_city} → {$trip->arrival_city}" : 'un trajet';
+                        $pProfile  = $booking->passenger?->profile;
+                        $pName     = $pProfile ? trim("{$pProfile->first_name} {$pProfile->last_name}") : ($booking->passenger?->phone ?? '');
+
+                        AdminNotification::notifyAdmins(
+                            type:        'payment',
+                            priority:    'normal',
+                            title:       'Paiement FedaPay reçu',
+                            description: "{$pName} a payé {$amount} FCFA pour {$route}. Fonds en escrow.",
+                            refType:     'payment',
+                            refId:       $payment->uuid,
+                            userId:      $booking->passenger_id,
+                        );
+                    } catch (\Throwable $e) {
+                        Log::warning('PaymentController webhook: notif admin échouée', ['error' => $e->getMessage()]);
                     }
                 }
             } elseif (in_array($eventType, ['transaction.declined', 'transaction.cancelled'], true)) {

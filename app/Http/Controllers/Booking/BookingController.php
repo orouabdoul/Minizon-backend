@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Booking;
 
 use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Booking;
 use App\Models\Trip;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewBookingRequest;
+use App\Notifications\PassengerCancelledBooking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -285,8 +287,25 @@ class BookingController extends Controller
 
         try {
             if ($cancelled) {
-                // Réservation annulée par le passager → notif BookingStatusChanged au conducteur
-                $trip->user->notify(new BookingStatusChanged($booking));
+                // Annulation passager → notif dédiée au conducteur + notif admin
+                $trip->user->notify(new PassengerCancelledBooking($booking));
+
+                $passenger = $booking->passenger;
+                $profile   = $passenger?->profile;
+                $name      = $profile
+                    ? trim("{$profile->first_name} {$profile->last_name}")
+                    : ($passenger?->phone ?? 'Un passager');
+                $route = $trip ? "{$trip->departure_city} → {$trip->arrival_city}" : 'un trajet';
+
+                AdminNotification::notifyAdmins(
+                    type:        'user',
+                    priority:    'normal',
+                    title:       'Réservation annulée par un passager',
+                    description: "{$name} a annulé sa réservation ({$booking->seats_booked} place(s)) sur {$route}.",
+                    refType:     'booking',
+                    refId:       $booking->uuid,
+                    userId:      $passenger?->id,
+                );
             } else {
                 // Nouvelle demande → notif NewBookingRequest au conducteur (DB + FCM)
                 $trip->user->notify(new NewBookingRequest($booking));

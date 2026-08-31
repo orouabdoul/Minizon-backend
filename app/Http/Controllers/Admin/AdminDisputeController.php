@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\TripValidation;
+use App\Notifications\DisputeResolvedForUser;
 use App\Notifications\DisputeStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -575,7 +576,8 @@ class AdminDisputeController extends Controller
             'assigned_admin_id' => $request->user()->id,
         ]);
 
-        $dispute->reporter->notify(new DisputeStatusChanged($dispute->fresh()));
+        $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);
+        $freshDispute->reporter->notify(new DisputeStatusChanged($freshDispute));
 
         return $this->apiResponse(true, 'Litige pris en charge.', $this->format(
             $this->baseQuery()->find($id)
@@ -652,7 +654,19 @@ class AdminDisputeController extends Controller
             ]);
         });
 
-        $dispute->reporter->notify(new DisputeStatusChanged($dispute->fresh()));
+        $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);
+
+        // Notifier le passager (reporter)
+        $freshDispute->reporter->notify(new DisputeStatusChanged($freshDispute));
+        try {
+            $freshDispute->reporter->notify(new DisputeResolvedForUser($freshDispute, 'refunded', 'passenger'));
+        } catch (\Throwable) {}
+
+        // Notifier le conducteur
+        try {
+            $driver = $freshDispute->booking?->trip?->user;
+            $driver?->notify(new DisputeResolvedForUser($freshDispute, 'refunded', 'driver'));
+        } catch (\Throwable) {}
 
         return $this->apiResponse(true, 'Litige résolu — passager remboursé.', $this->format(
             $this->baseQuery()->find($id)
@@ -729,7 +743,19 @@ class AdminDisputeController extends Controller
             ]);
         });
 
-        $dispute->reporter->notify(new DisputeStatusChanged($dispute->fresh()));
+        $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);
+
+        // Notifier le passager (reporter)
+        $freshDispute->reporter->notify(new DisputeStatusChanged($freshDispute));
+        try {
+            $freshDispute->reporter->notify(new DisputeResolvedForUser($freshDispute, 'paid_to_driver', 'passenger'));
+        } catch (\Throwable) {}
+
+        // Notifier le conducteur — litige résolu en sa faveur
+        try {
+            $driver = $freshDispute->booking?->trip?->user;
+            $driver?->notify(new DisputeResolvedForUser($freshDispute, 'paid_to_driver', 'driver'));
+        } catch (\Throwable) {}
 
         return $this->apiResponse(true, 'Litige résolu — fonds libérés au conducteur.', $this->format(
             $this->baseQuery()->find($id)

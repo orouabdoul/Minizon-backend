@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Http\JsonResponse;
@@ -119,10 +120,10 @@ class DriverVehiclesController extends Controller
             'license_plate'         => ['required', 'string', 'max:20'],
             'available_seats'       => ['required', 'integer', 'min:1', 'max:9'],
             'vehicle_photo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'registration_doc'      => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'insurance_doc'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'tvm_doc'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'technical_control_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
+            'registration_doc'      => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_doc'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'tvm_doc'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'technical_control_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
         ]);
 
         $vehicleTypeId = null;
@@ -147,6 +148,21 @@ class DriverVehiclesController extends Controller
             'verification_status'  => 'pending',
             'is_approved'          => false,
         ]);
+
+        // Notifier les admins du nouveau véhicule à valider
+        $profile     = $user->profile;
+        $driverName  = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
+        $vehicleName = $vehicle->brand . ' ' . $vehicle->model;
+
+        AdminNotification::notifyAdmins(
+            type:        'vehicle',
+            priority:    'high',
+            title:       'Nouveau véhicule à valider',
+            description: "{$driverName} a soumis un nouveau véhicule ({$vehicleName}) en attente de vérification.",
+            refType:     'vehicle',
+            refId:       (string) $vehicle->id,
+            userId:      $user->id,
+        );
 
         return $this->apiResponse(true, 'Véhicule enregistré. En attente de vérification (1-2 jours ouvrés).', [
             'vehicle' => $this->formatVehicle($vehicle->load('vehicleType')),
@@ -213,10 +229,10 @@ class DriverVehiclesController extends Controller
             'license_plate'         => ['sometimes', 'string', 'max:20'],
             'available_seats'       => ['sometimes', 'integer', 'min:1', 'max:9'],
             'vehicle_photo'         => ['sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'registration_doc'      => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'insurance_doc'         => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'tvm_doc'               => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
-            'technical_control_doc' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:10240'],
+            'registration_doc'      => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_doc'         => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'tvm_doc'               => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'technical_control_doc' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
         ]);
 
         $updateData = array_filter([

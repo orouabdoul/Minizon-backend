@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Trip;
 use App\Models\Vehicle;
+use App\Notifications\VehicleStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -422,9 +423,13 @@ class AdminVehicleController extends Controller
             'verified_by'         => $request->user()->id,
         ]);
 
-        return $this->apiResponse(true, 'Véhicule approuvé.', $this->format($vehicle->fresh([
-            'user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile',
-        ])));
+        $fresh = $vehicle->fresh(['user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile']);
+
+        try {
+            $vehicle->user?->notify(new VehicleStatusChanged($vehicle, 'approved'));
+        } catch (\Throwable) {}
+
+        return $this->apiResponse(true, 'Véhicule approuvé.', $this->format($fresh));
     }
 
     // =========================================================================
@@ -482,9 +487,13 @@ class AdminVehicleController extends Controller
             'verified_by'         => $request->user()->id,
         ]);
 
-        return $this->apiResponse(true, 'Véhicule rejeté.', $this->format($vehicle->fresh([
-            'user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile',
-        ])));
+        $fresh = $vehicle->fresh(['user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile']);
+
+        try {
+            $vehicle->user?->notify(new VehicleStatusChanged($vehicle, 'rejected'));
+        } catch (\Throwable) {}
+
+        return $this->apiResponse(true, 'Véhicule rejeté.', $this->format($fresh));
     }
 
     // =========================================================================
@@ -542,9 +551,13 @@ class AdminVehicleController extends Controller
             'verified_by'         => $request->user()->id,
         ]);
 
-        return $this->apiResponse(true, 'Véhicule suspendu.', $this->format($vehicle->fresh([
-            'user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile',
-        ])));
+        $fresh = $vehicle->fresh(['user.profile', 'user.reviewsReceived', 'vehicleType', 'verifier.profile']);
+
+        try {
+            $vehicle->user?->notify(new VehicleStatusChanged($vehicle, 'suspended'));
+        } catch (\Throwable) {}
+
+        return $this->apiResponse(true, 'Véhicule suspendu.', $this->format($fresh));
     }
 
     // =========================================================================

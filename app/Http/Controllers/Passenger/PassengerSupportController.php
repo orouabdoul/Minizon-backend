@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -134,6 +135,20 @@ class PassengerSupportController extends Controller
             'channel'     => 'app',
             'status'      => 'new',
         ]);
+
+        // Notifier les admins du nouveau ticket
+        $profile    = $user->profile;
+        $passengerName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
+
+        AdminNotification::notifyAdmins(
+            type:        'system',
+            priority:    ($validated['priority'] ?? 'medium') === 'high' ? 'urgent' : 'normal',
+            title:       'Nouveau ticket support (passager)',
+            description: "{$passengerName} a soumis un ticket : « {$subject} ».",
+            refType:     'support',
+            refId:       $ticket->uuid,
+            userId:      $user->id,
+        );
 
         return $this->apiResponse(true, 'Message envoyé. Notre équipe vous répondra sous 24h.', [
             'uuid'     => $ticket->uuid,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -79,6 +80,20 @@ class DriverSupportController extends Controller
             'channel'     => 'app',
             'status'      => 'new',
         ]);
+
+        // Notifier les admins du nouveau ticket
+        $profile    = $user->profile;
+        $driverName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
+
+        AdminNotification::notifyAdmins(
+            type:        'system',
+            priority:    $validated['priority'] === 'high' ? 'urgent' : 'normal',
+            title:       'Nouveau ticket support (conducteur)',
+            description: "{$driverName} a soumis un ticket : « {$validated['subject']} ».",
+            refType:     'support',
+            refId:       $ticket->uuid,
+            userId:      $user->id,
+        );
 
         return $this->apiResponse(true, 'Ticket de support créé. Nous vous répondons sous 24h.', [
             'uuid'   => $ticket->uuid,

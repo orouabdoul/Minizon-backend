@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\EmergencyContact;
 use App\Models\Profile;
 use App\Models\Role;
@@ -11,6 +12,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleType;
 use App\Notifications\AccountStatusChanged;
 use App\Notifications\KycStatusChanged;
+use App\Notifications\WelcomeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -331,11 +333,11 @@ class AuthController extends Controller
             'city'                               => ['required', 'string'],
             'neighborhood'                       => ['required', 'string'],
             'address_details'                    => ['nullable', 'string'],
-            'selfie_front'                       => ['required', 'image', 'max:5120'],
-            'selfie_left'                        => ['required', 'image', 'max:5120'],
-            'selfie_right'                       => ['required', 'image', 'max:5120'],
-            'id_card_front'                      => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
-            'id_card_back'                       => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+            'selfie_front'                       => ['required', 'image', 'max:2048'],
+            'selfie_left'                        => ['required', 'image', 'max:2048'],
+            'selfie_right'                       => ['required', 'image', 'max:2048'],
+            'id_card_front'                      => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'id_card_back'                       => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'emergency_contacts'                 => ['nullable', 'array', 'max:5'],
             'emergency_contacts.*.name'          => ['required_with:emergency_contacts', 'string', 'max:80'],
             'emergency_contacts.*.relationship'  => ['required_with:emergency_contacts', 'string', 'max:40'],
@@ -345,18 +347,18 @@ class AuthController extends Controller
         if ($request->input('role_name') === 'driver') {
             $rules = array_merge($rules, [
                 'driving_license_number' => ['nullable', 'required_unless:vehicle_type,moto', 'string', 'max:50'],
-                'driving_license_photo'  => ['nullable', 'required_unless:vehicle_type,moto', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+                'driving_license_photo'  => ['nullable', 'required_unless:vehicle_type,moto', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
                 'vehicle_type'           => ['required', 'string', 'exists:vehicle_types,slug'],
                 'brand'                  => ['required', 'string'],
                 'model'                  => ['required', 'string'],
                 'color'                  => ['required', 'string'],
                 'license_plate'          => ['required', 'string', 'unique:vehicles,license_plate'],
-                'vehicle_photo'          => ['required', 'image', 'max:7168'],
-                'registration_doc'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
-                'insurance_doc'          => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+                'vehicle_photo'          => ['required', 'image', 'max:5120'],
+                'registration_doc'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+                'insurance_doc'          => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
                 'available_seats'        => ['required', 'integer', 'min:1'],
-                'tvm_doc'                => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
-                'technical_control_doc'  => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'],
+                'tvm_doc'                => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+                'technical_control_doc'  => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             ]);
         }
 
@@ -456,6 +458,42 @@ class AuthController extends Controller
 
             // Token temporaire consommé
             Cache::forget($registerTokenKey);
+
+            // Notification de bienvenue à l'utilisateur
+            try {
+                $user->notify(new WelcomeNotification($request->role_name));
+            } catch (\Throwable) {}
+
+            // Notification admin : nouveau membre inscrit
+            $profile     = Profile::where('user_id', $user->id)->first();
+            $displayName = $profile
+                ? trim("{$profile->first_name} {$profile->last_name}")
+                : $user->phone;
+            $roleLabel   = $request->role_name === 'driver' ? 'conducteur' : 'passager';
+
+            AdminNotification::notifyAdmins(
+                type:        'user',
+                priority:    'normal',
+                title:       "Nouveau {$roleLabel} inscrit",
+                description: "{$displayName} vient de créer un compte ({$roleLabel}).",
+                refType:     'user',
+                refId:       $user->uuid,
+                userId:      $user->id,
+            );
+
+            // Notification admin pour le véhicule soumis (conducteur uniquement)
+            if ($request->role_name === 'driver') {
+                $vehicle = Vehicle::where('user_id', $user->id)->first();
+                AdminNotification::notifyAdmins(
+                    type:        'vehicle',
+                    priority:    'high',
+                    title:       'Nouveau véhicule à valider',
+                    description: "{$displayName} a soumis un véhicule lors de son inscription. Vérification requise.",
+                    refType:     'user',
+                    refId:       $user->uuid,
+                    userId:      $user->id,
+                );
+            }
 
             return $this->apiResponse(true, 'Dossier d\'inscription soumis. En attente de validation.', [
                 'token' => $token,
@@ -681,8 +719,8 @@ class AuthController extends Controller
 
         if ($isAdmin) {
             $rules['phone']         = ['required', 'string', 'unique:users,phone,' . $user->id];
-            $rules['id_card_front'] = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'];
-            $rules['id_card_back']  = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:7168'];
+            $rules['id_card_front'] = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
+            $rules['id_card_back']  = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
         }
 
         if ($vehicle) {

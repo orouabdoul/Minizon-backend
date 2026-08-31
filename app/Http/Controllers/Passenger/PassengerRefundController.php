@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Booking;
 use App\Models\Dispute;
 use App\Models\TripValidation;
-use App\Models\User;
-use App\Notifications\NewDisputeFiled;
+use App\Notifications\DisputeOpenedAgainstDriver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -255,17 +255,31 @@ class PassengerRefundController extends Controller
             ->whereNotIn('status', ['disputed', 'resolved_driver', 'resolved_passenger'])
             ->update(['status' => 'disputed']);
 
-        // Notifier tous les admins
+        // Notifier les admins via admin_notifications (dashboard back-office)
         try {
             $dispute->load('booking.trip');
-            User::whereHas('role', fn ($q) => $q->where('name', 'admin'))
-                ->where('is_blocked', false)
-                ->get()
-                ->each(function (User $admin) use ($dispute) {
-                    $admin->notify(new NewDisputeFiled($dispute));
-                });
+            $trip        = $dispute->booking?->trip;
+            $tripRoute   = $trip ? "{$trip->departure_city} → {$trip->arrival_city}" : 'un trajet';
+            $passenger   = $request->user();
+            $pProfile    = $passenger->profile;
+            $pName       = $pProfile ? trim("{$pProfile->first_name} {$pProfile->last_name}") : $passenger->phone;
+
+            AdminNotification::notifyAdmins(
+                type:        'dispute',
+                priority:    'urgent',
+                title:       'Nouveau litige soumis',
+                description: "{$pName} a ouvert un litige sur {$tripRoute}. Raison : {$reasonLabel}.",
+                refType:     'dispute',
+                refId:       (string) $dispute->id,
+                userId:      $passenger->id,
+            );
+
+            // Notifier le conducteur du trajet concerné
+            if ($trip?->user) {
+                $trip->user->notify(new DisputeOpenedAgainstDriver($dispute, $tripRoute));
+            }
         } catch (\Throwable $e) {
-            Log::warning('PassengerRefundController: notif litige admin échouée', ['error' => $e->getMessage()]);
+            Log::warning('PassengerRefundController: notif litige échouée', ['error' => $e->getMessage()]);
         }
 
         $amount = $booking->payment ? (int) $booking->payment->gross_amount : (int) $booking->total_price;

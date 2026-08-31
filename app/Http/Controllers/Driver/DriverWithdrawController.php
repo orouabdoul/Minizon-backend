@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Payment;
 use App\Models\Withdrawal;
 use App\Notifications\WithdrawalRequested;
@@ -242,6 +243,21 @@ MD,
         } catch (\Throwable $e) {
             Log::warning('DriverWithdrawController: notif retrait échouée', ['error' => $e->getMessage()]);
         }
+
+        // Notifier les admins de la nouvelle demande de retrait
+        $profile    = $user->profile;
+        $driverName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
+        $formatted  = number_format($amount, 0, '.', ' ');
+
+        AdminNotification::notifyAdmins(
+            type:        'payment',
+            priority:    'high',
+            title:       'Nouvelle demande de retrait',
+            description: "{$driverName} demande un retrait de {$formatted} FCFA via {$validated['provider']}.",
+            refType:     'withdrawal',
+            refId:       $withdrawal->reference ?? (string) $withdrawal->id,
+            userId:      $user->id,
+        );
 
         return $this->apiResponse(true, 'Retrait initié. Traitement sous 24h.', [
             'reference' => $withdrawal->reference,
