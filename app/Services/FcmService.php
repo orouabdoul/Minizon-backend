@@ -9,11 +9,14 @@ use Illuminate\Support\Facades\Log;
 /**
  * Envoi de notifications push via Firebase Cloud Messaging HTTP v1 (OAuth2).
  *
+ * Envoie des messages DATA-ONLY (pas de bloc notification).
+ * Le frontend Flutter gère l'affichage via flutter_local_notifications.
+ *
  * Nécessite un fichier Service Account JSON Firebase dans storage/app/.
  * Configurer FCM_PROJECT_ID et FCM_CREDENTIALS_PATH dans .env.
  *
  * Usage :
- *   app(FcmService::class)->send($token, 'Titre', 'Corps', ['key' => 'value']);
+ *   app(FcmService::class)->send($token, 'Titre', 'Corps', ['type' => 'welcome']);
  */
 class FcmService
 {
@@ -99,27 +102,35 @@ class FcmService
 
     private function buildMessage(string $token, string $title, string $body, array $data): array
     {
-        // Toutes les valeurs data doivent être des strings pour FCM v1
-        $stringData = array_map('strval', $data);
+        // Message DATA-ONLY : pas de bloc "notification".
+        // Le frontend Flutter gère l'affichage via flutter_local_notifications.
+        // title et body sont passés dans data (strings) et disponibles en
+        // foreground, background et killed via le background handler Flutter.
+        $stringData = array_map('strval', array_merge($data, [
+            'title' => $title,
+            'body'  => $body,
+        ]));
 
         return [
-            'token'        => $token,
-            'notification' => [
-                'title' => $title,
-                'body'  => $body,
-            ],
-            'data'    => $stringData,
+            'token' => $token,
+            'data'  => $stringData,
+
+            // Android : priority high réveille l'app en background/killed
             'android' => [
-                'priority'     => 'high',
-                'notification' => [
-                    'sound' => 'default',
-                    'icon'  => config('fcm.icon'),
-                    'color' => config('fcm.color'),
-                ],
+                'priority' => 'high',
             ],
+
+            // iOS : content-available=1 déclenche le background fetch
+            // sans afficher de notification système automatique
             'apns' => [
+                'headers' => [
+                    'apns-push-type' => 'background',
+                    'apns-priority'  => '5',
+                ],
                 'payload' => [
-                    'aps' => ['sound' => 'default'],
+                    'aps' => [
+                        'content-available' => 1,
+                    ],
                 ],
             ],
         ];
