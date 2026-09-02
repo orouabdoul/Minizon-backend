@@ -3778,6 +3778,46 @@
                                                                 "type": "string",
                                                                 "example": "Porto-Novo"
                                                             },
+                                                            "pickup_city": {
+                                                                "type": "string",
+                                                                "example": "Cotonou",
+                                                                "nullable": true
+                                                            },
+                                                            "pickup_arrondissement": {
+                                                                "type": "string",
+                                                                "example": "6ème Arrondissement",
+                                                                "nullable": true
+                                                            },
+                                                            "pickup_neighborhood": {
+                                                                "type": "string",
+                                                                "example": "Akpakpa",
+                                                                "nullable": true
+                                                            },
+                                                            "pickup_address": {
+                                                                "type": "string",
+                                                                "example": "Face pharmacie",
+                                                                "nullable": true
+                                                            },
+                                                            "dropoff_city": {
+                                                                "type": "string",
+                                                                "example": "Parakou",
+                                                                "nullable": true
+                                                            },
+                                                            "dropoff_arrondissement": {
+                                                                "type": "string",
+                                                                "example": "1er Arrondissement",
+                                                                "nullable": true
+                                                            },
+                                                            "dropoff_neighborhood": {
+                                                                "type": "string",
+                                                                "example": "Zongo",
+                                                                "nullable": true
+                                                            },
+                                                            "dropoff_address": {
+                                                                "type": "string",
+                                                                "example": "Gare routière",
+                                                                "nullable": true
+                                                            },
                                                             "seats": {
                                                                 "type": "integer",
                                                                 "example": 2
@@ -3932,6 +3972,46 @@
                                                 "to": {
                                                     "type": "string",
                                                     "example": "Porto-Novo"
+                                                },
+                                                "pickup_city": {
+                                                    "type": "string",
+                                                    "example": "Cotonou",
+                                                    "nullable": true
+                                                },
+                                                "pickup_arrondissement": {
+                                                    "type": "string",
+                                                    "example": "6ème Arrondissement",
+                                                    "nullable": true
+                                                },
+                                                "pickup_neighborhood": {
+                                                    "type": "string",
+                                                    "example": "Akpakpa",
+                                                    "nullable": true
+                                                },
+                                                "pickup_address": {
+                                                    "type": "string",
+                                                    "example": "Face pharmacie",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_city": {
+                                                    "type": "string",
+                                                    "example": "Parakou",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_arrondissement": {
+                                                    "type": "string",
+                                                    "example": "1er Arrondissement",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_neighborhood": {
+                                                    "type": "string",
+                                                    "example": "Zongo",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_address": {
+                                                    "type": "string",
+                                                    "example": "Gare routière",
+                                                    "nullable": true
                                                 },
                                                 "seats": {
                                                     "type": "integer",
@@ -17396,6 +17476,58 @@
                                                 "reserved_seats": {
                                                     "type": "integer",
                                                     "example": 2
+                                                },
+                                                "passenger_distance_km": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 127.4,
+                                                    "nullable": true
+                                                },
+                                                "pickup_city": {
+                                                    "description": "Commune de prise en charge",
+                                                    "type": "string",
+                                                    "example": "Cotonou",
+                                                    "nullable": true
+                                                },
+                                                "pickup_arrondissement": {
+                                                    "description": "Arrondissement de prise en charge",
+                                                    "type": "string",
+                                                    "example": "6ème Arrondissement",
+                                                    "nullable": true
+                                                },
+                                                "pickup_neighborhood": {
+                                                    "description": "Quartier de prise en charge",
+                                                    "type": "string",
+                                                    "example": "Akpakpa",
+                                                    "nullable": true
+                                                },
+                                                "pickup_address": {
+                                                    "type": "string",
+                                                    "example": "Face pharmacie du centre",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_city": {
+                                                    "description": "Commune de dépôt",
+                                                    "type": "string",
+                                                    "example": "Parakou",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_arrondissement": {
+                                                    "description": "Arrondissement de dépôt",
+                                                    "type": "string",
+                                                    "example": "1er Arrondissement",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_neighborhood": {
+                                                    "description": "Quartier de dépôt",
+                                                    "type": "string",
+                                                    "example": "Zongo",
+                                                    "nullable": true
+                                                },
+                                                "dropoff_address": {
+                                                    "type": "string",
+                                                    "example": "Gare routière",
+                                                    "nullable": true
                                                 },
                                                 "ride": {
                                                     "description": "Sous-ensemble de SearchRide pour l'affichage success.",

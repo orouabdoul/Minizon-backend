@@ -61,6 +61,17 @@ class PassengerPaymentSuccessController extends Controller
                                 new OA\Property(property: 'driver_phone',      type: 'string',  nullable: true, example: '0159000892', description: 'Numéro local pour url_launcher tel:+229XXXXXXXXXX.'),
                                 new OA\Property(property: 'conversation_uuid', type: 'string',  format: 'uuid', nullable: true, description: 'UUID de la conversation existante, null si aucune encore créée.'),
                                 new OA\Property(property: 'reserved_seats',    type: 'integer', example: 2),
+                                new OA\Property(property: 'passenger_distance_km', type: 'number', format: 'float', nullable: true, example: 127.4),
+                                // ── Prise en charge passager — commune → arrondissement → quartier → point précis ──
+                                new OA\Property(property: 'pickup_city',            type: 'string', nullable: true, example: 'Cotonou',             description: 'Commune de prise en charge'),
+                                new OA\Property(property: 'pickup_arrondissement',  type: 'string', nullable: true, example: '6ème Arrondissement', description: 'Arrondissement de prise en charge'),
+                                new OA\Property(property: 'pickup_neighborhood',    type: 'string', nullable: true, example: 'Akpakpa',             description: 'Quartier de prise en charge'),
+                                new OA\Property(property: 'pickup_address',         type: 'string', nullable: true, example: 'Face pharmacie du centre'),
+                                // ── Dépôt passager — commune → arrondissement → quartier → point précis ──
+                                new OA\Property(property: 'dropoff_city',           type: 'string', nullable: true, example: 'Parakou',             description: 'Commune de dépôt'),
+                                new OA\Property(property: 'dropoff_arrondissement', type: 'string', nullable: true, example: '1er Arrondissement',  description: 'Arrondissement de dépôt'),
+                                new OA\Property(property: 'dropoff_neighborhood',   type: 'string', nullable: true, example: 'Zongo',               description: 'Quartier de dépôt'),
+                                new OA\Property(property: 'dropoff_address',        type: 'string', nullable: true, example: 'Gare routière'),
                                 new OA\Property(
                                     property: 'ride',
                                     type: 'object',
