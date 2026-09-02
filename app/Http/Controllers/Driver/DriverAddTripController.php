@@ -193,8 +193,14 @@ class DriverAddTripController extends Controller
                                         ]
                                     )
                                 ),
-                                new OA\Property(property: 'has_approved_vehicle', type: 'boolean'),
-                                new OA\Property(property: 'cities',    type: 'array', items: new OA\Items(type: 'string')),
+                                                new OA\Property(property: 'has_approved_vehicle', type: 'boolean'),
+                                new OA\Property(property: 'cities',    type: 'array', description: 'Liste des communes du Bénin', items: new OA\Items(type: 'string')),
+                                new OA\Property(
+                                    property: 'arrondissements',
+                                    type: 'object',
+                                    description: 'Arrondissements par commune (clé = commune en minuscules). Ex: {"cotonou": ["1er Arrondissement", ...]}. Flutter : filtrer selon la commune choisie.',
+                                    additionalProperties: new OA\AdditionalProperties(type: 'array', items: new OA\Items(type: 'string'))
+                                ),
                                 new OA\Property(property: 'preferences',            type: 'array', items: new OA\Items(type: 'object')),
                                 new OA\Property(property: 'booking_modes',          type: 'array', items: new OA\Items(type: 'object')),
                                 new OA\Property(property: 'cancellation_policies',  type: 'array', items: new OA\Items(type: 'object')),
@@ -690,6 +696,21 @@ class DriverAddTripController extends Controller
             new OA\Property(property: 'is_published',               type: 'boolean'),
             new OA\Property(property: 'booking_mode',               type: 'string',  enum: ['instant', 'approval']),
             new OA\Property(property: 'cancellation_policy',        type: 'string',  enum: ['flexible', 'moderate', 'strict']),
+            // ── Géographie départ (commune → arrondissement → quartier → point précis) ──
+            new OA\Property(property: 'departure_city',              type: 'string',  example: 'Cotonou',              description: 'Commune de départ'),
+            new OA\Property(property: 'departure_arrondissement',    type: 'string',  nullable: true, example: '6ème Arrondissement', description: 'Arrondissement de départ'),
+            new OA\Property(property: 'departure_neighborhood',      type: 'string',  nullable: true, example: 'Akpakpa',             description: 'Quartier de départ'),
+            new OA\Property(property: 'departure_point',             type: 'string',  nullable: true,                                description: 'Point de rendez-vous précis'),
+            new OA\Property(property: 'departure_latitude',          type: 'number',  nullable: true, format: 'float'),
+            new OA\Property(property: 'departure_longitude',         type: 'number',  nullable: true, format: 'float'),
+            // ── Géographie arrivée ──
+            new OA\Property(property: 'arrival_city',                type: 'string',  example: 'Parakou',              description: 'Commune d\'arrivée'),
+            new OA\Property(property: 'arrival_arrondissement',      type: 'string',  nullable: true, example: '1er Arrondissement', description: 'Arrondissement d\'arrivée'),
+            new OA\Property(property: 'arrival_neighborhood',        type: 'string',  nullable: true, example: 'Zongo',               description: 'Quartier d\'arrivée'),
+            new OA\Property(property: 'arrival_point',               type: 'string',  nullable: true,                                description: 'Point d\'arrivée précis'),
+            new OA\Property(property: 'arrival_latitude',            type: 'number',  nullable: true, format: 'float'),
+            new OA\Property(property: 'arrival_longitude',           type: 'number',  nullable: true, format: 'float'),
+            // ── Résumé route ──
             new OA\Property(property: 'route',                      type: 'string',  example: 'Cotonou → Parakou'),
             new OA\Property(property: 'departure_time',             type: 'string',  format: 'date-time'),
             new OA\Property(property: 'estimated_arrival_time',     type: 'string',  format: 'date-time', nullable: true),

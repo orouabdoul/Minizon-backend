@@ -1305,7 +1305,8 @@
                 "tags": [
                     "👑 Admin — Messagerie"
                 ],
-                "summary": "[ADMIN] Envoyer un message",
+                "summary": "[ADMIN] Envoyer un message (texte, image, audio ou document)",
+                "description": "Envoie un message texte et/ou une pièce jointe.\n\n**Content-Type : `multipart/form-data`** si un fichier est joint.\n\nFormats acceptés :\n- **Images** : jpeg, png, webp, gif (max 5 Mo)\n- **Documents** : pdf, doc, docx (max 10 Mo)\n- **Audio** : mp3, m4a, aac, ogg, opus, wav, amr (max 25 Mo)",
                 "operationId": "adminMessagingSend",
                 "parameters": [
                     {
@@ -1321,16 +1322,20 @@
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
-                                "required": [
-                                    "content"
-                                ],
                                 "properties": {
                                     "content": {
                                         "type": "string",
                                         "example": "Votre passager vous attend.",
+                                        "nullable": true,
                                         "maxLength": 2000
+                                    },
+                                    "attachment": {
+                                        "description": "Fichier à joindre",
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -1344,6 +1349,9 @@
                     },
                     "404": {
                         "description": "Conversation introuvable"
+                    },
+                    "422": {
+                        "description": "Message vide ou fichier invalide"
                     }
                 },
                 "security": [
@@ -6342,6 +6350,74 @@
                 ]
             }
         },
+        "/api/admin/tracking/{uuid}/notify-passengers": {
+            "post": {
+                "tags": [
+                    "👑 Admin — Suivi temps réel"
+                ],
+                "summary": "Envoyer une notification FCM à tous les passagers d'un trajet",
+                "description": "Notifie tous les passagers acceptés d'un trajet (retard, urgence, information). Chaque passager reçoit un push FCM et une notification DB.",
+                "operationId": "adminNotifyPassengers",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "message"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "example": "Retard du trajet",
+                                        "nullable": true
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "example": "Votre trajet a un retard de 20 minutes. Merci de votre patience."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "default": "admin_alert",
+                                        "enum": [
+                                            "admin_alert",
+                                            "trip_delay",
+                                            "trip_emergency"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Notifications envoyées"
+                    },
+                    "404": {
+                        "description": "Trajet introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/trips/metrics": {
             "get": {
                 "tags": [
@@ -8772,7 +8848,7 @@
                         "multipart/form-data": {
                             "schema": {
                                 "required": [
-                                    "user_uuid",
+                                    "register_token",
                                     "role_name",
                                     "first_name",
                                     "last_name",
@@ -8782,11 +8858,11 @@
                                     "selfie_front",
                                     "selfie_left",
                                     "selfie_right",
-                                    "id_card_front",
-                                    "id_card_back"
+                                    "id_card_front"
                                 ],
                                 "properties": {
-                                    "user_uuid": {
+                                    "register_token": {
+                                        "description": "Token temporaire reçu après verify-otp (valable 20 min)",
                                         "type": "string",
                                         "format": "uuid",
                                         "example": "8f3b6c7a-9c2d-4e5f-a1b2-c3d4e5f6a7b8"
@@ -8855,9 +8931,10 @@
                                         "format": "binary"
                                     },
                                     "id_card_back": {
-                                        "description": "Verso CNI",
+                                        "description": "Verso CNI (optionnel)",
                                         "type": "string",
-                                        "format": "binary"
+                                        "format": "binary",
+                                        "nullable": true
                                     },
                                     "driving_license_number": {
                                         "description": "[driver] Numéro permis",
@@ -9614,7 +9691,12 @@
                                                         },
                                                         "origin": {
                                                             "type": "string",
-                                                            "example": "Cotonou, Akpakpa"
+                                                            "example": "Cotonou, 6ème Arrondissement, Akpakpa"
+                                                        },
+                                                        "origin_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "6ème Arrondissement",
+                                                            "nullable": true
                                                         },
                                                         "origin_point": {
                                                             "type": "string",
@@ -9622,7 +9704,12 @@
                                                         },
                                                         "destination": {
                                                             "type": "string",
-                                                            "example": "Parakou, Centre-ville"
+                                                            "example": "Parakou, Centre, Centre-ville"
+                                                        },
+                                                        "destination_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "Centre",
+                                                            "nullable": true
                                                         },
                                                         "destination_point": {
                                                             "type": "string",
@@ -9826,9 +9913,20 @@
                                                     "type": "boolean"
                                                 },
                                                 "cities": {
+                                                    "description": "Liste des communes du Bénin",
                                                     "type": "array",
                                                     "items": {
                                                         "type": "string"
+                                                    }
+                                                },
+                                                "arrondissements": {
+                                                    "description": "Arrondissements par commune (clé = commune en minuscules). Ex: {\"cotonou\": [\"1er Arrondissement\", ...]}. Flutter : filtrer selon la commune choisie.",
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
                                                     }
                                                 },
                                                 "preferences": {
@@ -9945,9 +10043,7 @@
                                 "required": [
                                     "vehicle_id",
                                     "departure_city",
-                                    "departure_neighborhood",
                                     "arrival_city",
-                                    "arrival_neighborhood",
                                     "departure_date",
                                     "departure_time",
                                     "price_per_seat"
@@ -9958,16 +10054,26 @@
                                         "example": 5
                                     },
                                     "departure_city": {
+                                        "description": "Commune / ville de départ",
                                         "type": "string",
                                         "example": "Cotonou"
                                     },
-                                    "departure_neighborhood": {
+                                    "departure_arrondissement": {
+                                        "description": "Arrondissement de départ",
                                         "type": "string",
-                                        "example": "Akpakpa"
+                                        "example": "6ème Arrondissement",
+                                        "nullable": true
+                                    },
+                                    "departure_neighborhood": {
+                                        "description": "Quartier de départ",
+                                        "type": "string",
+                                        "example": "Akpakpa",
+                                        "nullable": true
                                     },
                                     "departure_point": {
+                                        "description": "Point de rendez-vous précis",
                                         "type": "string",
-                                        "example": "Carrefour Étoile Rouge",
+                                        "example": "Face pharmacie Centrale",
                                         "nullable": true
                                     },
                                     "departure_latitude": {
@@ -9981,16 +10087,26 @@
                                         "nullable": true
                                     },
                                     "arrival_city": {
+                                        "description": "Commune / ville d'arrivée",
                                         "type": "string",
                                         "example": "Parakou"
                                     },
-                                    "arrival_neighborhood": {
+                                    "arrival_arrondissement": {
+                                        "description": "Arrondissement d'arrivée",
                                         "type": "string",
-                                        "example": "Centre-ville"
+                                        "example": "1er Arrondissement",
+                                        "nullable": true
+                                    },
+                                    "arrival_neighborhood": {
+                                        "description": "Quartier d'arrivée",
+                                        "type": "string",
+                                        "example": "Zongo",
+                                        "nullable": true
                                     },
                                     "arrival_point": {
+                                        "description": "Point de dépôt précis",
                                         "type": "string",
-                                        "example": "Gare routière",
+                                        "example": "Gare routière centrale",
                                         "nullable": true
                                     },
                                     "arrival_latitude": {
@@ -10584,9 +10700,15 @@
                                                                 "type": "string",
                                                                 "example": "Cotonou"
                                                             },
+                                                            "pickup_arrondissement": {
+                                                                "type": "string",
+                                                                "example": "6ème Arrondissement",
+                                                                "nullable": true
+                                                            },
                                                             "pickup_neighborhood": {
                                                                 "type": "string",
-                                                                "example": "Akpakpa"
+                                                                "example": "Akpakpa",
+                                                                "nullable": true
                                                             },
                                                             "pickup_address": {
                                                                 "type": "string",
@@ -10606,9 +10728,15 @@
                                                                 "type": "string",
                                                                 "example": "Parakou"
                                                             },
+                                                            "dropoff_arrondissement": {
+                                                                "type": "string",
+                                                                "example": "1er Arrondissement",
+                                                                "nullable": true
+                                                            },
                                                             "dropoff_neighborhood": {
                                                                 "type": "string",
-                                                                "example": "Zongo"
+                                                                "example": "Zongo",
+                                                                "nullable": true
                                                             },
                                                             "dropoff_address": {
                                                                 "type": "string",
@@ -10746,7 +10874,7 @@
                     "💬 Driver — Messagerie"
                 ],
                 "summary": "Contexte + messages d'une conversation (conducteur)",
-                "description": "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
+                "description": "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n- Sync incrémentale via `since_id` (polling).\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
                 "operationId": "driverConversationThread",
                 "parameters": [
                     {
@@ -10772,6 +10900,15 @@
                         "name": "before_id",
                         "in": "query",
                         "description": "Cursor pour charger les messages plus anciens (scroll infini)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "since_id",
+                        "in": "query",
+                        "description": "Sync incrémentale : retourne uniquement les messages après cet ID",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -10874,6 +11011,11 @@
                                                     "example": false
                                                 },
                                                 "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "latest_id": {
+                                                    "description": "ID du dernier message — à passer en since_id au prochain poll",
                                                     "type": "integer",
                                                     "nullable": true
                                                 },
@@ -11031,6 +11173,15 @@
                         "schema": {
                             "type": "integer"
                         }
+                    },
+                    {
+                        "name": "since_id",
+                        "in": "query",
+                        "description": "Sync incrémentale : retourne uniquement les messages après cet ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
                     }
                 ],
                 "responses": {
@@ -11060,6 +11211,10 @@
                                                     "type": "boolean"
                                                 },
                                                 "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "latest_id": {
                                                     "type": "integer",
                                                     "nullable": true
                                                 }
@@ -11193,7 +11348,8 @@
                                                             "type": "string",
                                                             "enum": [
                                                                 "image",
-                                                                "document"
+                                                                "document",
+                                                                "audio"
                                                             ]
                                                         }
                                                     },
@@ -14185,7 +14341,12 @@
                                                     "properties": {
                                                         "origin": {
                                                             "type": "string",
-                                                            "example": "Cotonou, Akpakpa"
+                                                            "example": "Cotonou, 6ème Arrondissement, Akpakpa"
+                                                        },
+                                                        "origin_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "6ème Arrondissement",
+                                                            "nullable": true
                                                         },
                                                         "origin_point": {
                                                             "type": "string",
@@ -14194,7 +14355,12 @@
                                                         },
                                                         "destination": {
                                                             "type": "string",
-                                                            "example": "Parakou, Centre-ville"
+                                                            "example": "Parakou, Centre, Centre-ville"
+                                                        },
+                                                        "destination_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "Centre",
+                                                            "nullable": true
                                                         },
                                                         "destination_point": {
                                                             "type": "string",
@@ -15188,12 +15354,10 @@
                                 "required": [
                                     "seats_booked",
                                     "pickup_city",
-                                    "pickup_neighborhood",
                                     "pickup_address",
                                     "pickup_latitude",
                                     "pickup_longitude",
                                     "dropoff_city",
-                                    "dropoff_neighborhood",
                                     "dropoff_address",
                                     "dropoff_latitude",
                                     "dropoff_longitude"
@@ -15205,14 +15369,24 @@
                                         "minimum": 1
                                     },
                                     "pickup_city": {
+                                        "description": "Commune de prise en charge",
                                         "type": "string",
                                         "example": "Cotonou"
                                     },
-                                    "pickup_neighborhood": {
+                                    "pickup_arrondissement": {
+                                        "description": "Arrondissement de prise en charge",
                                         "type": "string",
-                                        "example": "Akpakpa"
+                                        "example": "6ème Arrondissement",
+                                        "nullable": true
+                                    },
+                                    "pickup_neighborhood": {
+                                        "description": "Quartier de prise en charge",
+                                        "type": "string",
+                                        "example": "Akpakpa",
+                                        "nullable": true
                                     },
                                     "pickup_address": {
+                                        "description": "Point précis de prise en charge",
                                         "type": "string",
                                         "example": "Face pharmacie du centre"
                                     },
@@ -15227,14 +15401,24 @@
                                         "example": 2.4183
                                     },
                                     "dropoff_city": {
+                                        "description": "Commune de dépôt",
                                         "type": "string",
                                         "example": "Parakou"
                                     },
-                                    "dropoff_neighborhood": {
+                                    "dropoff_arrondissement": {
+                                        "description": "Arrondissement de dépôt",
                                         "type": "string",
-                                        "example": "Zongo"
+                                        "example": "1er Arrondissement",
+                                        "nullable": true
+                                    },
+                                    "dropoff_neighborhood": {
+                                        "description": "Quartier de dépôt",
+                                        "type": "string",
+                                        "example": "Zongo",
+                                        "nullable": true
                                     },
                                     "dropoff_address": {
+                                        "description": "Point précis de dépôt",
                                         "type": "string",
                                         "example": "Carrefour étoile rouge"
                                     },
@@ -15705,7 +15889,7 @@
                     "👤 Passenger — Messagerie"
                 ],
                 "summary": "Contexte + messages d'une conversation (passager)",
-                "description": "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
+                "description": "Retourne en un seul appel :\n- **`thread`** : contexte de l'interlocuteur et du trajet pour le header de la page\n- **`messages`** : liste paginée de `DetailMessage` avec `kind` pré-calculé (`incoming` / `outgoing` / `reminder`). Un `reminder` virtuel est injecté en tête si le trajet démarre dans les 24h.\n- Pagination curseur via `before_id` + `per_page`.\n- Sync incrémentale via `since_id` (polling).\n\nEnvoyer un message : **POST /api/conversations/{uuid}/messages** (ChatController).\nMarquer comme lu : **POST /api/conversations/{uuid}/read** (ChatController).",
                 "operationId": "passengerConversationThread",
                 "parameters": [
                     {
@@ -15731,6 +15915,15 @@
                         "name": "before_id",
                         "in": "query",
                         "description": "Cursor pour charger les messages plus anciens (scroll infini)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "since_id",
+                        "in": "query",
+                        "description": "Sync incrémentale : retourne uniquement les messages après cet ID",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -15832,6 +16025,11 @@
                                                     "example": false
                                                 },
                                                 "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "latest_id": {
+                                                    "description": "ID du dernier message — à passer en since_id au prochain poll",
                                                     "type": "integer",
                                                     "nullable": true
                                                 },
@@ -15988,6 +16186,15 @@
                         "schema": {
                             "type": "integer"
                         }
+                    },
+                    {
+                        "name": "since_id",
+                        "in": "query",
+                        "description": "Sync incrémentale : retourne uniquement les messages après cet ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
                     }
                 ],
                 "responses": {
@@ -16017,6 +16224,10 @@
                                                     "type": "boolean"
                                                 },
                                                 "next_before_id": {
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "latest_id": {
                                                     "type": "integer",
                                                     "nullable": true
                                                 }
@@ -16087,7 +16298,7 @@
                                         "nullable": true
                                     },
                                     "attachment": {
-                                        "description": "Fichier à joindre",
+                                        "description": "Fichier à joindre (image, document ou audio)",
                                         "type": "string",
                                         "format": "binary",
                                         "nullable": true
@@ -16150,7 +16361,8 @@
                                                             "type": "string",
                                                             "enum": [
                                                                 "image",
-                                                                "document"
+                                                                "document",
+                                                                "audio"
                                                             ]
                                                         }
                                                     },
@@ -18669,9 +18881,19 @@
                                                             "type": "string",
                                                             "example": "Cotonou"
                                                         },
+                                                        "departure_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "6ème Arrondissement",
+                                                            "nullable": true
+                                                        },
                                                         "destination": {
                                                             "type": "string",
                                                             "example": "Parakou"
+                                                        },
+                                                        "arrival_arrondissement": {
+                                                            "type": "string",
+                                                            "example": "Centre",
+                                                            "nullable": true
                                                         },
                                                         "duration": {
                                                             "type": "string",
@@ -19214,6 +19436,38 @@
                                                         "price": {
                                                             "type": "string",
                                                             "example": "1 500 FCFA"
+                                                        },
+                                                        "pickup_city": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "pickup_arrondissement": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "pickup_neighborhood": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "pickup_address": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "dropoff_city": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "dropoff_arrondissement": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "dropoff_neighborhood": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        },
+                                                        "dropoff_address": {
+                                                            "type": "string",
+                                                            "nullable": true
                                                         }
                                                     },
                                                     "type": "object"
@@ -19246,6 +19500,65 @@
                                 }
                             }
                         }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/{role}/support/conversation": {
+            "post": {
+                "tags": [
+                    "💬 Support"
+                ],
+                "summary": "Démarrer ou retrouver la conversation support avec Admin Minizon",
+                "description": "Crée ou retrouve la conversation directe entre l'utilisateur authentifié et l'administrateur Minizon. La conversation apparaîtra dans la boîte de réception de l'utilisateur avec `is_admin_conversation: true`.",
+                "operationId": "startSupportConversation",
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "driver",
+                                "passenger"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation support prête",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "conversation_uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Aucun administrateur disponible"
                     }
                 },
                 "security": [
@@ -19808,6 +20121,70 @@
                             "strict"
                         ]
                     },
+                    "departure_city": {
+                        "description": "Commune de départ",
+                        "type": "string",
+                        "example": "Cotonou"
+                    },
+                    "departure_arrondissement": {
+                        "description": "Arrondissement de départ",
+                        "type": "string",
+                        "example": "6ème Arrondissement",
+                        "nullable": true
+                    },
+                    "departure_neighborhood": {
+                        "description": "Quartier de départ",
+                        "type": "string",
+                        "example": "Akpakpa",
+                        "nullable": true
+                    },
+                    "departure_point": {
+                        "description": "Point de rendez-vous précis",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "departure_latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
+                    "departure_longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
+                    "arrival_city": {
+                        "description": "Commune d'arrivée",
+                        "type": "string",
+                        "example": "Parakou"
+                    },
+                    "arrival_arrondissement": {
+                        "description": "Arrondissement d'arrivée",
+                        "type": "string",
+                        "example": "1er Arrondissement",
+                        "nullable": true
+                    },
+                    "arrival_neighborhood": {
+                        "description": "Quartier d'arrivée",
+                        "type": "string",
+                        "example": "Zongo",
+                        "nullable": true
+                    },
+                    "arrival_point": {
+                        "description": "Point d'arrivée précis",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "arrival_latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
+                    "arrival_longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
                     "route": {
                         "type": "string",
                         "example": "Cotonou → Parakou"
@@ -19902,12 +20279,38 @@
                         "type": "string",
                         "nullable": true
                     },
+                    "body": {
+                        "description": "Alias de message",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "message_type": {
+                        "type": "string",
+                        "enum": [
+                            "text",
+                            "audio",
+                            "image",
+                            "document",
+                            "mixed"
+                        ]
+                    },
+                    "is_voice_message": {
+                        "type": "boolean"
+                    },
+                    "is_delivered": {
+                        "type": "boolean"
+                    },
+                    "is_read": {
+                        "type": "boolean"
+                    },
+                    "is_edited": {
+                        "type": "boolean"
+                    },
                     "time": {
                         "type": "string",
                         "example": "09:15"
                     },
                     "raw_date": {
-                        "description": "Date ISO (Y-m-d) du message — utilisée par le Flutter pour insérer les séparateurs de dates",
                         "type": "string",
                         "format": "date",
                         "example": "2026-07-14",
@@ -19938,7 +20341,8 @@
                                 "type": "string",
                                 "enum": [
                                     "image",
-                                    "document"
+                                    "document",
+                                    "audio"
                                 ]
                             }
                         },
@@ -20403,7 +20807,17 @@
                     },
                     "origin": {
                         "type": "string",
-                        "example": "Cotonou, Akpakpa"
+                        "example": "Cotonou – 6ème Arrondissement, Akpakpa"
+                    },
+                    "origin_arrondissement": {
+                        "type": "string",
+                        "example": "6ème Arrondissement",
+                        "nullable": true
+                    },
+                    "origin_neighborhood": {
+                        "type": "string",
+                        "example": "Akpakpa",
+                        "nullable": true
                     },
                     "origin_point": {
                         "type": "string",
@@ -20412,7 +20826,17 @@
                     },
                     "destination": {
                         "type": "string",
-                        "example": "Parakou, Centre-ville"
+                        "example": "Parakou – 1er Arrondissement, Zongo"
+                    },
+                    "destination_arrondissement": {
+                        "type": "string",
+                        "example": "1er Arrondissement",
+                        "nullable": true
+                    },
+                    "destination_neighborhood": {
+                        "type": "string",
+                        "example": "Zongo",
+                        "nullable": true
                     },
                     "destination_point": {
                         "type": "string",
@@ -21182,7 +21606,13 @@
                         "type": "string",
                         "example": "Cotonou"
                     },
+                    "departure_arrondissement": {
+                        "type": "string",
+                        "example": "6ème Arrondissement",
+                        "nullable": true
+                    },
                     "departure_note": {
+                        "description": "Quartier de prise en charge",
                         "type": "string",
                         "example": "Akpakpa"
                     },
@@ -21206,7 +21636,13 @@
                         "type": "string",
                         "example": "Abomey-Calavi"
                     },
+                    "arrival_arrondissement": {
+                        "type": "string",
+                        "example": "Godomey",
+                        "nullable": true
+                    },
                     "arrival_note": {
+                        "description": "Quartier de dépôt",
                         "type": "string",
                         "example": "Godomey"
                     },
@@ -21323,11 +21759,23 @@
                         "type": "string",
                         "example": "09h30"
                     },
+                    "departure_arrondissement": {
+                        "type": "string",
+                        "example": "6ème Arrondissement",
+                        "nullable": true
+                    },
                     "departure_note": {
+                        "description": "Quartier ou point précis de départ",
                         "type": "string",
                         "example": "Carrefour Vêdoko"
                     },
+                    "arrival_arrondissement": {
+                        "type": "string",
+                        "example": "Godomey",
+                        "nullable": true
+                    },
                     "arrival_note": {
+                        "description": "Quartier ou point précis d'arrivée",
                         "type": "string",
                         "example": "Université d'Abomey-Calavi"
                     },
@@ -21647,6 +22095,10 @@
         {
             "name": "👤 Passenger — Trajets",
             "description": "👤 Passenger — Trajets"
+        },
+        {
+            "name": "💬 Support",
+            "description": "💬 Support"
         }
     ]
 }
