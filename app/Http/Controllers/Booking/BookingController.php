@@ -32,15 +32,15 @@ class BookingController extends Controller
             'pickup_arrondissement'    => ['nullable', 'string', 'max:150'],
             'pickup_neighborhood'      => ['nullable', 'string', 'max:100'],
             'pickup_address'           => ['required', 'string', 'max:500'],
-            'pickup_latitude'          => ['required', 'numeric', 'between:-90,90'],
-            'pickup_longitude'         => ['required', 'numeric', 'between:-180,180'],
+            'pickup_latitude'          => ['nullable', 'numeric', 'between:-90,90'],
+            'pickup_longitude'         => ['nullable', 'numeric', 'between:-180,180'],
             // ── Dépôt ──
             'dropoff_city'             => ['required', 'string', 'max:100'],
             'dropoff_arrondissement'   => ['nullable', 'string', 'max:150'],
             'dropoff_neighborhood'     => ['nullable', 'string', 'max:100'],
             'dropoff_address'          => ['required', 'string', 'max:500'],
-            'dropoff_latitude'         => ['required', 'numeric', 'between:-90,90'],
-            'dropoff_longitude'        => ['required', 'numeric', 'between:-180,180'],
+            'dropoff_latitude'         => ['nullable', 'numeric', 'between:-90,90'],
+            'dropoff_longitude'        => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         $trip = Trip::where('uuid', $uuid)->first();
@@ -63,16 +63,43 @@ class BookingController extends Controller
             return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
         }
 
-        // ── Calcul distance passager → prix proraté ────────────────────────────
-        $passengerDistanceKm = GeoHelper::haversineKm(
-            $validated['pickup_latitude'],  $validated['pickup_longitude'],
-            $validated['dropoff_latitude'], $validated['dropoff_longitude']
-        );
+        // ── Résolution GPS pickup ─────────────────────────────────────────────
+        $pickupLat = isset($validated['pickup_latitude'])  ? (float) $validated['pickup_latitude']  : null;
+        $pickupLng = isset($validated['pickup_longitude']) ? (float) $validated['pickup_longitude'] : null;
+        if (! $pickupLat || ! $pickupLng) {
+            $coords    = GeoHelper::resolveCoordinates(
+                $validated['pickup_city'],
+                $validated['pickup_arrondissement'] ?? null,
+                $validated['pickup_neighborhood']   ?? null
+            );
+            [$pickupLat, $pickupLng] = $coords ?? [null, null];
+        }
 
-        $tripDistanceKm = GeoHelper::haversineKm(
-            (float) $trip->departure_latitude, (float) $trip->departure_longitude,
-            (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
-        );
+        // ── Résolution GPS dropoff ────────────────────────────────────────────
+        $dropoffLat = isset($validated['dropoff_latitude'])  ? (float) $validated['dropoff_latitude']  : null;
+        $dropoffLng = isset($validated['dropoff_longitude']) ? (float) $validated['dropoff_longitude'] : null;
+        if (! $dropoffLat || ! $dropoffLng) {
+            $coords     = GeoHelper::resolveCoordinates(
+                $validated['dropoff_city'],
+                $validated['dropoff_arrondissement'] ?? null,
+                $validated['dropoff_neighborhood']   ?? null
+            );
+            [$dropoffLat, $dropoffLng] = $coords ?? [null, null];
+        }
+
+        // ── Calcul distance passager (ORS → haversine×1.3) ────────────────────
+        $passengerDistanceKm = ($pickupLat && $pickupLng && $dropoffLat && $dropoffLng)
+            ? GeoHelper::distanceKm($pickupLat, $pickupLng, $dropoffLat, $dropoffLng)
+            : 0.0;
+
+        // ── Distance trajet : utilise distance_km stockée ou recalcul ─────────
+        $tripDistanceKm = (float) ($trip->distance_km ?? 0);
+        if ($tripDistanceKm <= 0 && $trip->departure_latitude && $trip->arrival_latitude) {
+            $tripDistanceKm = GeoHelper::distanceKm(
+                (float) $trip->departure_latitude, (float) $trip->departure_longitude,
+                (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
+            );
+        }
 
         $calculatedPrice = GeoHelper::calculatePassengerPrice(
             $passengerDistanceKm,
@@ -86,26 +113,27 @@ class BookingController extends Controller
 
         $booking = DB::transaction(function () use (
             $trip, $request, $validated, $seatsRequested,
-            $passengerDistanceKm, $calculatedPrice, $serviceFee
+            $passengerDistanceKm, $calculatedPrice, $serviceFee,
+            $pickupLat, $pickupLng, $dropoffLat, $dropoffLng
         ) {
             $booking = Booking::create([
                 'trip_id'                => $trip->id,
                 'passenger_id'           => $request->user()->id,
                 'seats_booked'           => $seatsRequested,
-                // ── Prise en charge ──
+                // ── Prise en charge (GPS résolu automatiquement) ──
                 'pickup_city'            => $validated['pickup_city'],
                 'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
                 'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
                 'pickup_address'         => $validated['pickup_address'],
-                'pickup_latitude'        => $validated['pickup_latitude'],
-                'pickup_longitude'       => $validated['pickup_longitude'],
-                // ── Dépôt ──
+                'pickup_latitude'        => $pickupLat,
+                'pickup_longitude'       => $pickupLng,
+                // ── Dépôt (GPS résolu automatiquement) ──
                 'dropoff_city'           => $validated['dropoff_city'],
                 'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
                 'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
                 'dropoff_address'        => $validated['dropoff_address'],
-                'dropoff_latitude'       => $validated['dropoff_latitude'],
-                'dropoff_longitude'      => $validated['dropoff_longitude'],
+                'dropoff_latitude'       => $dropoffLat,
+                'dropoff_longitude'      => $dropoffLng,
                 // ── Prix ──
                 'passenger_distance_km'  => round($passengerDistanceKm, 2),
                 'calculated_price'       => $calculatedPrice,

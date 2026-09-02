@@ -15435,12 +15435,8 @@
                                     "seats_booked",
                                     "pickup_city",
                                     "pickup_address",
-                                    "pickup_latitude",
-                                    "pickup_longitude",
                                     "dropoff_city",
-                                    "dropoff_address",
-                                    "dropoff_latitude",
-                                    "dropoff_longitude"
+                                    "dropoff_address"
                                 ],
                                 "properties": {
                                     "seats_booked": {
@@ -15449,18 +15445,18 @@
                                         "minimum": 1
                                     },
                                     "pickup_city": {
-                                        "description": "Commune de prise en charge",
+                                        "description": "Commune de prise en charge (obligatoire)",
                                         "type": "string",
                                         "example": "Cotonou"
                                     },
                                     "pickup_arrondissement": {
-                                        "description": "Arrondissement de prise en charge",
+                                        "description": "Arrondissement — utilisé pour résoudre les GPS et calculer la distance",
                                         "type": "string",
                                         "example": "6ème Arrondissement",
                                         "nullable": true
                                     },
                                     "pickup_neighborhood": {
-                                        "description": "Quartier de prise en charge",
+                                        "description": "Quartier — point de référence le plus précis pour la distance",
                                         "type": "string",
                                         "example": "Akpakpa",
                                         "nullable": true
@@ -15471,28 +15467,31 @@
                                         "example": "Face pharmacie du centre"
                                     },
                                     "pickup_latitude": {
+                                        "description": "GPS optionnel — auto-résolu depuis commune/arrondissement/quartier si absent",
                                         "type": "number",
                                         "format": "float",
-                                        "example": 6.3654
+                                        "example": 6.3654,
+                                        "nullable": true
                                     },
                                     "pickup_longitude": {
                                         "type": "number",
                                         "format": "float",
-                                        "example": 2.4183
+                                        "example": 2.4183,
+                                        "nullable": true
                                     },
                                     "dropoff_city": {
-                                        "description": "Commune de dépôt",
+                                        "description": "Commune de dépôt (obligatoire)",
                                         "type": "string",
                                         "example": "Parakou"
                                     },
                                     "dropoff_arrondissement": {
-                                        "description": "Arrondissement de dépôt",
+                                        "description": "Arrondissement — utilisé pour résoudre les GPS et calculer la distance",
                                         "type": "string",
                                         "example": "1er Arrondissement",
                                         "nullable": true
                                     },
                                     "dropoff_neighborhood": {
-                                        "description": "Quartier de dépôt",
+                                        "description": "Quartier — point de référence le plus précis pour la distance",
                                         "type": "string",
                                         "example": "Zongo",
                                         "nullable": true
@@ -15503,14 +15502,17 @@
                                         "example": "Carrefour étoile rouge"
                                     },
                                     "dropoff_latitude": {
+                                        "description": "GPS optionnel — auto-résolu depuis commune/arrondissement/quartier si absent",
                                         "type": "number",
                                         "format": "float",
-                                        "example": 9.337
+                                        "example": 9.337,
+                                        "nullable": true
                                     },
                                     "dropoff_longitude": {
                                         "type": "number",
                                         "format": "float",
-                                        "example": 2.628
+                                        "example": 2.628,
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
