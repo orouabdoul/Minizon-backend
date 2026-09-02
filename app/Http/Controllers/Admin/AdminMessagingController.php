@@ -336,7 +336,7 @@ class AdminMessagingController extends Controller
                     $targetUser->fcm_token,
                     'Message de Minizon Admin',
                     $validated['message'],
-                    ['type' => 'admin_message', 'conversation_uuid' => $conv->uuid]
+                    ['type' => 'new_message', 'conversation_uuid' => $conv->uuid]
                 );
             }
         }
@@ -636,7 +636,7 @@ class AdminMessagingController extends Controller
                 $fcmTokens,
                 'Minizon Admin',
                 $bodyText,
-                ['type' => 'admin_message', 'conversation_uuid' => $conversation->uuid]
+                ['type' => 'new_message', 'conversation_uuid' => $conversation->uuid]
             );
         }
 
@@ -831,7 +831,7 @@ class AdminMessagingController extends Controller
                 $fcmTokens,
                 'Minizon Admin',
                 $validated['content'],
-                ['type' => 'admin_message']
+                ['type' => 'new_message']
             );
         }
 

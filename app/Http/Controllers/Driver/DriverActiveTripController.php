@@ -50,9 +50,11 @@ class DriverActiveTripController extends Controller
                                     type: 'object',
                                     properties: [
                                         new OA\Property(property: 'uuid',                       type: 'string',  format: 'uuid'),
-                                        new OA\Property(property: 'origin',                     type: 'string',  example: 'Cotonou, Akpakpa'),
+                                        new OA\Property(property: 'origin',                      type: 'string',  example: 'Cotonou, 6ème Arrondissement, Akpakpa'),
+                                        new OA\Property(property: 'origin_arrondissement',      type: 'string',  nullable: true, example: '6ème Arrondissement'),
                                         new OA\Property(property: 'origin_point',               type: 'string',  nullable: true),
-                                        new OA\Property(property: 'destination',                type: 'string',  example: 'Parakou, Centre-ville'),
+                                        new OA\Property(property: 'destination',                type: 'string',  example: 'Parakou, Centre, Centre-ville'),
+                                        new OA\Property(property: 'destination_arrondissement', type: 'string',  nullable: true, example: 'Centre'),
                                         new OA\Property(property: 'destination_point',          type: 'string',  nullable: true),
                                         new OA\Property(property: 'departure_time',             type: 'string',  format: 'date-time'),
                                         new OA\Property(property: 'departure_time_formatted',   type: 'string',  example: '07:00'),
@@ -163,9 +165,11 @@ class DriverActiveTripController extends Controller
         return $this->apiResponse(true, 'Prêt à partir.', [
             'trip' => [
                 'uuid'                     => $trip->uuid,
-                'origin'                   => $trip->departure_city . ', ' . $trip->departure_neighborhood,
+                'origin'                     => $this->buildLocationLabel($trip->departure_city, $trip->departure_arrondissement, $trip->departure_neighborhood),
+                'origin_arrondissement'    => $trip->departure_arrondissement,
                 'origin_point'             => $trip->departure_point,
-                'destination'              => $trip->arrival_city . ', ' . $trip->arrival_neighborhood,
+                'destination'              => $this->buildLocationLabel($trip->arrival_city, $trip->arrival_arrondissement, $trip->arrival_neighborhood),
+                'destination_arrondissement' => $trip->arrival_arrondissement,
                 'destination_point'        => $trip->arrival_point,
                 'departure_time'           => $trip->departure_time,
                 'departure_time_formatted' => $trip->departure_time->setTimezone('Africa/Porto-Novo')->format('H:i'),
@@ -229,7 +233,7 @@ class DriverActiveTripController extends Controller
             $passenger = $booking->passenger;
             $profile   = $passenger?->profile;
 
-            $address = $this->passengerPickupAddress($profile, $trip);
+            $address = $this->passengerPickupAddress($profile, $trip, $booking);
             $eta     = $departsAt->copy()->addMinutes($pickupOffset)->format('H:i');
 
             $stops[] = [
@@ -253,7 +257,7 @@ class DriverActiveTripController extends Controller
                 : null);
 
         $dropoffEta  = $arrivalTime?->setTimezone($tz)->format('H:i') ?? '—';
-        $dropoffAddr = $trip->arrival_city . ', ' . $trip->arrival_neighborhood
+        $dropoffAddr = $this->buildLocationLabel($trip->arrival_city, $trip->arrival_arrondissement, $trip->arrival_neighborhood)
             . ($trip->arrival_point ? ' — ' . $trip->arrival_point : '');
 
         $stops[] = [
@@ -272,10 +276,15 @@ class DriverActiveTripController extends Controller
 
     /**
      * Adresse de prise en charge d'un passager.
-     * Priorité : quartier du profil → ville du profil → point de départ du trajet.
+     * Priorité : booking pickup → quartier du profil → ville du profil → point de départ du trajet.
      */
-    private function passengerPickupAddress(?\App\Models\Profile $profile, Trip $trip): string
+    private function passengerPickupAddress(?\App\Models\Profile $profile, Trip $trip, ?\App\Models\Booking $booking = null): string
     {
+        if ($booking?->pickup_city) {
+            return $this->buildLocationLabel($booking->pickup_city, $booking->pickup_arrondissement, $booking->pickup_neighborhood)
+                . ($booking->pickup_address ? ' — ' . $booking->pickup_address : '');
+        }
+
         if ($profile?->neighborhood && $profile?->city) {
             return "{$profile->neighborhood}, {$profile->city}";
         }
@@ -284,8 +293,7 @@ class DriverActiveTripController extends Controller
             return $profile->city;
         }
 
-        // Fallback : même point que le départ du trajet
-        return $trip->departure_city . ', ' . $trip->departure_neighborhood
+        return $this->buildLocationLabel($trip->departure_city, $trip->departure_arrondissement, $trip->departure_neighborhood)
             . ($trip->departure_point ? ' — ' . $trip->departure_point : '');
     }
 
@@ -322,5 +330,13 @@ class DriverActiveTripController extends Controller
         $h = intdiv($minutes, 60);
         $m = $minutes % 60;
         return $m > 0 ? "{$h}h{$m}" : "{$h}h00";
+    }
+
+    private function buildLocationLabel(string $city, ?string $arrondissement, ?string $neighborhood): string
+    {
+        $parts = [$city];
+        if ($arrondissement) $parts[] = $arrondissement;
+        if ($neighborhood)   $parts[] = $neighborhood;
+        return implode(', ', $parts);
     }
 }

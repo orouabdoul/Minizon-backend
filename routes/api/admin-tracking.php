@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\Route;
 //    POST  /api/admin/tracking/{uuid}/incident         → signaler incident
 //    PATCH /api/admin/tracking/{uuid}/incident/resolve → résoudre incident
 //    PATCH /api/admin/tracking/{uuid}/flag             → flaguer / déflaguer (modération)
-//    POST  /api/admin/tracking/{uuid}/notify-driver    → envoyer FCM au conducteur
+//    POST  /api/admin/tracking/{uuid}/notify-driver      → envoyer FCM au conducteur
+//    POST  /api/admin/tracking/{uuid}/notify-passengers  → envoyer FCM à tous les passagers
 //
 //  Endpoint driver (push GPS depuis l'app conducteur) :
 //    POST /api/trips/{uuid}/location                   → TripController::updateLocation
@@ -40,6 +41,7 @@ Route::middleware('auth:sanctum')->prefix('admin/tracking')->group(function () {
     Route::post ('{uuid}/incident',          [AdminTrackingController::class, 'reportIncident']);
     Route::patch('{uuid}/incident/resolve',  [AdminTrackingController::class, 'resolveIncident']);
     Route::patch('{uuid}/flag',              [AdminTrackingController::class, 'flagTrip']);
-    Route::post ('{uuid}/notify-driver',     [AdminTrackingController::class, 'notifyDriver']);
+    Route::post ('{uuid}/notify-driver',      [AdminTrackingController::class, 'notifyDriver']);
+    Route::post ('{uuid}/notify-passengers',  [AdminTrackingController::class, 'notifyPassengers']);
 
 });

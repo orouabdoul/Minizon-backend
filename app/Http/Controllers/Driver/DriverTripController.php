@@ -289,11 +289,15 @@ class DriverTripController extends Controller
             new OA\Property(property: 'uuid',         type: 'string', format: 'uuid'),
             new OA\Property(property: 'status',        type: 'string', enum: ['pending', 'active', 'completed', 'cancelled']),
             new OA\Property(property: 'status_label',  type: 'string', example: 'À venir'),
-            // Géographie
-            new OA\Property(property: 'origin',            type: 'string', example: 'Cotonou, Akpakpa'),
-            new OA\Property(property: 'origin_point',      type: 'string', nullable: true, example: 'Carrefour Étoile Rouge'),
-            new OA\Property(property: 'destination',       type: 'string', example: 'Parakou, Centre-ville'),
-            new OA\Property(property: 'destination_point', type: 'string', nullable: true, example: 'Gare routière'),
+            // Géographie — commune → arrondissement → quartier → point précis
+            new OA\Property(property: 'origin',                    type: 'string', example: 'Cotonou – 6ème Arrondissement, Akpakpa'),
+            new OA\Property(property: 'origin_arrondissement',     type: 'string', nullable: true, example: '6ème Arrondissement'),
+            new OA\Property(property: 'origin_neighborhood',       type: 'string', nullable: true, example: 'Akpakpa'),
+            new OA\Property(property: 'origin_point',              type: 'string', nullable: true, example: 'Carrefour Étoile Rouge'),
+            new OA\Property(property: 'destination',               type: 'string', example: 'Parakou – 1er Arrondissement, Zongo'),
+            new OA\Property(property: 'destination_arrondissement',type: 'string', nullable: true, example: '1er Arrondissement'),
+            new OA\Property(property: 'destination_neighborhood',  type: 'string', nullable: true, example: 'Zongo'),
+            new OA\Property(property: 'destination_point',         type: 'string', nullable: true, example: 'Gare routière'),
             // Timing
             new OA\Property(property: 'departure_time',             type: 'string', format: 'date-time'),
             new OA\Property(property: 'departure_time_label',       type: 'string', example: 'Dim. 07:00'),
@@ -391,11 +395,15 @@ class DriverTripController extends Controller
             'status'               => $trip->status,
             'status_label'         => $this->statusLabel($trip->status),
 
-            // Géographie
-            'origin'               => $trip->departure_city . ', ' . $trip->departure_neighborhood,
-            'origin_point'         => $trip->departure_point,
-            'destination'          => $trip->arrival_city . ', ' . $trip->arrival_neighborhood,
-            'destination_point'    => $trip->arrival_point,
+            // Géographie — commune → arrondissement → quartier → point précis
+            'origin'                      => $this->buildLocationLabel($trip->departure_city, $trip->departure_arrondissement, $trip->departure_neighborhood),
+            'origin_arrondissement'       => $trip->departure_arrondissement,
+            'origin_neighborhood'         => $trip->departure_neighborhood,
+            'origin_point'                => $trip->departure_point,
+            'destination'                 => $this->buildLocationLabel($trip->arrival_city, $trip->arrival_arrondissement, $trip->arrival_neighborhood),
+            'destination_arrondissement'  => $trip->arrival_arrondissement,
+            'destination_neighborhood'    => $trip->arrival_neighborhood,
+            'destination_point'           => $trip->arrival_point,
 
             // Timing
             'departure_time'             => $trip->departure_time,
@@ -460,6 +468,15 @@ class DriverTripController extends Controller
             'cancelled' => 'Annulé',
             default     => $status,
         };
+    }
+
+    /** Construit "Commune – Arrondissement, Quartier" selon les champs disponibles. */
+    private function buildLocationLabel(string $city, ?string $arrondissement, ?string $neighborhood): string
+    {
+        $parts = [$city];
+        if ($arrondissement) $parts[] = $arrondissement;
+        if ($neighborhood)   $parts[] = $neighborhood;
+        return implode(', ', $parts);
     }
 
     private function initials(string $name): string

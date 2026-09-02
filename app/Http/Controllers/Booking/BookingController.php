@@ -26,17 +26,21 @@ class BookingController extends Controller
     public function store(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'seats_booked'         => ['required', 'integer', 'min:1'],
-            'pickup_city'          => ['required', 'string', 'max:100'],
-            'pickup_neighborhood'  => ['required', 'string', 'max:100'],
-            'pickup_address'       => ['required', 'string', 'max:500'],
-            'pickup_latitude'      => ['required', 'numeric', 'between:-90,90'],
-            'pickup_longitude'     => ['required', 'numeric', 'between:-180,180'],
-            'dropoff_city'         => ['required', 'string', 'max:100'],
-            'dropoff_neighborhood' => ['required', 'string', 'max:100'],
-            'dropoff_address'      => ['required', 'string', 'max:500'],
-            'dropoff_latitude'     => ['required', 'numeric', 'between:-90,90'],
-            'dropoff_longitude'    => ['required', 'numeric', 'between:-180,180'],
+            'seats_booked'             => ['required', 'integer', 'min:1'],
+            // ── Prise en charge ──
+            'pickup_city'              => ['required', 'string', 'max:100'],
+            'pickup_arrondissement'    => ['nullable', 'string', 'max:150'],
+            'pickup_neighborhood'      => ['nullable', 'string', 'max:100'],
+            'pickup_address'           => ['required', 'string', 'max:500'],
+            'pickup_latitude'          => ['required', 'numeric', 'between:-90,90'],
+            'pickup_longitude'         => ['required', 'numeric', 'between:-180,180'],
+            // ── Dépôt ──
+            'dropoff_city'             => ['required', 'string', 'max:100'],
+            'dropoff_arrondissement'   => ['nullable', 'string', 'max:150'],
+            'dropoff_neighborhood'     => ['nullable', 'string', 'max:100'],
+            'dropoff_address'          => ['required', 'string', 'max:500'],
+            'dropoff_latitude'         => ['required', 'numeric', 'between:-90,90'],
+            'dropoff_longitude'        => ['required', 'numeric', 'between:-180,180'],
         ]);
 
         $trip = Trip::where('uuid', $uuid)->first();
@@ -70,14 +74,12 @@ class BookingController extends Controller
             (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
         );
 
-        // Prix proportionnel à la distance du passager (pas le prix total du chauffeur)
         $calculatedPrice = GeoHelper::calculatePassengerPrice(
             $passengerDistanceKm,
             $tripDistanceKm,
             (int) $trip->price_per_seat
         );
 
-        // Frais calculés avant la transaction pour être persistés dans la réservation
         $priceSubtotal = $calculatedPrice * $seatsRequested;
         $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
         $priceTotal    = $priceSubtotal + $serviceFee;
@@ -87,24 +89,29 @@ class BookingController extends Controller
             $passengerDistanceKm, $calculatedPrice, $serviceFee
         ) {
             $booking = Booking::create([
-                'trip_id'               => $trip->id,
-                'passenger_id'          => $request->user()->id,
-                'seats_booked'          => $seatsRequested,
-                'pickup_city'           => $validated['pickup_city'],
-                'pickup_neighborhood'   => $validated['pickup_neighborhood'],
-                'pickup_address'        => $validated['pickup_address'],
-                'pickup_latitude'       => $validated['pickup_latitude'],
-                'pickup_longitude'      => $validated['pickup_longitude'],
-                'dropoff_city'          => $validated['dropoff_city'],
-                'dropoff_neighborhood'  => $validated['dropoff_neighborhood'],
-                'dropoff_address'       => $validated['dropoff_address'],
-                'dropoff_latitude'      => $validated['dropoff_latitude'],
-                'dropoff_longitude'     => $validated['dropoff_longitude'],
-                'passenger_distance_km' => round($passengerDistanceKm, 2),
-                'calculated_price'      => $calculatedPrice,
-                'service_fee'           => $serviceFee,
-                'status'                => 'pending',
-                'payment_status'        => 'unpaid',
+                'trip_id'                => $trip->id,
+                'passenger_id'           => $request->user()->id,
+                'seats_booked'           => $seatsRequested,
+                // ── Prise en charge ──
+                'pickup_city'            => $validated['pickup_city'],
+                'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
+                'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
+                'pickup_address'         => $validated['pickup_address'],
+                'pickup_latitude'        => $validated['pickup_latitude'],
+                'pickup_longitude'       => $validated['pickup_longitude'],
+                // ── Dépôt ──
+                'dropoff_city'           => $validated['dropoff_city'],
+                'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
+                'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
+                'dropoff_address'        => $validated['dropoff_address'],
+                'dropoff_latitude'       => $validated['dropoff_latitude'],
+                'dropoff_longitude'      => $validated['dropoff_longitude'],
+                // ── Prix ──
+                'passenger_distance_km'  => round($passengerDistanceKm, 2),
+                'calculated_price'       => $calculatedPrice,
+                'service_fee'            => $serviceFee,
+                'status'                 => 'pending',
+                'payment_status'         => 'unpaid',
             ]);
 
             $trip->decrement('available_seats', $seatsRequested);
@@ -117,10 +124,10 @@ class BookingController extends Controller
         return $this->apiResponse(true, 'Réservation créée.', [
             'booking_uuid'          => $booking->uuid,
             'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'calculated_price'      => $calculatedPrice,   // prix proraté par place
-            'price_subtotal'        => $priceSubtotal,     // sous-total (places × prix proraté)
-            'service_fee'           => $serviceFee,        // frais de service 5%
-            'price_total'           => $priceTotal,        // montant total à payer
+            'calculated_price'      => $calculatedPrice,
+            'price_subtotal'        => $priceSubtotal,
+            'service_fee'           => $serviceFee,
+            'price_total'           => $priceTotal,
             'passenger_distance_km' => round($passengerDistanceKm, 2),
             'trip_distance_km'      => round($tripDistanceKm, 2),
         ], 201);
@@ -287,7 +294,6 @@ class BookingController extends Controller
 
         try {
             if ($cancelled) {
-                // Annulation passager → notif dédiée au conducteur + notif admin
                 $trip->user->notify(new PassengerCancelledBooking($booking));
 
                 $passenger = $booking->passenger;
@@ -307,11 +313,8 @@ class BookingController extends Controller
                     userId:      $passenger?->id,
                 );
             } else {
-                // Nouvelle demande → notif NewBookingRequest au conducteur (DB + FCM)
                 $trip->user->notify(new NewBookingRequest($booking));
             }
-        } catch (\Throwable) {
-            // non-bloquant
-        }
+        } catch (\Throwable) {}
     }
 }

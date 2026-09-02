@@ -15,11 +15,13 @@ class Trip extends Model
         'user_id',
         'vehicle_id',
 
-        // Géographie — texte
+        // Géographie — texte (commune → arrondissement → quartier → point précis)
         'departure_city',
+        'departure_arrondissement',
         'departure_neighborhood',
         'departure_point',
         'arrival_city',
+        'arrival_arrondissement',
         'arrival_neighborhood',
         'arrival_point',
 

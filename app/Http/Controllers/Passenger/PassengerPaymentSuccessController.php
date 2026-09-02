@@ -199,12 +199,14 @@ class PassengerPaymentSuccessController extends Controller
             'reserved_seats'    => $seats,
 
             // ── Points passager ───────────────────────────────────────────
-            'pickup_city'           => $booking->pickup_city        ?? '—',
-            'pickup_neighborhood'   => $booking->pickup_neighborhood ?? '',
-            'pickup_address'        => $booking->pickup_address      ?? '',
-            'dropoff_city'          => $booking->dropoff_city        ?? '—',
-            'dropoff_neighborhood'  => $booking->dropoff_neighborhood ?? '',
-            'dropoff_address'       => $booking->dropoff_address     ?? '',
+            'pickup_city'            => $booking->pickup_city             ?? '—',
+            'pickup_arrondissement'  => $booking->pickup_arrondissement   ?? null,
+            'pickup_neighborhood'    => $booking->pickup_neighborhood     ?? '',
+            'pickup_address'         => $booking->pickup_address          ?? '',
+            'dropoff_city'           => $booking->dropoff_city            ?? '—',
+            'dropoff_arrondissement' => $booking->dropoff_arrondissement  ?? null,
+            'dropoff_neighborhood'   => $booking->dropoff_neighborhood    ?? '',
+            'dropoff_address'        => $booking->dropoff_address         ?? '',
             'passenger_distance_km' => $booking->passenger_distance_km,
 
             // ── Trajet ────────────────────────────────────────────────────

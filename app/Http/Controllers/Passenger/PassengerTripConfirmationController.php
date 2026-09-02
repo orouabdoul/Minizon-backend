@@ -58,11 +58,13 @@ class PassengerTripConfirmationController extends Controller
                                     property: 'ride',
                                     type: 'object',
                                     properties: [
-                                        new OA\Property(property: 'origin',          type: 'string', example: 'Cotonou'),
-                                        new OA\Property(property: 'destination',     type: 'string', example: 'Parakou'),
-                                        new OA\Property(property: 'duration',        type: 'string', example: '3h30'),
-                                        new OA\Property(property: 'driver_name',     type: 'string', example: 'Koffi Adjovi'),
-                                        new OA\Property(property: 'driver_initials', type: 'string', example: 'KA'),
+                                        new OA\Property(property: 'origin',                   type: 'string', example: 'Cotonou'),
+                                        new OA\Property(property: 'departure_arrondissement', type: 'string', nullable: true, example: '6ème Arrondissement'),
+                                        new OA\Property(property: 'destination',              type: 'string', example: 'Parakou'),
+                                        new OA\Property(property: 'arrival_arrondissement',   type: 'string', nullable: true, example: 'Centre'),
+                                        new OA\Property(property: 'duration',                 type: 'string', example: '3h30'),
+                                        new OA\Property(property: 'driver_name',              type: 'string', example: 'Koffi Adjovi'),
+                                        new OA\Property(property: 'driver_initials',          type: 'string', example: 'KA'),
                                     ]
                                 ),
                                 new OA\Property(property: 'already_reviewed',       type: 'boolean', example: false, description: 'true si ce passager a déjà soumis un avis pour ce trajet.'),
@@ -102,11 +104,13 @@ class PassengerTripConfirmationController extends Controller
 
         return $this->apiResponse(true, 'Contexte trajet.', [
             'ride' => [
-                'origin'          => $trip->origin,
-                'destination'     => $trip->destination,
-                'duration'        => $this->formatDuration((int) ($trip->estimated_duration_minutes ?? 0)),
-                'driver_name'     => $driverName,
-                'driver_initials' => $this->initials($driverName),
+                'origin'                   => $trip->departure_city ?? '—',
+                'departure_arrondissement' => $trip->departure_arrondissement,
+                'destination'              => $trip->arrival_city ?? '—',
+                'arrival_arrondissement'   => $trip->arrival_arrondissement,
+                'duration'                 => $this->formatDuration((int) ($trip->estimated_duration_minutes ?? 0)),
+                'driver_name'              => $driverName,
+                'driver_initials'          => $this->initials($driverName),
             ],
             'already_reviewed'       => $alreadyReviewed,
             'passenger_confirmed_at' => $booking->passenger_confirmed_at ?? null,
@@ -203,7 +207,7 @@ class PassengerTripConfirmationController extends Controller
             try {
                 SupportTicket::create([
                     'user_id'     => $passenger->id,
-                    'subject'     => "[Problème trajet] {$trip->origin} → {$trip->destination}",
+                    'subject'     => "[Problème trajet] {$trip->departure_city} → {$trip->arrival_city}",
                     'description' => "Problèmes signalés pour la réservation #{$booking->uuid} : {$issuesList}.",
                     'priority'    => 'high',
                     'channel'     => 'app',

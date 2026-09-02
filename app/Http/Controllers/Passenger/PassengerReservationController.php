@@ -338,19 +338,21 @@ class PassengerReservationController extends Controller
             ),
             new OA\Property(property: 'passenger_distance_km', type: 'number', format: 'float', nullable: true, example: 127.4),
 
-            // ── Prise en charge passager ──────────────────────────────────
-            new OA\Property(property: 'departure_city',      type: 'string',  example: 'Cotonou'),
-            new OA\Property(property: 'departure_note',      type: 'string',  example: 'Akpakpa'),
-            new OA\Property(property: 'departure_address',   type: 'string',  example: 'Face pharmacie du centre'),
-            new OA\Property(property: 'departure_latitude',  type: 'number',  format: 'float', nullable: true, example: 6.3654),
-            new OA\Property(property: 'departure_longitude', type: 'number',  format: 'float', nullable: true, example: 2.4183),
+            // ── Prise en charge passager — commune → arrondissement → quartier → point précis ──
+            new OA\Property(property: 'departure_city',           type: 'string',  example: 'Cotonou'),
+            new OA\Property(property: 'departure_arrondissement', type: 'string',  example: '6ème Arrondissement', nullable: true),
+            new OA\Property(property: 'departure_note',           type: 'string',  example: 'Akpakpa', description: 'Quartier de prise en charge'),
+            new OA\Property(property: 'departure_address',        type: 'string',  example: 'Face pharmacie du centre'),
+            new OA\Property(property: 'departure_latitude',       type: 'number',  format: 'float', nullable: true, example: 6.3654),
+            new OA\Property(property: 'departure_longitude',      type: 'number',  format: 'float', nullable: true, example: 2.4183),
 
-            // ── Dépose passager ───────────────────────────────────────────
-            new OA\Property(property: 'arrival_city',        type: 'string',  example: 'Abomey-Calavi'),
-            new OA\Property(property: 'arrival_note',        type: 'string',  example: 'Godomey'),
-            new OA\Property(property: 'arrival_address',     type: 'string',  example: 'Carrefour étoile'),
-            new OA\Property(property: 'arrival_latitude',    type: 'number',  format: 'float', nullable: true, example: 6.45),
-            new OA\Property(property: 'arrival_longitude',   type: 'number',  format: 'float', nullable: true, example: 2.35),
+            // ── Dépose passager — commune → arrondissement → quartier → point précis ──
+            new OA\Property(property: 'arrival_city',             type: 'string',  example: 'Abomey-Calavi'),
+            new OA\Property(property: 'arrival_arrondissement',   type: 'string',  example: 'Godomey', nullable: true),
+            new OA\Property(property: 'arrival_note',             type: 'string',  example: 'Godomey', description: 'Quartier de dépôt'),
+            new OA\Property(property: 'arrival_address',          type: 'string',  example: 'Carrefour étoile'),
+            new OA\Property(property: 'arrival_latitude',         type: 'number',  format: 'float', nullable: true, example: 6.45),
+            new OA\Property(property: 'arrival_longitude',        type: 'number',  format: 'float', nullable: true, example: 2.35),
 
             // ── Trajet complet ────────────────────────────────────────────
             new OA\Property(property: 'trip_origin',      type: 'string', example: 'Cotonou'),
@@ -516,19 +518,21 @@ class PassengerReservationController extends Controller
             ],
             'passenger_distance_km' => $booking->passenger_distance_km,
 
-            // ── Points prise en charge passager ───────────────────────────
-            'departure_city'        => $booking->pickup_city    ?: ($trip?->departure_city ?? '—'),
-            'departure_note'        => $booking->pickup_neighborhood ?: ($trip?->departure_neighborhood ?? ''),
-            'departure_address'     => $booking->pickup_address  ?: '',
-            'departure_latitude'    => $booking->pickup_latitude,
-            'departure_longitude'   => $booking->pickup_longitude,
+            // ── Points prise en charge passager — commune → arrondissement → quartier → point précis ──
+            'departure_city'             => $booking->pickup_city             ?: ($trip?->departure_city ?? '—'),
+            'departure_arrondissement'   => $booking->pickup_arrondissement   ?? null,
+            'departure_note'             => $booking->pickup_neighborhood     ?: ($trip?->departure_neighborhood ?? ''),
+            'departure_address'          => $booking->pickup_address          ?: '',
+            'departure_latitude'         => $booking->pickup_latitude,
+            'departure_longitude'        => $booking->pickup_longitude,
 
-            // ── Points dépose passager ────────────────────────────────────
-            'arrival_city'          => $booking->dropoff_city   ?: ($trip?->arrival_city ?? '—'),
-            'arrival_note'          => $booking->dropoff_neighborhood ?: ($trip?->arrival_neighborhood ?? ''),
-            'arrival_address'       => $booking->dropoff_address ?: '',
-            'arrival_latitude'      => $booking->dropoff_latitude,
-            'arrival_longitude'     => $booking->dropoff_longitude,
+            // ── Points dépose passager — commune → arrondissement → quartier → point précis ──
+            'arrival_city'               => $booking->dropoff_city            ?: ($trip?->arrival_city ?? '—'),
+            'arrival_arrondissement'     => $booking->dropoff_arrondissement  ?? null,
+            'arrival_note'               => $booking->dropoff_neighborhood    ?: ($trip?->arrival_neighborhood ?? ''),
+            'arrival_address'            => $booking->dropoff_address         ?: '',
+            'arrival_latitude'           => $booking->dropoff_latitude,
+            'arrival_longitude'          => $booking->dropoff_longitude,
 
             // ── Trajet complet (infos conducteur) ─────────────────────────
             'trip_origin'           => $trip?->departure_city ?? '—',

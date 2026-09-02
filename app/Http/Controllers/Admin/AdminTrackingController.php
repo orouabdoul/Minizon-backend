@@ -801,6 +801,99 @@ MD,
     }
 
     // =========================================================================
+    //  POST /api/admin/tracking/{uuid}/notify-passengers
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/admin/tracking/{uuid}/notify-passengers',
+        operationId: 'adminNotifyPassengers',
+        summary: 'Envoyer une notification FCM à tous les passagers d\'un trajet',
+        description: 'Notifie tous les passagers acceptés d\'un trajet (retard, urgence, information). Chaque passager reçoit un push FCM et une notification DB.',
+        tags: ['👑 Admin — Suivi temps réel'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['message'],
+                properties: [
+                    new OA\Property(property: 'title',   type: 'string', nullable: true, example: 'Retard du trajet'),
+                    new OA\Property(property: 'message', type: 'string', example: 'Votre trajet a un retard de 20 minutes. Merci de votre patience.'),
+                    new OA\Property(property: 'type',    type: 'string', nullable: true, enum: ['admin_alert', 'trip_delay', 'trip_emergency'], default: 'admin_alert'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Notifications envoyées'),
+            new OA\Response(response: 404, description: 'Trajet introuvable'),
+        ]
+    )]
+    public function notifyPassengers(Request $request, string $uuid): JsonResponse
+    {
+        $trip = Trip::with([
+            'bookings' => fn ($q) => $q->where('status', 'accepted')->with('passenger'),
+        ])->where('uuid', $uuid)->firstOrFail();
+
+        $validated = $request->validate([
+            'title'   => 'nullable|string|max:100',
+            'message' => 'required|string|max:500',
+            'type'    => 'nullable|string|in:admin_alert,trip_delay,trip_emergency',
+        ]);
+
+        $title   = $validated['title'] ?? 'Information Minizon';
+        $msgBody = $validated['message'];
+        $type    = $validated['type'] ?? 'admin_alert';
+
+        $tokens  = [];
+        $notified = 0;
+
+        foreach ($trip->bookings as $booking) {
+            $passenger = $booking->passenger;
+            if (! $passenger) continue;
+
+            // Notification DB
+            try {
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'id'              => (string) \Illuminate\Support\Str::uuid(),
+                    'type'            => $type,
+                    'notifiable_type' => 'App\Models\User',
+                    'notifiable_id'   => $passenger->id,
+                    'data'            => json_encode([
+                        'type'      => $type,
+                        'title'     => $title,
+                        'body'      => $msgBody,
+                        'trip_uuid' => $trip->uuid,
+                    ]),
+                    'read_at'    => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Throwable) {}
+
+            if ($passenger->fcm_token) {
+                $tokens[] = $passenger->fcm_token;
+            }
+            $notified++;
+        }
+
+        if (! empty($tokens)) {
+            app(FcmService::class)->sendToMultiple(
+                $tokens,
+                $title,
+                $msgBody,
+                ['type' => $type, 'trip_uuid' => $trip->uuid]
+            );
+        }
+
+        return $this->apiResponse(true, "Notification envoyée à {$notified} passager(s).", [
+            'notified_count' => $notified,
+            'tokens_sent'    => count($tokens),
+        ]);
+    }
+
+    // =========================================================================
     //  HELPERS PRIVÉS
     // =========================================================================
 

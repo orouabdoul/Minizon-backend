@@ -51,9 +51,11 @@ class DriverTripDetailController extends Controller
                                     property: 'route',
                                     type: 'object',
                                     properties: [
-                                        new OA\Property(property: 'origin',                      type: 'string',  example: 'Cotonou, Akpakpa'),
+                                        new OA\Property(property: 'origin',                      type: 'string',  example: 'Cotonou, 6ème Arrondissement, Akpakpa'),
+                                        new OA\Property(property: 'origin_arrondissement',       type: 'string',  nullable: true, example: '6ème Arrondissement'),
                                         new OA\Property(property: 'origin_point',                type: 'string',  nullable: true, example: 'Carrefour Étoile Rouge'),
-                                        new OA\Property(property: 'destination',                 type: 'string',  example: 'Parakou, Centre-ville'),
+                                        new OA\Property(property: 'destination',                 type: 'string',  example: 'Parakou, Centre, Centre-ville'),
+                                        new OA\Property(property: 'destination_arrondissement',  type: 'string',  nullable: true, example: 'Centre'),
                                         new OA\Property(property: 'destination_point',           type: 'string',  nullable: true, example: 'Gare routière'),
                                         new OA\Property(property: 'departure_time',              type: 'string',  format: 'date-time'),
                                         new OA\Property(property: 'departure_time_formatted',    type: 'string',  example: '07:00'),
@@ -178,9 +180,11 @@ class DriverTripDetailController extends Controller
             'recurring_days'      => $trip->recurring_days ?? [],
 
             'route' => [
-                'origin'                     => $trip->departure_city . ', ' . $trip->departure_neighborhood,
+                'origin'                     => $this->buildLocationLabel($trip->departure_city, $trip->departure_arrondissement, $trip->departure_neighborhood),
+                'origin_arrondissement'      => $trip->departure_arrondissement,
                 'origin_point'               => $trip->departure_point,
-                'destination'                => $trip->arrival_city . ', ' . $trip->arrival_neighborhood,
+                'destination'                => $this->buildLocationLabel($trip->arrival_city, $trip->arrival_arrondissement, $trip->arrival_neighborhood),
+                'destination_arrondissement' => $trip->arrival_arrondissement,
                 'destination_point'          => $trip->arrival_point,
                 'departure_time'             => $trip->departure_time,
                 'departure_time_formatted'   => $trip->departure_time->format('H:i'),
@@ -466,6 +470,14 @@ class DriverTripDetailController extends Controller
         $first = mb_strtoupper(mb_substr($parts[0] ?? '', 0, 1));
         $last  = mb_strtoupper(mb_substr($parts[1] ?? '', 0, 1));
         return $first . $last ?: '??';
+    }
+
+    private function buildLocationLabel(string $city, ?string $arrondissement, ?string $neighborhood): string
+    {
+        $parts = [$city];
+        if ($arrondissement) $parts[] = $arrondissement;
+        if ($neighborhood)   $parts[] = $neighborhood;
+        return implode(', ', $parts);
     }
 
     private function serializeTripReviews(\Illuminate\Database\Eloquent\Collection $reviews, int $driverId): array

@@ -16,15 +16,17 @@ class Booking extends Model
         'passenger_id',
         'seats_booked',
 
-        // Point de montée du passager
+        // Point de montée — commune → arrondissement → quartier → point précis
         'pickup_city',
+        'pickup_arrondissement',
         'pickup_neighborhood',
         'pickup_address',
         'pickup_latitude',
         'pickup_longitude',
 
-        // Point de descente du passager
+        // Point de descente — commune → arrondissement → quartier → point précis
         'dropoff_city',
+        'dropoff_arrondissement',
         'dropoff_neighborhood',
         'dropoff_address',
         'dropoff_latitude',

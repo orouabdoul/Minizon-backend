@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SupportTicket;
 use App\Models\User;
+use App\Notifications\SupportTicketResolved;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -438,6 +439,11 @@ class AdminSupportController extends Controller
             'agent_id'    => $request->user()->id,
             'resolved_at' => now(),
         ]);
+
+        // Notifier l'utilisateur que son ticket est résolu
+        try {
+            $ticket->user?->notify(new SupportTicketResolved($ticket));
+        } catch (\Throwable) {}
 
         return $this->apiResponse(true, 'Ticket résolu.', $this->format(
             $this->baseQuery()->where('uuid', $uuid)->first()

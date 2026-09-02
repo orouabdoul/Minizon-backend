@@ -138,42 +138,54 @@ class FcmService
 
     /**
      * Obtient un access token OAuth2 depuis le service account, mis en cache 55 min.
+     * Le cache n'est positionné QUE si le token est valide — pas de cache sur erreur.
      */
     private function getAccessToken(): ?string
     {
-        return Cache::remember('fcm_v1_access_token', 3300, function () {
-            if (! file_exists($this->credentialsPath)) {
-                Log::error('FCM v1 : fichier de credentials introuvable', ['path' => $this->credentialsPath]);
+        $cacheKey = 'fcm_v1_access_token';
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        if (! file_exists($this->credentialsPath)) {
+            Log::error('FCM v1 : fichier de credentials introuvable', ['path' => $this->credentialsPath]);
+            return null;
+        }
+
+        $credentials = json_decode(file_get_contents($this->credentialsPath), true);
+
+        if (empty($credentials['client_email']) || empty($credentials['private_key'])) {
+            Log::error('FCM v1 : credentials invalides (client_email ou private_key manquant)');
+            return null;
+        }
+
+        try {
+            $jwt = $this->buildJwt($credentials['client_email'], $credentials['private_key']);
+
+            $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                'assertion'  => $jwt,
+            ]);
+
+            if (! $response->successful()) {
+                Log::error('FCM v1 : échec OAuth2', ['body' => $response->body()]);
                 return null;
             }
 
-            $credentials = json_decode(file_get_contents($this->credentialsPath), true);
+            $token = $response->json('access_token');
 
-            if (empty($credentials['client_email']) || empty($credentials['private_key'])) {
-                Log::error('FCM v1 : credentials invalides (client_email ou private_key manquant)');
-                return null;
+            if ($token) {
+                Cache::put($cacheKey, $token, 3300);
             }
 
-            try {
-                $jwt = $this->buildJwt($credentials['client_email'], $credentials['private_key']);
+            return $token ?: null;
 
-                $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
-                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                    'assertion'  => $jwt,
-                ]);
-
-                if (! $response->successful()) {
-                    Log::error('FCM v1 : échec OAuth2', ['body' => $response->body()]);
-                    return null;
-                }
-
-                return $response->json('access_token');
-
-            } catch (\Throwable $e) {
-                Log::error('FCM v1 : exception OAuth2', ['error' => $e->getMessage()]);
-                return null;
-            }
-        });
+        } catch (\Throwable $e) {
+            Log::error('FCM v1 : exception OAuth2', ['error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     /**

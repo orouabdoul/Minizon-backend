@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Passenger;
 
 use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Trip;
+use App\Notifications\NewBookingRequest;
+use App\Notifications\PassengerCancelledBooking;
 use FedaPay\FedaPay;
 use FedaPay\Transaction as FedaTransaction;
 use Illuminate\Http\JsonResponse;
@@ -40,21 +43,25 @@ class PassengerBookingController extends Controller
             content: new OA\JsonContent(
                 required: [
                     'seats_booked',
-                    'pickup_city', 'pickup_neighborhood', 'pickup_address', 'pickup_latitude', 'pickup_longitude',
-                    'dropoff_city', 'dropoff_neighborhood', 'dropoff_address', 'dropoff_latitude', 'dropoff_longitude',
+                    'pickup_city', 'pickup_address', 'pickup_latitude', 'pickup_longitude',
+                    'dropoff_city', 'dropoff_address', 'dropoff_latitude', 'dropoff_longitude',
                 ],
                 properties: [
-                    new OA\Property(property: 'seats_booked',          type: 'integer', minimum: 1, example: 1),
-                    new OA\Property(property: 'pickup_city',           type: 'string',  example: 'Cotonou'),
-                    new OA\Property(property: 'pickup_neighborhood',   type: 'string',  example: 'Akpakpa'),
-                    new OA\Property(property: 'pickup_address',        type: 'string',  example: 'Face pharmacie du centre'),
-                    new OA\Property(property: 'pickup_latitude',       type: 'number',  format: 'float', example: 6.3654),
-                    new OA\Property(property: 'pickup_longitude',      type: 'number',  format: 'float', example: 2.4183),
-                    new OA\Property(property: 'dropoff_city',          type: 'string',  example: 'Parakou'),
-                    new OA\Property(property: 'dropoff_neighborhood',  type: 'string',  example: 'Zongo'),
-                    new OA\Property(property: 'dropoff_address',       type: 'string',  example: 'Carrefour étoile rouge'),
-                    new OA\Property(property: 'dropoff_latitude',      type: 'number',  format: 'float', example: 9.3370),
-                    new OA\Property(property: 'dropoff_longitude',     type: 'number',  format: 'float', example: 2.6280),
+                    new OA\Property(property: 'seats_booked',              type: 'integer', minimum: 1, example: 1),
+                    // ── Prise en charge — commune → arrondissement → quartier → point précis ──
+                    new OA\Property(property: 'pickup_city',               type: 'string',  example: 'Cotonou',                 description: 'Commune de prise en charge'),
+                    new OA\Property(property: 'pickup_arrondissement',     type: 'string',  example: '6ème Arrondissement',     nullable: true, description: 'Arrondissement de prise en charge'),
+                    new OA\Property(property: 'pickup_neighborhood',       type: 'string',  example: 'Akpakpa',                 nullable: true, description: 'Quartier de prise en charge'),
+                    new OA\Property(property: 'pickup_address',            type: 'string',  example: 'Face pharmacie du centre', description: 'Point précis de prise en charge'),
+                    new OA\Property(property: 'pickup_latitude',           type: 'number',  format: 'float', example: 6.3654),
+                    new OA\Property(property: 'pickup_longitude',          type: 'number',  format: 'float', example: 2.4183),
+                    // ── Dépôt — commune → arrondissement → quartier → point précis ──
+                    new OA\Property(property: 'dropoff_city',              type: 'string',  example: 'Parakou',                  description: 'Commune de dépôt'),
+                    new OA\Property(property: 'dropoff_arrondissement',    type: 'string',  example: '1er Arrondissement',       nullable: true, description: 'Arrondissement de dépôt'),
+                    new OA\Property(property: 'dropoff_neighborhood',      type: 'string',  example: 'Zongo',                    nullable: true, description: 'Quartier de dépôt'),
+                    new OA\Property(property: 'dropoff_address',           type: 'string',  example: 'Carrefour étoile rouge',   description: 'Point précis de dépôt'),
+                    new OA\Property(property: 'dropoff_latitude',          type: 'number',  format: 'float', example: 9.3370),
+                    new OA\Property(property: 'dropoff_longitude',         type: 'number',  format: 'float', example: 2.6280),
                 ]
             )
         ),
@@ -90,17 +97,21 @@ class PassengerBookingController extends Controller
     public function store(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'seats_booked'         => ['required', 'integer', 'min:1', 'max:10'],
-            'pickup_city'          => ['required', 'string', 'max:100'],
-            'pickup_neighborhood'  => ['required', 'string', 'max:100'],
-            'pickup_address'       => ['required', 'string', 'max:500'],
-            'pickup_latitude'      => ['required', 'numeric', 'between:-90,90'],
-            'pickup_longitude'     => ['required', 'numeric', 'between:-180,180'],
-            'dropoff_city'         => ['required', 'string', 'max:100'],
-            'dropoff_neighborhood' => ['required', 'string', 'max:100'],
-            'dropoff_address'      => ['required', 'string', 'max:500'],
-            'dropoff_latitude'     => ['required', 'numeric', 'between:-90,90'],
-            'dropoff_longitude'    => ['required', 'numeric', 'between:-180,180'],
+            'seats_booked'             => ['required', 'integer', 'min:1', 'max:10'],
+            // ── Prise en charge ──
+            'pickup_city'              => ['required', 'string', 'max:100'],
+            'pickup_arrondissement'    => ['nullable', 'string', 'max:150'],
+            'pickup_neighborhood'      => ['nullable', 'string', 'max:100'],
+            'pickup_address'           => ['required', 'string', 'max:500'],
+            'pickup_latitude'          => ['required', 'numeric', 'between:-90,90'],
+            'pickup_longitude'         => ['required', 'numeric', 'between:-180,180'],
+            // ── Dépôt ──
+            'dropoff_city'             => ['required', 'string', 'max:100'],
+            'dropoff_arrondissement'   => ['nullable', 'string', 'max:150'],
+            'dropoff_neighborhood'     => ['nullable', 'string', 'max:100'],
+            'dropoff_address'          => ['required', 'string', 'max:500'],
+            'dropoff_latitude'         => ['required', 'numeric', 'between:-90,90'],
+            'dropoff_longitude'        => ['required', 'numeric', 'between:-180,180'],
         ]);
 
         $trip = Trip::where('uuid', $uuid)->first();
@@ -160,25 +171,30 @@ class PassengerBookingController extends Controller
             $passengerDistanceKm, $calculatedPrice, $serviceFee, $totalPrice
         ) {
             $booking = Booking::create([
-                'trip_id'              => $trip->id,
-                'passenger_id'         => $request->user()->id,
-                'seats_booked'         => $seatsRequested,
-                'pickup_city'          => $validated['pickup_city'],
-                'pickup_neighborhood'  => $validated['pickup_neighborhood'],
-                'pickup_address'       => $validated['pickup_address'],
-                'pickup_latitude'      => $validated['pickup_latitude'],
-                'pickup_longitude'     => $validated['pickup_longitude'],
-                'dropoff_city'         => $validated['dropoff_city'],
-                'dropoff_neighborhood' => $validated['dropoff_neighborhood'],
-                'dropoff_address'      => $validated['dropoff_address'],
-                'dropoff_latitude'     => $validated['dropoff_latitude'],
-                'dropoff_longitude'    => $validated['dropoff_longitude'],
-                'passenger_distance_km'=> round($passengerDistanceKm, 2),
-                'calculated_price'     => $calculatedPrice,
-                'service_fee'          => $serviceFee,
-                'total_price'          => $totalPrice,
-                'status'               => 'pending',
-                'payment_status'       => 'unpaid',
+                'trip_id'                => $trip->id,
+                'passenger_id'           => $request->user()->id,
+                'seats_booked'           => $seatsRequested,
+                // ── Prise en charge ──
+                'pickup_city'            => $validated['pickup_city'],
+                'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
+                'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
+                'pickup_address'         => $validated['pickup_address'],
+                'pickup_latitude'        => $validated['pickup_latitude'],
+                'pickup_longitude'       => $validated['pickup_longitude'],
+                // ── Dépôt ──
+                'dropoff_city'           => $validated['dropoff_city'],
+                'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
+                'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
+                'dropoff_address'        => $validated['dropoff_address'],
+                'dropoff_latitude'       => $validated['dropoff_latitude'],
+                'dropoff_longitude'      => $validated['dropoff_longitude'],
+                // ── Prix ──
+                'passenger_distance_km'  => round($passengerDistanceKm, 2),
+                'calculated_price'       => $calculatedPrice,
+                'service_fee'            => $serviceFee,
+                'total_price'            => $totalPrice,
+                'status'                 => 'pending',
+                'payment_status'         => 'unpaid',
             ]);
 
             $trip->decrement('available_seats', $seatsRequested);
@@ -449,29 +465,31 @@ class PassengerBookingController extends Controller
 
     private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
     {
-        if (! $trip) return;
+        if (! $trip?->user) return;
 
         try {
-            $title = $cancelled ? 'Réservation annulée' : 'Nouvelle demande de réservation';
-            $body  = $cancelled
-                ? "Un passager a annulé sa réservation pour {$trip->departure_city} → {$trip->arrival_city}."
-                : "Un passager souhaite réserver {$booking->seats_booked} place(s) pour {$trip->departure_city} → {$trip->arrival_city}.";
+            if ($cancelled) {
+                $trip->user->notify(new PassengerCancelledBooking($booking));
 
-            DB::table('notifications')->insert([
-                'id'              => (string) Str::uuid(),
-                'type'            => $cancelled ? 'booking_cancelled' : 'booking_request',
-                'notifiable_type' => 'App\Models\User',
-                'notifiable_id'   => $trip->user_id,
-                'data'            => json_encode([
-                    'title'        => $title,
-                    'body'         => $body,
-                    'booking_uuid' => $booking->uuid,
-                    'trip_uuid'    => $trip->uuid,
-                ]),
-                'read_at'    => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+                $passenger = $booking->passenger;
+                $profile   = $passenger?->profile;
+                $name      = $profile
+                    ? trim("{$profile->first_name} {$profile->last_name}")
+                    : ($passenger?->phone ?? 'Un passager');
+                $route = "{$trip->departure_city} → {$trip->arrival_city}";
+
+                AdminNotification::notifyAdmins(
+                    type:        'user',
+                    priority:    'normal',
+                    title:       'Réservation annulée par un passager',
+                    description: "{$name} a annulé sa réservation ({$booking->seats_booked} place(s)) sur {$route}.",
+                    refType:     'booking',
+                    refId:       $booking->uuid,
+                    userId:      $passenger?->id,
+                );
+            } else {
+                $trip->user->notify(new NewBookingRequest($booking));
+            }
         } catch (\Throwable) {}
     }
 }

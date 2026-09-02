@@ -83,6 +83,71 @@ class DriverAddTripController extends Controller
         'Glazoué', 'Savalou', 'Bantè', 'Kétou', 'Sakété',
     ];
 
+    /**
+     * Arrondissements par commune — hiérarchie administrative du Bénin.
+     * Clé = nom commune (minuscules normalisées), valeur = liste des arrondissements.
+     */
+    private const ARRONDISSEMENTS = [
+        'cotonou' => [
+            '1er Arrondissement', '2ème Arrondissement', '3ème Arrondissement',
+            '4ème Arrondissement', '5ème Arrondissement', '6ème Arrondissement',
+            '7ème Arrondissement', '8ème Arrondissement', '9ème Arrondissement',
+            '10ème Arrondissement', '11ème Arrondissement', '13ème Arrondissement',
+        ],
+        'porto-novo' => [
+            '1er Arrondissement', '2ème Arrondissement', '3ème Arrondissement',
+            '4ème Arrondissement', '5ème Arrondissement',
+        ],
+        'parakou' => [
+            '1er Arrondissement', '2ème Arrondissement', '3ème Arrondissement',
+        ],
+        'abomey-calavi' => [
+            'Abomey-Calavi', 'Godomey', 'Hêvié', 'Kpanroun', 'Ouèdo',
+            'Togba', 'Zinvié', 'Akassato', 'Glo-Djigbé', 'Sékou',
+        ],
+        'bohicon' => [
+            'Bohicon I', 'Bohicon II', 'Avogbanna', 'Gnidjazoun',
+            'Kpokissa', 'Ouinhi', 'Zogbodomey',
+        ],
+        'abomey' => [
+            'Abomey', 'Agbangnizoun', 'Cové', 'Djidja', 'Ouinhi',
+            'Za-Kpota', 'Zogbodomey',
+        ],
+        'natitingou' => [
+            'Natitingou I', 'Natitingou II', 'Kouarfa', 'Perma',
+        ],
+        'lokossa' => [
+            'Lokossa', 'Koudo', 'Ouèdèmè', 'Houin',
+        ],
+        'ouidah' => [
+            'Ouidah I', 'Ouidah II', 'Ouidah III', 'Ouidah IV',
+            'Avlékété', 'Houakpè-Daho', 'Pahou', 'Savi',
+        ],
+        'kandi' => [
+            'Kandi I', 'Kandi II', 'Kandi III',
+        ],
+        'djougou' => [
+            'Djougou I', 'Djougou II', 'Djougou III',
+        ],
+        'sèmè-kpodji' => [
+            'Sèmè-Kpodji', 'Agblangandan', 'Djèrègbé', 'Ekpè',
+        ],
+        'allada' => [
+            'Allada', 'Attogon', 'Avakpa', 'Hinvi', 'Kpannou',
+            'Lissègazoun', 'Lon-Agonmey', 'Sékou', 'Togoudo', 'Tokpa',
+        ],
+        'glazoué' => [
+            'Glazoué', 'Assanté', 'Djaloukou', 'Gomé', 'Kpingni',
+            'Ouèssè', 'Sokponta', 'Thio',
+        ],
+        'dassa-zoumé' => [
+            'Dassa I', 'Dassa II', 'Dassa III',
+        ],
+        'savè' => [
+            'Savè', 'Besse', 'Kaboua', 'Ouèssè', 'Tchaourou',
+        ],
+    ];
+
     // Taux de commission plateforme par défaut (%)
     private const DEFAULT_COMMISSION = 10;
 
@@ -192,6 +257,9 @@ class DriverAddTripController extends Controller
             'vehicles'             => $vehicles,
             'has_approved_vehicle' => $vehicles->isNotEmpty(),
             'cities'               => self::BENIN_CITIES,
+            // Arrondissements par commune : { "cotonou": ["1er Arrondissement", ...], ... }
+            // Flutter : charger dynamiquement selon la commune choisie
+            'arrondissements'      => self::ARRONDISSEMENTS,
             'preferences'          => self::PREFERENCE_CATALOG,
             'booking_modes'        => self::BOOKING_MODES,
             'cancellation_policies'=> self::CANCELLATION_POLICIES,
@@ -223,25 +291,29 @@ class DriverAddTripController extends Controller
             content: new OA\JsonContent(
                 required: [
                     'vehicle_id',
-                    'departure_city', 'departure_neighborhood',
-                    'arrival_city', 'arrival_neighborhood',
+                    'departure_city',
+                    'arrival_city',
                     'departure_date', 'departure_time',
                     'price_per_seat',
                 ],
                 properties: [
                     new OA\Property(property: 'vehicle_id',              type: 'integer', example: 5),
-                    // Départ
-                    new OA\Property(property: 'departure_city',          type: 'string',  example: 'Cotonou'),
-                    new OA\Property(property: 'departure_neighborhood',  type: 'string',  example: 'Akpakpa'),
-                    new OA\Property(property: 'departure_point',         type: 'string',  example: 'Carrefour Étoile Rouge', nullable: true),
-                    new OA\Property(property: 'departure_latitude',      type: 'number',  example: 6.3703,  nullable: true),
-                    new OA\Property(property: 'departure_longitude',     type: 'number',  example: 2.3912,  nullable: true),
-                    // Arrivée
-                    new OA\Property(property: 'arrival_city',            type: 'string',  example: 'Parakou'),
-                    new OA\Property(property: 'arrival_neighborhood',    type: 'string',  example: 'Centre-ville'),
-                    new OA\Property(property: 'arrival_point',           type: 'string',  example: 'Gare routière', nullable: true),
-                    new OA\Property(property: 'arrival_latitude',        type: 'number',  example: 9.3370,  nullable: true),
-                    new OA\Property(property: 'arrival_longitude',       type: 'number',  example: 2.6280,  nullable: true),
+
+                    // ── Départ (commune → arrondissement → quartier → point précis) ──
+                    new OA\Property(property: 'departure_city',           type: 'string',  example: 'Cotonou',             description: 'Commune / ville de départ'),
+                    new OA\Property(property: 'departure_arrondissement', type: 'string',  example: '6ème Arrondissement', nullable: true, description: 'Arrondissement de départ'),
+                    new OA\Property(property: 'departure_neighborhood',   type: 'string',  example: 'Akpakpa',             nullable: true, description: 'Quartier de départ'),
+                    new OA\Property(property: 'departure_point',          type: 'string',  example: 'Face pharmacie Centrale', nullable: true, description: 'Point de rendez-vous précis'),
+                    new OA\Property(property: 'departure_latitude',       type: 'number',  example: 6.3703,  nullable: true),
+                    new OA\Property(property: 'departure_longitude',      type: 'number',  example: 2.3912,  nullable: true),
+
+                    // ── Arrivée (commune → arrondissement → quartier → point précis) ──
+                    new OA\Property(property: 'arrival_city',             type: 'string',  example: 'Parakou',             description: 'Commune / ville d\'arrivée'),
+                    new OA\Property(property: 'arrival_arrondissement',   type: 'string',  example: '1er Arrondissement',  nullable: true, description: 'Arrondissement d\'arrivée'),
+                    new OA\Property(property: 'arrival_neighborhood',     type: 'string',  example: 'Zongo',               nullable: true, description: 'Quartier d\'arrivée'),
+                    new OA\Property(property: 'arrival_point',            type: 'string',  example: 'Gare routière centrale', nullable: true, description: 'Point de dépôt précis'),
+                    new OA\Property(property: 'arrival_latitude',         type: 'number',  example: 9.3370,  nullable: true),
+                    new OA\Property(property: 'arrival_longitude',        type: 'number',  example: 2.6280,  nullable: true),
                     // Date & heure (depuis les pickers Flutter — format local)
                     new OA\Property(property: 'departure_date',          type: 'string',  example: '10/07/2026', description: 'Format jj/mm/aaaa'),
                     new OA\Property(property: 'departure_time',          type: 'string',  example: '07:00',       description: 'Format HH:mm'),
@@ -313,16 +385,18 @@ class DriverAddTripController extends Controller
         $validated = $request->validate([
             'vehicle_id'                 => 'required|integer|exists:vehicles,id',
 
-            // Départ
+            // Départ — hiérarchie : commune → arrondissement → quartier → point précis
             'departure_city'             => 'required|string|max:100',
-            'departure_neighborhood'     => 'required|string|max:100',
+            'departure_arrondissement'   => 'nullable|string|max:150',
+            'departure_neighborhood'     => 'nullable|string|max:100',
             'departure_point'            => 'nullable|string|max:200',
             'departure_latitude'         => 'nullable|numeric|between:-90,90',
             'departure_longitude'        => 'nullable|numeric|between:-180,180',
 
-            // Arrivée
+            // Arrivée — hiérarchie : commune → arrondissement → quartier → point précis
             'arrival_city'               => 'required|string|max:100',
-            'arrival_neighborhood'       => 'required|string|max:100',
+            'arrival_arrondissement'     => 'nullable|string|max:150',
+            'arrival_neighborhood'       => 'nullable|string|max:100',
             'arrival_point'              => 'nullable|string|max:200',
             'arrival_latitude'           => 'nullable|numeric|between:-90,90',
             'arrival_longitude'          => 'nullable|numeric|between:-180,180',
@@ -422,17 +496,27 @@ class DriverAddTripController extends Controller
             'user_id'    => $request->user()->id,
             'vehicle_id' => $vehicle->id,
 
-            'departure_city'         => ucfirst(strtolower($validated['departure_city'])),
-            'departure_neighborhood' => ucfirst(strtolower($validated['departure_neighborhood'])),
-            'departure_point'        => $validated['departure_point'] ?? null,
-            'departure_latitude'     => $validated['departure_latitude'] ?? null,
-            'departure_longitude'    => $validated['departure_longitude'] ?? null,
+            'departure_city'             => ucfirst(strtolower($validated['departure_city'])),
+            'departure_arrondissement'   => isset($validated['departure_arrondissement'])
+                                                ? ucfirst($validated['departure_arrondissement'])
+                                                : null,
+            'departure_neighborhood'     => isset($validated['departure_neighborhood'])
+                                                ? ucfirst(strtolower($validated['departure_neighborhood']))
+                                                : null,
+            'departure_point'            => $validated['departure_point'] ?? null,
+            'departure_latitude'         => $validated['departure_latitude'] ?? null,
+            'departure_longitude'        => $validated['departure_longitude'] ?? null,
 
-            'arrival_city'           => ucfirst(strtolower($validated['arrival_city'])),
-            'arrival_neighborhood'   => ucfirst(strtolower($validated['arrival_neighborhood'])),
-            'arrival_point'          => $validated['arrival_point'] ?? null,
-            'arrival_latitude'       => $validated['arrival_latitude'] ?? null,
-            'arrival_longitude'      => $validated['arrival_longitude'] ?? null,
+            'arrival_city'               => ucfirst(strtolower($validated['arrival_city'])),
+            'arrival_arrondissement'     => isset($validated['arrival_arrondissement'])
+                                                ? ucfirst($validated['arrival_arrondissement'])
+                                                : null,
+            'arrival_neighborhood'       => isset($validated['arrival_neighborhood'])
+                                                ? ucfirst(strtolower($validated['arrival_neighborhood']))
+                                                : null,
+            'arrival_point'              => $validated['arrival_point'] ?? null,
+            'arrival_latitude'           => $validated['arrival_latitude'] ?? null,
+            'arrival_longitude'          => $validated['arrival_longitude'] ?? null,
 
             'price_per_seat'             => $validated['price_per_seat'],
             'departure_time'             => $departureAt,
@@ -486,6 +570,17 @@ class DriverAddTripController extends Controller
             'is_published'               => $trip->is_published,
             'booking_mode'               => $trip->booking_mode,
             'cancellation_policy'        => $trip->cancellation_policy,
+
+            // Géographie complète
+            'departure_city'             => $trip->departure_city,
+            'departure_arrondissement'   => $trip->departure_arrondissement,
+            'departure_neighborhood'     => $trip->departure_neighborhood,
+            'departure_point'            => $trip->departure_point,
+            'arrival_city'               => $trip->arrival_city,
+            'arrival_arrondissement'     => $trip->arrival_arrondissement,
+            'arrival_neighborhood'       => $trip->arrival_neighborhood,
+            'arrival_point'              => $trip->arrival_point,
+
             'route'                      => $trip->route(),
             'departure_time'             => $trip->departure_time,
             'estimated_arrival_time'     => $trip->estimated_arrival_time,

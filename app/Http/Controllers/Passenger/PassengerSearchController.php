@@ -175,12 +175,14 @@ class PassengerSearchController extends Controller
                 'duration'              => $durationLabel,
                 'vehicle'               => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
                 'vehicle_plate'         => $vehicle?->license_plate ?? '—',
-                'origin'                => $trip->departure_city   ?? '—',
-                'destination'           => $trip->arrival_city     ?? '—',
-                'departure_time'        => $depTime?->format('H\hi') ?? '—',
-                'arrival_time'          => $arrTime?->format('H\hi') ?? '—',
-                'departure_note'        => $trip->departure_neighborhood ?? $trip->departure_point ?? '',
-                'arrival_note'          => $trip->arrival_neighborhood   ?? $trip->arrival_point   ?? '',
+                'origin'                   => $trip->departure_city   ?? '—',
+                'departure_arrondissement' => $trip->departure_arrondissement,
+                'destination'              => $trip->arrival_city     ?? '—',
+                'arrival_arrondissement'   => $trip->arrival_arrondissement,
+                'departure_time'           => $depTime?->format('H\hi') ?? '—',
+                'arrival_time'             => $arrTime?->format('H\hi') ?? '—',
+                'departure_note'           => $trip->departure_neighborhood ?? $trip->departure_point ?? '',
+                'arrival_note'             => $trip->arrival_neighborhood   ?? $trip->arrival_point   ?? '',
             ];
         });
 
