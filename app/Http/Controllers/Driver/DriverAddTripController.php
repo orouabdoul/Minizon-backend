@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Driver;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\Trip;
@@ -478,14 +479,34 @@ class DriverAddTripController extends Controller
         $maxPerBooking = min($validated['max_per_booking'] ?? $totalSeats, $totalSeats);
         $isPublished   = $validated['is_published'] ?? true;
 
+        // ── Résolution GPS depuis la hiérarchie géographique si non fourni ──
+        $depLat = isset($validated['departure_latitude'])  ? (float) $validated['departure_latitude']  : null;
+        $depLng = isset($validated['departure_longitude']) ? (float) $validated['departure_longitude'] : null;
+        $arrLat = isset($validated['arrival_latitude'])    ? (float) $validated['arrival_latitude']    : null;
+        $arrLng = isset($validated['arrival_longitude'])   ? (float) $validated['arrival_longitude']   : null;
+
+        if (! $depLat || ! $depLng) {
+            $coords = GeoHelper::resolveCoordinates(
+                $validated['departure_city'],
+                $validated['departure_arrondissement'] ?? null,
+                $validated['departure_neighborhood']   ?? null,
+            );
+            if ($coords) [$depLat, $depLng] = $coords;
+        }
+        if (! $arrLat || ! $arrLng) {
+            $coords = GeoHelper::resolveCoordinates(
+                $validated['arrival_city'],
+                $validated['arrival_arrondissement'] ?? null,
+                $validated['arrival_neighborhood']   ?? null,
+            );
+            if ($coords) [$arrLat, $arrLng] = $coords;
+        }
+
         // Distance & durée : ORS API → Haversine GPS → table villes
         $routeData = $this->resolveRouteData(
-            $validated['departure_city']      ?? null,
-            $validated['arrival_city']        ?? null,
-            isset($validated['departure_latitude'])  ? (float) $validated['departure_latitude']  : null,
-            isset($validated['departure_longitude']) ? (float) $validated['departure_longitude'] : null,
-            isset($validated['arrival_latitude'])    ? (float) $validated['arrival_latitude']    : null,
-            isset($validated['arrival_longitude'])   ? (float) $validated['arrival_longitude']   : null,
+            $validated['departure_city'] ?? null,
+            $validated['arrival_city']   ?? null,
+            $depLat, $depLng, $arrLat, $arrLng,
         );
 
         $distanceKm = $routeData['distance_km'];
@@ -510,8 +531,8 @@ class DriverAddTripController extends Controller
                                                 ? ucfirst(strtolower($validated['departure_neighborhood']))
                                                 : null,
             'departure_point'            => $validated['departure_point'] ?? null,
-            'departure_latitude'         => $validated['departure_latitude'] ?? null,
-            'departure_longitude'        => $validated['departure_longitude'] ?? null,
+            'departure_latitude'         => $depLat,
+            'departure_longitude'        => $depLng,
 
             'arrival_city'               => ucfirst(strtolower($validated['arrival_city'])),
             'arrival_arrondissement'     => isset($validated['arrival_arrondissement'])
@@ -521,8 +542,8 @@ class DriverAddTripController extends Controller
                                                 ? ucfirst(strtolower($validated['arrival_neighborhood']))
                                                 : null,
             'arrival_point'              => $validated['arrival_point'] ?? null,
-            'arrival_latitude'           => $validated['arrival_latitude'] ?? null,
-            'arrival_longitude'          => $validated['arrival_longitude'] ?? null,
+            'arrival_latitude'           => $arrLat,
+            'arrival_longitude'          => $arrLng,
 
             'price_per_seat'             => $validated['price_per_seat'],
             'departure_time'             => $departureAt,
