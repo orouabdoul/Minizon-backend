@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\SupportTicket;
+use App\Notifications\PassengerBoarded;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -326,6 +327,83 @@ class PassengerTripConfirmationController extends Controller
         return $this->apiResponse(true, 'Avis envoyé. Merci !', [
             'review_uuid' => $review->uuid,
             'rating'      => $review->rating,
+        ]);
+    }
+
+    // =========================================================================
+    //  POST /api/passenger/bookings/{uuid}/pickup-confirm
+    //  Passager confirme qu'il est bien à bord (pendant le trajet actif)
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/passenger/bookings/{uuid}/pickup-confirm',
+        operationId: 'passengerPickupConfirm',
+        summary: 'Confirmer la prise en charge (passager à bord)',
+        description: "Le passager appuie sur ce bouton dès qu'il monte dans le véhicule. Enregistre `picked_up_at` sur la réservation et notifie le conducteur.\n\n**Quand afficher le bouton :** `booking.status == 'accepted'` ET `trip.status == 'active'` ET `picked_up_at == null`.\n\n**Idempotent :** un second appel retourne success sans modifier la donnée.",
+        tags: ['👤 Passenger — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'), description: 'UUID de la réservation'),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Prise en charge confirmée',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'success',      type: 'boolean', example: true),
+                        new OA\Property(property: 'message',      type: 'string',  example: 'Prise en charge confirmée.'),
+                        new OA\Property(
+                            property: 'body',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'picked_up_at', type: 'string', format: 'date-time', description: 'Horodatage de la confirmation'),
+                                new OA\Property(property: 'already_confirmed', type: 'boolean', example: false, description: 'true si le passager avait déjà confirmé'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 403, description: 'Le trajet n\'est pas encore actif ou réservation non acceptée', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 404, description: 'Réservation introuvable', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function pickupConfirm(Request $request, string $uuid): JsonResponse
+    {
+        $passenger = $request->user();
+
+        $booking = Booking::with(['trip.user', 'passenger.profile'])
+            ->where('uuid', $uuid)
+            ->where('passenger_id', $passenger->id)
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        if ($booking->status !== 'accepted') {
+            return $this->apiResponse(false, 'Réservation non acceptée par le conducteur.', [], 403);
+        }
+
+        if ($booking->trip?->status !== 'active') {
+            return $this->apiResponse(false, 'Le trajet n\'est pas encore démarré.', [], 403);
+        }
+
+        // Idempotent — pas de doublon
+        $alreadyConfirmed = $booking->picked_up_at !== null;
+
+        if (! $alreadyConfirmed) {
+            $booking->update(['picked_up_at' => now()]);
+
+            // Notifier le conducteur
+            try {
+                $booking->trip->user?->notify(new PassengerBoarded($booking->fresh(['trip', 'passenger.profile'])));
+            } catch (\Throwable) {}
+        }
+
+        return $this->apiResponse(true, 'Prise en charge confirmée.', [
+            'picked_up_at'     => $booking->fresh()->picked_up_at?->toIso8601String(),
+            'already_confirmed'=> $alreadyConfirmed,
         ]);
     }
 

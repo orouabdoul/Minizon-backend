@@ -9733,7 +9733,7 @@
                     "🚗 Driver — Active Trip"
                 ],
                 "summary": "Données pré-départ du conducteur",
-                "description": "Retourne en un seul appel tout ce dont la page \"Prêt à partir ?\" a besoin : résumé du trajet, checklist de vérification (véhicule approuvé, identité vérifiée, passagers confirmés, paiements sécurisés, fenêtre de départ), itinéraire ordonné avec prise en charge et dépose de chaque passager, ETAs calculées. Le bouton \"Démarrer la navigation\" doit ensuite appeler **POST /api/trips/{uuid}/start**.",
+                "description": "Retourne en un seul appel tout ce dont la page \"Prêt à partir ?\" a besoin : résumé du trajet, checklist de vérification (véhicule approuvé, identité vérifiée, passagers confirmés, paiements sécurisés, fenêtre de départ), itinéraire ordonné avec prise en charge et dépose de chaque passager, ETAs calculées.\n\n**Logique boutons Flutter :**\n- **Bouton \"Démarrer\"** → visible si `trip.status == 'pending'` ET `departure_time - now() ≤ 5 min`. Action : `POST /api/trips/{uuid}/start`.\n- **Bouton \"Terminer\"** → visible si `trip.status == 'active'` ET GPS conducteur à ≤ 300m de `trip.arrival_latitude/longitude`. Action : `POST /api/trips/{uuid}/end`.",
                 "operationId": "driverTripPreDeparture",
                 "parameters": [
                     {
@@ -19268,6 +19268,90 @@
                 ]
             }
         },
+        "/api/passenger/bookings/{uuid}/pickup-confirm": {
+            "post": {
+                "tags": [
+                    "👤 Passenger — Réservations"
+                ],
+                "summary": "Confirmer la prise en charge (passager à bord)",
+                "description": "Le passager appuie sur ce bouton dès qu'il monte dans le véhicule. Enregistre `picked_up_at` sur la réservation et notifie le conducteur.\n\n**Quand afficher le bouton :** `booking.status == 'accepted'` ET `trip.status == 'active'` ET `picked_up_at == null`.\n\n**Idempotent :** un second appel retourne success sans modifier la donnée.",
+                "operationId": "passengerPickupConfirm",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID de la réservation",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Prise en charge confirmée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Prise en charge confirmée."
+                                        },
+                                        "body": {
+                                            "properties": {
+                                                "picked_up_at": {
+                                                    "description": "Horodatage de la confirmation",
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "already_confirmed": {
+                                                    "description": "true si le passager avait déjà confirmé",
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Le trajet n'est pas encore actif ou réservation non acceptée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Réservation introuvable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/passenger/trips/{uuid}/detail": {
             "get": {
                 "tags": [
@@ -21828,6 +21912,12 @@
                     "eta_minutes": {
                         "type": "integer",
                         "example": 12,
+                        "nullable": true
+                    },
+                    "picked_up_at": {
+                        "description": "null = passager pas encore confirmé à bord. Afficher bouton \"Je suis à bord\" si null ET status == in_progress. Appeler POST /api/passenger/bookings/{uuid}/pickup-confirm.",
+                        "type": "string",
+                        "format": "date-time",
                         "nullable": true
                     },
                     "has_rated": {

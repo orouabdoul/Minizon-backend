@@ -367,6 +367,7 @@ class PassengerReservationController extends Controller
 
             // ── En cours / après trajet ───────────────────────────────────
             new OA\Property(property: 'eta_minutes',    type: 'integer', nullable: true, example: 12),
+            new OA\Property(property: 'picked_up_at',   type: 'string',  format: 'date-time', nullable: true, description: 'null = passager pas encore confirmé à bord. Afficher bouton "Je suis à bord" si null ET status == in_progress. Appeler POST /api/passenger/bookings/{uuid}/pickup-confirm.'),
             new OA\Property(property: 'has_rated',      type: 'boolean', example: false),
             new OA\Property(property: 'refund_status',  type: 'string',  enum: ['none', 'pending', 'refunded', 'rejected']),
         ]
@@ -547,6 +548,9 @@ class PassengerReservationController extends Controller
 
             // ── En cours ──────────────────────────────────────────────────
             'eta_minutes'           => $etaMinutes,
+            // Indique si le passager a déjà confirmé être à bord
+            // Afficher le bouton "Je suis à bord" si picked_up_at == null ET status == in_progress
+            'picked_up_at'          => $booking->picked_up_at?->setTimezone('Africa/Porto-Novo')->toIso8601String(),
 
             // ── Après trajet ──────────────────────────────────────────────
             'has_rated'             => $hasRated,

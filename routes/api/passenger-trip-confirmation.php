@@ -23,6 +23,10 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     Route::get('bookings/{uuid}/trip-confirmation-context', [PassengerTripConfirmationController::class, 'context'])
         ->name('passenger.trip_confirmation.context');
 
+    // Passager confirme être à bord (bouton "Je suis à bord" — pendant le trajet actif)
+    Route::post('bookings/{uuid}/pickup-confirm', [PassengerTripConfirmationController::class, 'pickupConfirm'])
+        ->name('passenger.trip_confirmation.pickup_confirm');
+
     // Passager confirme que le trajet est bien reçu (ConfirmCard → "Oui, le trajet est terminé")
     Route::post('bookings/{uuid}/confirm', [PassengerTripConfirmationController::class, 'confirm'])
         ->name('passenger.trip_confirmation.confirm');

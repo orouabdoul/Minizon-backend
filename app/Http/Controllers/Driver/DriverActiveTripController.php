@@ -27,7 +27,7 @@ class DriverActiveTripController extends Controller
         path: '/api/driver/trips/{uuid}/pre-departure',
         operationId: 'driverTripPreDeparture',
         summary: 'Données pré-départ du conducteur',
-        description: "Retourne en un seul appel tout ce dont la page \"Prêt à partir ?\" a besoin : résumé du trajet, checklist de vérification (véhicule approuvé, identité vérifiée, passagers confirmés, paiements sécurisés, fenêtre de départ), itinéraire ordonné avec prise en charge et dépose de chaque passager, ETAs calculées. Le bouton \"Démarrer la navigation\" doit ensuite appeler **POST /api/trips/{uuid}/start**.",
+        description: "Retourne en un seul appel tout ce dont la page \"Prêt à partir ?\" a besoin : résumé du trajet, checklist de vérification (véhicule approuvé, identité vérifiée, passagers confirmés, paiements sécurisés, fenêtre de départ), itinéraire ordonné avec prise en charge et dépose de chaque passager, ETAs calculées.\n\n**Logique boutons Flutter :**\n- **Bouton \"Démarrer\"** → visible si `trip.status == 'pending'` ET `departure_time - now() ≤ 5 min`. Action : `POST /api/trips/{uuid}/start`.\n- **Bouton \"Terminer\"** → visible si `trip.status == 'active'` ET GPS conducteur à ≤ 300m de `trip.arrival_latitude/longitude`. Action : `POST /api/trips/{uuid}/end`.",
         tags: ['🚗 Driver — Active Trip'],
         security: [['bearerAuth' => []]],
         parameters: [

@@ -37,7 +37,6 @@ class Booking extends Model
         'calculated_price',
         'service_fee',
         'total_price',
-
         'status',
         'payment_status',
         'picked_up_at',
