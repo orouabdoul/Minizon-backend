@@ -418,6 +418,33 @@ class DriverProfileController extends Controller
     }
 
     // =========================================================================
+    //  PATCH /api/driver/profile/document
+    // =========================================================================
+
+    public function uploadDocument(Request $request): JsonResponse
+    {
+        $user    = $request->user();
+        $profile = $user->profile;
+
+        if (! $profile) {
+            return $this->apiResponse(false, 'Profil introuvable.', [], 404);
+        }
+
+        $request->validate([
+            'document_type' => 'required|string|in:driving_license',
+            'file'          => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:5120',
+        ]);
+
+        $path = $request->file('file')->store('driver/documents/licenses', 'public');
+
+        $profile->update(['driving_license_photo' => $path]);
+
+        return $this->apiResponse(true, 'Document mis à jour.', [
+            'url' => asset('storage/' . $path),
+        ]);
+    }
+
+    // =========================================================================
     //  PATCH /api/driver/preferences
     // =========================================================================
 
