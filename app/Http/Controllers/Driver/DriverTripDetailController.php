@@ -187,6 +187,7 @@ class DriverTripDetailController extends Controller
                 'destination'                => $this->buildLocationLabel($trip->arrival_city, $trip->arrival_arrondissement, $trip->arrival_neighborhood),
                 'destination_arrondissement' => $trip->arrival_arrondissement,
                 'destination_point'          => $trip->arrival_point,
+                'departure_at'               => $trip->departure_time->toIso8601String(),
                 'departure_time'             => $trip->departure_time,
                 'departure_time_formatted'   => $trip->departure_time->format('H:i'),
                 'estimated_arrival_time'     => $trip->estimated_arrival_time,
@@ -232,7 +233,7 @@ class DriverTripDetailController extends Controller
                 'view_count'     => $trip->view_count ?? 0,
             ],
 
-            'can_start'  => $trip->status === 'pending',
+            'can_start'  => $trip->status === 'pending' && now()->gte($trip->departure_time->subMinutes(5)),
             'can_edit'   => $trip->status === 'pending',
             'can_cancel' => $trip->status === 'pending',
 
