@@ -263,7 +263,7 @@ class DriverProfileController extends Controller
 
         // ── Véhicules ─────────────────────────────────────────────────────────
         $vehicles = $vehicle ? [[
-            'uuid'                => $vehicle->uuid ?? null,
+            'uuid'                => (string) $vehicle->id,
             'brand'               => $vehicle->brand,
             'model'               => $vehicle->model,
             'color'               => $vehicle->color,
