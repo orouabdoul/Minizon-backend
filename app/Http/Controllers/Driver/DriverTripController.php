@@ -415,7 +415,7 @@ class DriverTripController extends Controller
             // Timing
             'departure_at'               => $departureTime->toIso8601String(),
             'departure_time'             => $departureTime,
-            'departure_time_label'       => $trip->departure_time->translatedFormat('D. H\hi'),
+            'departure_time_label'       => $trip->departure_time->setTimezone('Africa/Porto-Novo')->translatedFormat('D. H\hi'),
             'estimated_arrival_time'     => $trip->estimated_arrival_time,
             'estimated_duration_minutes' => $trip->estimated_duration_minutes,
 
