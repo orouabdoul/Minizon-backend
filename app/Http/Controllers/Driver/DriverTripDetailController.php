@@ -63,6 +63,7 @@ class DriverTripDetailController extends Controller
                                         new OA\Property(property: 'estimated_arrival_formatted', type: 'string',  nullable: true, example: '~12:00'),
                                         new OA\Property(property: 'estimated_duration_minutes',  type: 'integer', nullable: true),
                                         new OA\Property(property: 'duration_label',              type: 'string',  nullable: true, example: '5h00'),
+                                        new OA\Property(property: 'vehicle_id',                  type: 'integer', nullable: true, example: 3),
                                         new OA\Property(property: 'vehicle_label',               type: 'string',  nullable: true, example: 'Toyota Camry · RB 1234 X'),
                                         new OA\Property(property: 'departure_latitude',          type: 'number',  nullable: true),
                                         new OA\Property(property: 'departure_longitude',         type: 'number',  nullable: true),
@@ -194,6 +195,7 @@ class DriverTripDetailController extends Controller
                     : null,
                 'estimated_duration_minutes' => $trip->estimated_duration_minutes,
                 'duration_label'             => $durationLabel,
+                'vehicle_id'                 => $vehicle?->id,
                 'vehicle_label'              => $vehicle
                     ? "{$vehicle->brand} {$vehicle->model} · {$vehicle->license_plate}"
                     : null,
@@ -259,10 +261,21 @@ class DriverTripDetailController extends Controller
             required: true,
             content: new OA\JsonContent(
                 properties: [
+                    // Champs route
+                    new OA\Property(property: 'departure_city',           type: 'string',  nullable: true, example: 'Cotonou'),
+                    new OA\Property(property: 'departure_arrondissement', type: 'string',  nullable: true, example: '2ème Arrondissement'),
+                    new OA\Property(property: 'departure_neighborhood',   type: 'string',  nullable: true, example: 'Lom\'Nava'),
+                    new OA\Property(property: 'departure_point',          type: 'string',  nullable: true, example: 'EPP'),
+                    new OA\Property(property: 'arrival_city',             type: 'string',  nullable: true, example: 'Abomey-Calavi'),
+                    new OA\Property(property: 'arrival_arrondissement',   type: 'string',  nullable: true, example: '1er Arrondissement'),
+                    new OA\Property(property: 'arrival_neighborhood',     type: 'string',  nullable: true, example: 'Finagnon'),
+                    new OA\Property(property: 'arrival_point',            type: 'string',  nullable: true, example: 'EPP'),
+                    // Champs horaire / prix
                     new OA\Property(property: 'price_per_seat',          type: 'integer', nullable: true, example: 5500),
                     new OA\Property(property: 'departure_date',          type: 'string',  nullable: true, example: '12/07/2026', description: 'Format jj/mm/aaaa'),
                     new OA\Property(property: 'departure_time',          type: 'string',  nullable: true, example: '08:00',      description: 'Format HH:mm'),
                     new OA\Property(property: 'estimated_duration_minutes', type: 'integer', nullable: true),
+                    // Champs options
                     new OA\Property(property: 'booking_mode',            type: 'string',  nullable: true, enum: ['instant', 'approval']),
                     new OA\Property(property: 'max_per_booking',         type: 'integer', nullable: true),
                     new OA\Property(property: 'cancellation_policy',     type: 'string',  nullable: true, enum: ['flexible', 'moderate', 'strict']),
@@ -292,10 +305,21 @@ class DriverTripDetailController extends Controller
         }
 
         $validated = $request->validate([
+            // ── Champs route ──────────────────────────────────────────────────
+            'departure_city'             => 'sometimes|string|max:100',
+            'departure_arrondissement'   => 'sometimes|nullable|string|max:100',
+            'departure_neighborhood'     => 'sometimes|nullable|string|max:100',
+            'departure_point'            => 'sometimes|nullable|string|max:200',
+            'arrival_city'               => 'sometimes|string|max:100',
+            'arrival_arrondissement'     => 'sometimes|nullable|string|max:100',
+            'arrival_neighborhood'       => 'sometimes|nullable|string|max:100',
+            'arrival_point'              => 'sometimes|nullable|string|max:200',
+            // ── Champs horaire / prix ─────────────────────────────────────────
             'price_per_seat'             => 'sometimes|integer|min:0',
             'departure_date'             => 'sometimes|string',
             'departure_time'             => ['sometimes', 'string', 'regex:/^\d{2}:\d{2}$/'],
             'estimated_duration_minutes' => 'sometimes|nullable|integer|min:1|max:1440',
+            // ── Champs options ────────────────────────────────────────────────
             'booking_mode'               => 'sometimes|string|in:instant,approval',
             'max_per_booking'            => 'sometimes|integer|min:1|max:20',
             'cancellation_policy'        => 'sometimes|string|in:flexible,moderate,strict',
@@ -311,11 +335,22 @@ class DriverTripDetailController extends Controller
 
         $updates = [];
 
+        // ── Champs route ──────────────────────────────────────────────────────
+        foreach ([
+            'departure_city', 'departure_arrondissement', 'departure_neighborhood', 'departure_point',
+            'arrival_city',   'arrival_arrondissement',   'arrival_neighborhood',   'arrival_point',
+        ] as $field) {
+            if (array_key_exists($field, $validated)) {
+                $updates[$field] = $validated[$field];
+            }
+        }
+
+        // ── Prix ──────────────────────────────────────────────────────────────
         if (isset($validated['price_per_seat'])) {
             $updates['price_per_seat'] = $validated['price_per_seat'];
         }
 
-        // Re-parser la date/heure si fournie
+        // ── Date/heure de départ ──────────────────────────────────────────────
         if (isset($validated['departure_date']) || isset($validated['departure_time'])) {
             $date = $validated['departure_date'] ?? $trip->departure_time->format('d/m/Y');
             $time = $validated['departure_time'] ?? $trip->departure_time->format('H:i');
@@ -334,7 +369,6 @@ class DriverTripDetailController extends Controller
 
             $updates['departure_time'] = $newDeparture;
 
-            // Recalcul de l'heure d'arrivée estimée si la durée est connue
             $minutes = $validated['estimated_duration_minutes'] ?? $trip->estimated_duration_minutes;
             $updates['estimated_arrival_time'] = $minutes ? $newDeparture->copy()->addMinutes($minutes) : null;
         }
@@ -347,6 +381,7 @@ class DriverTripDetailController extends Controller
                 : null;
         }
 
+        // ── Options ───────────────────────────────────────────────────────────
         foreach (['booking_mode', 'max_per_booking', 'cancellation_policy', 'description', 'waypoints', 'preferences'] as $field) {
             if (array_key_exists($field, $validated)) {
                 $updates[$field] = $validated[$field];
@@ -355,14 +390,24 @@ class DriverTripDetailController extends Controller
 
         $trip->update($updates);
 
+        $fresh = $trip->fresh();
+
         return $this->apiResponse(true, 'Trajet mis à jour.', [
-            'uuid'                       => $trip->uuid,
-            'price_per_seat'             => $trip->fresh()->price_per_seat,
-            'departure_time'             => $trip->fresh()->departure_time,
-            'estimated_arrival_time'     => $trip->fresh()->estimated_arrival_time,
-            'estimated_duration_minutes' => $trip->fresh()->estimated_duration_minutes,
-            'booking_mode'               => $trip->fresh()->booking_mode,
-            'cancellation_policy'        => $trip->fresh()->cancellation_policy,
+            'uuid'                       => $fresh->uuid,
+            'departure_city'             => $fresh->departure_city,
+            'departure_arrondissement'   => $fresh->departure_arrondissement,
+            'departure_neighborhood'     => $fresh->departure_neighborhood,
+            'departure_point'            => $fresh->departure_point,
+            'arrival_city'               => $fresh->arrival_city,
+            'arrival_arrondissement'     => $fresh->arrival_arrondissement,
+            'arrival_neighborhood'       => $fresh->arrival_neighborhood,
+            'arrival_point'              => $fresh->arrival_point,
+            'price_per_seat'             => $fresh->price_per_seat,
+            'departure_time'             => $fresh->departure_time,
+            'estimated_arrival_time'     => $fresh->estimated_arrival_time,
+            'estimated_duration_minutes' => $fresh->estimated_duration_minutes,
+            'booking_mode'               => $fresh->booking_mode,
+            'cancellation_policy'        => $fresh->cancellation_policy,
         ]);
     }
 
