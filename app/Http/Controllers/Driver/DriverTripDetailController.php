@@ -233,7 +233,7 @@ class DriverTripDetailController extends Controller
                 'view_count'     => $trip->view_count ?? 0,
             ],
 
-            'can_start'  => $trip->status === 'pending' && now()->gte($trip->departure_time->subMinutes(5)),
+            'can_start'  => $trip->status === 'pending' && now()->gte($trip->departure_time->copy()->subMinutes(5)),
             'can_edit'   => $trip->status === 'pending',
             'can_cancel' => $trip->status === 'pending',
 

@@ -382,9 +382,12 @@ class DriverTripController extends Controller
             $note = $n === 1 ? '1 demande en attente de réponse' : "{$n} demandes en attente de réponse";
         }
 
+        // Copie immuable pour éviter la mutation de l'objet Carbon partagé.
+        $departureTime = $trip->departure_time->copy();
+        $windowStart   = $departureTime->copy()->subMinutes(5);
+
         // Le bouton "Démarrer" n'est actif que dans la fenêtre de 5 min avant le départ.
-        $canStartNow = $trip->status === 'pending'
-            && now()->gte($trip->departure_time->subMinutes(5));
+        $canStartNow = $trip->status === 'pending' && now()->gte($windowStart);
 
         // Action principale
         $primaryAction = match ($trip->status) {
@@ -410,8 +413,8 @@ class DriverTripController extends Controller
             'destination_point'           => $trip->arrival_point,
 
             // Timing
-            'departure_at'               => $trip->departure_time->toIso8601String(),
-            'departure_time'             => $trip->departure_time,
+            'departure_at'               => $departureTime->toIso8601String(),
+            'departure_time'             => $departureTime,
             'departure_time_label'       => $trip->departure_time->translatedFormat('D. H\hi'),
             'estimated_arrival_time'     => $trip->estimated_arrival_time,
             'estimated_duration_minutes' => $trip->estimated_duration_minutes,
