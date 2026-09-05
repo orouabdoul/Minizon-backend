@@ -465,15 +465,15 @@ class DriverAddTripController extends Controller
         try {
             $rawTime = trim($validated['departure_time']);
             if (str_contains($rawTime, 'T') || str_contains($rawTime, '+')) {
-                // Format ISO 8601 – timezone explicite, Carbon::parse le gère exactement.
-                $departureAt = Carbon::parse($rawTime)->setTimezone('Africa/Porto-Novo');
+                // Format ISO 8601 avec timezone – convertir en UTC pour le stockage.
+                $departureAt = Carbon::parse($rawTime)->utc();
             } else {
-                // Ancien format (rétrocompat) : interprété comme heure Bénin.
+                // Ancien format (rétrocompat) : interprété comme heure Bénin → UTC.
                 $departureAt = Carbon::createFromFormat(
                     'd/m/Y H:i',
                     trim($validated['departure_date'] ?? '') . ' ' . $rawTime,
                     'Africa/Porto-Novo'
-                );
+                )->utc();
             }
         } catch (\Exception) {
             return $this->apiResponse(false, 'Format de date ou d\'heure invalide.', [], 422);

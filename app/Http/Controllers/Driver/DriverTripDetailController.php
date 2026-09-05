@@ -189,10 +189,10 @@ class DriverTripDetailController extends Controller
                 'destination_point'          => $trip->arrival_point,
                 'departure_at'               => $trip->departure_time->toIso8601String(),
                 'departure_time'             => $trip->departure_time,
-                'departure_time_formatted'   => $trip->departure_time->format('H:i'),
+                'departure_time_formatted'   => $trip->departure_time->setTimezone('Africa/Porto-Novo')->format('H:i'),
                 'estimated_arrival_time'     => $trip->estimated_arrival_time,
                 'estimated_arrival_formatted'=> $trip->estimated_arrival_time
-                    ? '~' . $trip->estimated_arrival_time->format('H:i')
+                    ? '~' . $trip->estimated_arrival_time->copy()->setTimezone('Africa/Porto-Novo')->format('H:i')
                     : null,
                 'estimated_duration_minutes' => $trip->estimated_duration_minutes,
                 'duration_label'             => $durationLabel,
@@ -359,7 +359,7 @@ class DriverTripDetailController extends Controller
             try {
                 $newDeparture = \Illuminate\Support\Carbon::createFromFormat(
                     'd/m/Y H:i', "{$date} {$time}", 'Africa/Porto-Novo'
-                );
+                )->utc();
             } catch (\Exception) {
                 return $this->apiResponse(false, 'Format date/heure invalide.', [], 422);
             }
