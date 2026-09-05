@@ -295,7 +295,9 @@ class DriverProfileController extends Controller
             [
                 'key'      => 'driving_license',
                 'title'    => 'Permis de conduire',
-                'subtitle' => ! empty($profile?->driving_license_number) ? ($kycApproved ? 'Vérifié' : 'Soumis') : 'Non soumis',
+                'subtitle' => ! empty($profile?->driving_license_number)
+                    ? ($kycApproved ? 'Vérifié' : 'Soumis')
+                    : (! empty($profile?->driving_license_photo) ? 'Photo ajoutée' : 'Non soumis'),
                 'has_file' => ! empty($profile?->driving_license_photo),
                 'url'      => $profile?->driving_license_photo ? asset('storage/' . $profile->driving_license_photo) : null,
             ],

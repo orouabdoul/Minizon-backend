@@ -409,8 +409,8 @@ class DriverAddTripController extends Controller
             'arrival_longitude'          => 'nullable|numeric|between:-180,180',
 
             // Date & heure
-            'departure_date'             => 'required|string',
-            'departure_time'             => ['required', 'string', 'regex:/^\d{2}:\d{2}$/'],
+            'departure_date'             => 'nullable|string',
+            'departure_time'             => ['required', 'string'],
             'estimated_duration_minutes' => 'nullable|integer|min:1|max:1440',
 
             // Capacité & réservation
@@ -459,15 +459,24 @@ class DriverAddTripController extends Controller
             return $this->apiResponse(false, 'Votre véhicule doit être approuvé par l\'administration avant de publier un trajet.', [], 403);
         }
 
-        // ── Parser date + heure (format Flutter : jj/mm/aaaa + HH:mm) ────────
+        // ── Parser date + heure ────────────────────────────────────────────────
+        // Accepte ISO 8601 avec timezone (ex: "2026-09-05T23:00:00+01:00")
+        // OU l'ancien format "HH:mm" + departure_date "jj/mm/aaaa".
         try {
-            $departureAt = Carbon::createFromFormat(
-                'd/m/Y H:i',
-                trim($validated['departure_date']) . ' ' . trim($validated['departure_time']),
-                'Africa/Porto-Novo'
-            );
+            $rawTime = trim($validated['departure_time']);
+            if (str_contains($rawTime, 'T') || str_contains($rawTime, '+')) {
+                // Format ISO 8601 – timezone explicite, Carbon::parse le gère exactement.
+                $departureAt = Carbon::parse($rawTime)->setTimezone('Africa/Porto-Novo');
+            } else {
+                // Ancien format (rétrocompat) : interprété comme heure Bénin.
+                $departureAt = Carbon::createFromFormat(
+                    'd/m/Y H:i',
+                    trim($validated['departure_date'] ?? '') . ' ' . $rawTime,
+                    'Africa/Porto-Novo'
+                );
+            }
         } catch (\Exception) {
-            return $this->apiResponse(false, 'Format de date ou d\'heure invalide. Attendu : jj/mm/aaaa et HH:mm.', [], 422);
+            return $this->apiResponse(false, 'Format de date ou d\'heure invalide.', [], 422);
         }
 
         if ($departureAt->isPast()) {
