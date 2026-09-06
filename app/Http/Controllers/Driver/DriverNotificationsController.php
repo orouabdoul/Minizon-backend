@@ -284,6 +284,7 @@ class DriverNotificationsController extends Controller
             'icon_background_color' => $icon['bg'],
             'is_read'               => ! is_null($n->read_at),
             'time'                  => $this->relativeTime($n->created_at),
+            'created_at'            => $n->created_at?->toIso8601String(),
             'action_label'          => self::ACTION_LABELS[$type] ?? null,
             'action_data'           => [
                 'trip_uuid'    => $n->data['trip_uuid']    ?? null,
@@ -308,11 +309,12 @@ class DriverNotificationsController extends Controller
     private function relativeTime(?Carbon $date): string
     {
         if ($date === null) return '—';
-        $now     = now()->setTimezone('Africa/Porto-Novo');
-        $then    = $date->setTimezone('Africa/Porto-Novo');
-        $diffMin = (int) $now->diffInMinutes($then);
-        $diffH   = (int) $now->diffInHours($then);
-        $diffD   = (int) $now->diffInDays($then);
+        $now  = now()->setTimezone('Africa/Porto-Novo');
+        $then = $date->copy()->setTimezone('Africa/Porto-Novo');
+
+        $diffMin = (int) $now->diffInMinutes($then, false) * -1;
+        $diffH   = (int) $now->diffInHours($then,   false) * -1;
+        $diffD   = (int) $now->diffInDays($then,    false) * -1;
 
         if ($diffMin < 1)  return "À l'instant";
         if ($diffMin < 60) return "il y a {$diffMin}min";
