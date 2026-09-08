@@ -259,7 +259,9 @@ class AuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return $this->apiResponse(false, 'Une erreur est survenue lors de la vérification. Veuillez réessayer.', [], 500);
+            return $this->apiResponse(false, 'Une erreur est survenue lors de la vérification. Veuillez réessayer.', [
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
