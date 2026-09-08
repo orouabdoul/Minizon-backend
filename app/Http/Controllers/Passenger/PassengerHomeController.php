@@ -247,23 +247,38 @@ class PassengerHomeController extends Controller
 
         $level = $this->computeLevel($driverTrips, $driverRating);
 
+        $tz      = 'Africa/Porto-Novo';
+        $depTime = $trip->departure_time?->setTimezone($tz);
+
         return [
-            'booking_uuid'          => $booking->uuid,
-            'trip_uuid'             => $trip->uuid,
-            'status'                => $tripStatus,
-            'origin'                => $this->formatLocation($trip->departure_city, $trip->departure_neighborhood),
-            'destination'           => $this->formatLocation($trip->arrival_city, $trip->arrival_neighborhood),
-            'eta_minutes'           => $etaMinutes,
-            'trip_progress'         => $tripProgress,
-            'departure_time'        => $trip->departure_time?->toIso8601String(),
-            'driver_name'           => $driverName,
-            'driver_initials'       => $driverInitials,
-            'driver_rating'         => round((float) $driverRating, 1),
-            'driver_vehicle'        => $driverVehicle,
-            'driver_level'          => $level['current_level'],
-            'driver_trips'          => $driverTrips,
-            'driver_level_progress' => $level['progress'],
-            'driver_badges'         => array_column($level['badges'], 'label'),
+            'booking_uuid'              => $booking->uuid,
+            'trip_uuid'                 => $trip->uuid,
+            'status'                    => $tripStatus,
+            // Hiérarchie géographique départ
+            'departure_city'            => $trip->departure_city,
+            'departure_arrondissement'  => $trip->departure_arrondissement,
+            'departure_neighborhood'    => $trip->departure_neighborhood,
+            'departure_point'           => $trip->departure_point,
+            // Hiérarchie géographique arrivée
+            'arrival_city'              => $trip->arrival_city,
+            'arrival_arrondissement'    => $trip->arrival_arrondissement,
+            'arrival_neighborhood'      => $trip->arrival_neighborhood,
+            'arrival_point'             => $trip->arrival_point,
+            // Labels combinés (rétrocompatibilité)
+            'origin'                    => $this->formatLocation($trip->departure_city, $trip->departure_arrondissement ?? $trip->departure_neighborhood),
+            'destination'               => $this->formatLocation($trip->arrival_city, $trip->arrival_arrondissement ?? $trip->arrival_neighborhood),
+            'eta_minutes'               => $etaMinutes,
+            'trip_progress'             => $tripProgress,
+            'departure_time'            => $depTime?->toIso8601String(),
+            'departure_time_formatted'  => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
+            'driver_name'               => $driverName,
+            'driver_initials'           => $driverInitials,
+            'driver_rating'             => round((float) $driverRating, 1),
+            'driver_vehicle'            => $driverVehicle,
+            'driver_level'              => $level['current_level'],
+            'driver_trips'              => $driverTrips,
+            'driver_level_progress'     => $level['progress'],
+            'driver_badges'             => array_column($level['badges'], 'label'),
         ];
     }
 
@@ -387,11 +402,21 @@ class PassengerHomeController extends Controller
                     : 'Trajet supprimé';
 
                 return [
-                    'booking_uuid' => $booking->uuid,
-                    'route'        => $route,
-                    'time'         => $booking->created_at->diffForHumans(),
-                    'status'       => $booking->status,
-                    'price'        => $trip ? (int) $trip->price_per_seat : 0,
+                    'booking_uuid'             => $booking->uuid,
+                    'route'                    => $route,
+                    // Hiérarchie géographique départ
+                    'departure_city'           => $trip?->departure_city,
+                    'departure_arrondissement' => $trip?->departure_arrondissement,
+                    'departure_neighborhood'   => $trip?->departure_neighborhood,
+                    'departure_point'          => $trip?->departure_point,
+                    // Hiérarchie géographique arrivée
+                    'arrival_city'             => $trip?->arrival_city,
+                    'arrival_arrondissement'   => $trip?->arrival_arrondissement,
+                    'arrival_neighborhood'     => $trip?->arrival_neighborhood,
+                    'arrival_point'            => $trip?->arrival_point,
+                    'time'                     => $booking->created_at->diffForHumans(),
+                    'status'                   => $booking->status,
+                    'price'                    => $trip ? (int) $trip->price_per_seat : 0,
                 ];
             })
             ->toArray();
@@ -401,22 +426,37 @@ class PassengerHomeController extends Controller
 
     private function serializeRide(Trip $trip): array
     {
-        $profile   = $trip->user->profile;
-        $vehicle   = $trip->vehicle;
+        $profile       = $trip->user->profile;
+        $vehicle       = $trip->vehicle;
         $driverVehicle = $vehicle
             ? trim(($vehicle->brand ?? '') . ' ' . ($vehicle->model ?? '') . ' ' . ($vehicle->color ?? ''))
             : '';
 
+        $tz      = 'Africa/Porto-Novo';
+        $depTime = $trip->departure_time?->setTimezone($tz);
+
         return [
-            'uuid'          => $trip->uuid,
-            'from'          => $trip->departure_city,
-            'to'            => $trip->arrival_city,
-            'schedule'      => $trip->departure_time?->format('d/m, H\hi'),
-            'price'         => number_format($trip->price_per_seat, 0, ',', ' ') . ' FCFA',
-            'price_raw'     => (int) $trip->price_per_seat,
-            'seats_left'    => $trip->available_seats . ' place' . ($trip->available_seats > 1 ? 's' : ''),
-            'driver_name'   => $this->fullName($profile),
-            'driver_vehicle'=> $driverVehicle,
+            'uuid'                      => $trip->uuid,
+            // Hiérarchie géographique départ
+            'departure_city'            => $trip->departure_city,
+            'departure_arrondissement'  => $trip->departure_arrondissement,
+            'departure_neighborhood'    => $trip->departure_neighborhood,
+            'departure_point'           => $trip->departure_point,
+            // Hiérarchie géographique arrivée
+            'arrival_city'              => $trip->arrival_city,
+            'arrival_arrondissement'    => $trip->arrival_arrondissement,
+            'arrival_neighborhood'      => $trip->arrival_neighborhood,
+            'arrival_point'             => $trip->arrival_point,
+            // Labels courts (rétrocompatibilité)
+            'from'                      => $trip->departure_city,
+            'to'                        => $trip->arrival_city,
+            'departure_time'            => $depTime?->toIso8601String(),
+            'schedule'                  => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
+            'price'                     => number_format($trip->price_per_seat, 0, ',', ' ') . ' FCFA',
+            'price_raw'                 => (int) $trip->price_per_seat,
+            'seats_left'                => $trip->available_seats . ' place' . ($trip->available_seats > 1 ? 's' : ''),
+            'driver_name'               => $this->fullName($profile),
+            'driver_vehicle'            => $driverVehicle,
         ];
     }
 
