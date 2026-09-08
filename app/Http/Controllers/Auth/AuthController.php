@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
@@ -202,45 +203,64 @@ class AuthController extends Controller
         $phone  = $request->phone;
         $otpKey = 'otp_' . md5($phone);
 
-        $storedOtp = Cache::get($otpKey);
+        // Cache::get can throw when the file cache backend is unavailable (e.g. container restart on Render)
+        try {
+            $storedOtp = Cache::get($otpKey);
+        } catch (\Throwable) {
+            $storedOtp = null;
+        }
 
         if (! $storedOtp || $storedOtp !== $request->otp_code) {
             return $this->apiResponse(false, 'Code OTP incorrect ou expiré.', [], 401);
         }
 
-        // OTP consommé — suppression du Cache
-        Cache::forget($otpKey);
-        Cache::forget('otp_cooldown_' . md5($phone));
-        Cache::forget('otp_cooldown_' . md5($phone) . '_ttl');
+        // OTP consommé — suppression du Cache (best-effort, not critical)
+        try {
+            Cache::forget($otpKey);
+            Cache::forget('otp_cooldown_' . md5($phone));
+            Cache::forget('otp_cooldown_' . md5($phone) . '_ttl');
+        } catch (\Throwable) {}
 
-        // Utilisateur déjà inscrit (compte existant avec profil complet)
-        $existingUser = User::where('phone', $phone)->first();
+        try {
+            // Utilisateur déjà inscrit (compte existant avec profil complet)
+            $existingUser = User::where('phone', $phone)->first();
 
-        if ($existingUser) {
-            $existingUser->update(['phone_verified_at' => now()]);
-            $token   = $existingUser->createToken('mobile_auth_token')->plainTextToken;
-            $profile = Profile::where('user_id', $existingUser->id)->first();
+            if ($existingUser) {
+                $existingUser->update(['phone_verified_at' => now()]);
+                $token   = $existingUser->createToken('mobile_auth_token')->plainTextToken;
+                $profile = Profile::where('user_id', $existingUser->id)->first();
 
-            return $this->apiResponse(true, 'Authentification réussie.', [
-                'token'            => $token,
-                'is_new_user'      => false,
-                'profile_complete' => ! is_null($profile),
-                'is_verified'      => (bool) $existingUser->is_verified,
-                'user'             => $this->getUserWithDetails($existingUser),
+                return $this->apiResponse(true, 'Authentification réussie.', [
+                    'token'            => $token,
+                    'is_new_user'      => false,
+                    'profile_complete' => ! is_null($profile),
+                    'is_verified'      => (bool) $existingUser->is_verified,
+                    'user'             => $this->getUserWithDetails($existingUser),
+                ]);
+            }
+
+            // Nouveau numéro — token temporaire valable 20 min pour finaliser l'inscription
+            $registerToken    = (string) Str::uuid();
+            $registerTokenKey = 'reg_token_' . $registerToken;
+
+            // Cache is mandatory here: without it, register_token would be unusable
+            Cache::put($registerTokenKey, $phone, now()->addMinutes(20));
+
+            return $this->apiResponse(true, 'Numéro vérifié. Veuillez compléter votre profil.', [
+                'register_token'   => $registerToken,
+                'is_new_user'      => true,
+                'profile_complete' => false,
             ]);
+
+        } catch (\Throwable $e) {
+            Log::error('verifyOtp failure', [
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return $this->apiResponse(false, 'Une erreur est survenue lors de la vérification. Veuillez réessayer.', [], 500);
         }
-
-        // Nouveau numéro — token temporaire valable 20 min pour finaliser l'inscription
-        $registerToken    = (string) Str::uuid();
-        $registerTokenKey = 'reg_token_' . $registerToken;
-
-        Cache::put($registerTokenKey, $phone, now()->addMinutes(20));
-
-        return $this->apiResponse(true, 'Numéro vérifié. Veuillez compléter votre profil.', [
-            'register_token'   => $registerToken,
-            'is_new_user'      => true,
-            'profile_complete' => false,
-        ]);
     }
 
     // =========================================================================
