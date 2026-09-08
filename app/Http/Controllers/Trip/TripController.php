@@ -57,7 +57,7 @@ class TripController extends Controller
         $trips = $query->paginate($request->input('per_page', 20));
 
         return $this->apiResponse(true, 'Trajets disponibles.', [
-            'trips'        => $trips->items(),
+            'trips'        => collect($trips->items())->map(fn ($t) => $this->formatTrip($t)),
             'current_page' => $trips->currentPage(),
             'last_page'    => $trips->lastPage(),
             'total'        => $trips->total(),
@@ -74,7 +74,96 @@ class TripController extends Controller
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        return $this->apiResponse(true, 'Détail du trajet.', ['trip' => $trip]);
+        return $this->apiResponse(true, 'Détail du trajet.', ['trip' => $this->formatTrip($trip)]);
+    }
+
+    // =========================================================================
+    //  HELPER — sérialisation formatée d'un trajet (heure Bénin + champs calculés)
+    // =========================================================================
+
+    private function formatTrip(\App\Models\Trip $trip): array
+    {
+        $tz      = 'Africa/Porto-Novo';
+        $depTime = $trip->departure_time?->setTimezone($tz);
+        $arrTime = $trip->estimated_arrival_time?->setTimezone($tz);
+
+        $durationLabel = null;
+        if ($trip->estimated_duration_minutes) {
+            $h = intdiv($trip->estimated_duration_minutes, 60);
+            $m = $trip->estimated_duration_minutes % 60;
+            $durationLabel = $h > 0 ? "{$h}h" . ($m > 0 ? " {$m}min" : '') : "{$m}min";
+        }
+
+        $profile = $trip->user?->profile;
+        $vehicle = $trip->vehicle;
+
+        $driverName = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
+
+        return [
+            'uuid'            => $trip->uuid,
+            'status'          => $trip->status,
+            'is_published'    => $trip->is_published,
+            'booking_mode'    => $trip->booking_mode,
+            'cancellation_policy' => $trip->cancellation_policy,
+
+            // ── Géographie départ ──────────────────────────────────────────
+            'departure_city'             => $trip->departure_city,
+            'departure_arrondissement'   => $trip->departure_arrondissement,
+            'departure_neighborhood'     => $trip->departure_neighborhood,
+            'departure_point'            => $trip->departure_point,
+            'departure_latitude'         => $trip->departure_latitude,
+            'departure_longitude'        => $trip->departure_longitude,
+
+            // ── Géographie arrivée ─────────────────────────────────────────
+            'arrival_city'               => $trip->arrival_city,
+            'arrival_arrondissement'     => $trip->arrival_arrondissement,
+            'arrival_neighborhood'       => $trip->arrival_neighborhood,
+            'arrival_point'              => $trip->arrival_point,
+            'arrival_latitude'           => $trip->arrival_latitude,
+            'arrival_longitude'          => $trip->arrival_longitude,
+
+            // ── Horaires (heure Bénin) ─────────────────────────────────────
+            'departure_time'             => $depTime?->toIso8601String(),
+            'departure_time_formatted'   => $depTime?->format('H:i'),
+            'departure_date_formatted'   => $depTime?->translatedFormat('D. d/m'),
+            'departure_datetime_label'   => $depTime?->translatedFormat('D. d/m \à H\hi'),
+            'estimated_arrival_time'     => $arrTime?->toIso8601String(),
+            'estimated_arrival_formatted'=> $arrTime ? '~' . $arrTime->format('H:i') : null,
+
+            // ── Métriques trajet ───────────────────────────────────────────
+            'distance_km'                => $trip->distance_km,
+            'estimated_duration_minutes' => $trip->estimated_duration_minutes,
+            'duration_label'             => $durationLabel,
+
+            // ── Prix & places ──────────────────────────────────────────────
+            'price_per_seat'    => $trip->price_per_seat,
+            'total_seats'       => $trip->total_seats,
+            'available_seats'   => $trip->available_seats,
+            'max_per_booking'   => $trip->max_per_booking,
+
+            // ── Contenu ────────────────────────────────────────────────────
+            'description'       => $trip->description,
+            'preferences'       => $trip->preferences ?? [],
+            'waypoints'         => $trip->waypoints   ?? [],
+
+            // ── Conducteur ─────────────────────────────────────────────────
+            'driver_name'       => $driverName,
+            'driver_initials'   => $this->driverInitials($driverName),
+
+            // ── Véhicule ───────────────────────────────────────────────────
+            'vehicle'           => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : null,
+            'vehicle_plate'     => $vehicle?->license_plate,
+            'vehicle_label'     => $vehicle ? "{$vehicle->brand} {$vehicle->model} · {$vehicle->license_plate}" : null,
+        ];
+    }
+
+    private function driverInitials(string $name): string
+    {
+        return collect(explode(' ', $name))
+            ->filter()
+            ->take(2)
+            ->map(fn ($w) => strtoupper($w[0]))
+            ->join('');
     }
 
     // =========================================================================

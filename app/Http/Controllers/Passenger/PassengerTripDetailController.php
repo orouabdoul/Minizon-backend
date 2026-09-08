@@ -153,18 +153,45 @@ class PassengerTripDetailController extends Controller
             'review_count'    => $reviewCount,
             'vehicle'         => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
             'vehicle_plate'   => $vehicle?->license_plate ?? '—',
-            'origin'          => $trip->departure_city   ?? '—',
-            'destination'     => $trip->arrival_city     ?? '—',
-            'departure_time'  => $depTime?->format('H\hi') ?? '—',
-            'arrival_time'    => $arrTime?->format('H\hi') ?? '—',
-            'departure_arrondissement' => $trip->departure_arrondissement,
-            'departure_note'           => $trip->departure_neighborhood ?? $trip->departure_point ?? '',
-            'arrival_arrondissement'   => $trip->arrival_arrondissement,
-            'arrival_note'             => $trip->arrival_neighborhood   ?? $trip->arrival_point   ?? '',
-            'duration'        => $durationLabel,
+
+            // ── Géographie départ ──────────────────────────────────────────
+            'origin'                    => $trip->departure_city ?? '—',
+            'departure_arrondissement'  => $trip->departure_arrondissement,
+            'departure_neighborhood'    => $trip->departure_neighborhood,
+            'departure_point'           => $trip->departure_point,
+            // Note courte affichée sous l'origine (quartier en priorité, sinon point précis)
+            'departure_note'            => $trip->departure_neighborhood ?? $trip->departure_point ?? '',
+
+            // ── Géographie arrivée ─────────────────────────────────────────
+            'destination'               => $trip->arrival_city ?? '—',
+            'arrival_arrondissement'    => $trip->arrival_arrondissement,
+            'arrival_neighborhood'      => $trip->arrival_neighborhood,
+            'arrival_point'             => $trip->arrival_point,
+            'arrival_note'              => $trip->arrival_neighborhood ?? $trip->arrival_point ?? '',
+
+            // ── Horaires (heure Bénin) ─────────────────────────────────────
+            'departure_time'            => $depTime?->format('H\hi') ?? '—',
+            'departure_date'            => $depTime?->translatedFormat('D. d/m') ?? '—',
+            'departure_datetime_label'  => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
+            'departure_datetime'        => $depTime?->toIso8601String(),
+            'arrival_time'              => $arrTime?->format('H\hi') ?? '—',
+            'estimated_arrival_time'    => $arrTime?->toIso8601String(),
+
+            // ── Métriques trajet ───────────────────────────────────────────
+            'duration'                  => $durationLabel,
+            'distance_km'               => $trip->distance_km,
+            'estimated_duration_minutes'=> $trip->estimated_duration_minutes,
+
+            // ── Prix & places ──────────────────────────────────────────────
             'price'           => number_format((int) $trip->price_per_seat, 0, ',', ' ') . ' FCFA',
+            'price_per_seat'  => (int) $trip->price_per_seat,
             'available_seats' => (int) $trip->available_seats,
-            // Arrêt intermédiaire (pour _ItineraryCard)
+            'total_seats'     => (int) $trip->total_seats,
+            'booking_mode'    => $trip->booking_mode ?? 'instant',
+            'cancellation_policy' => $trip->cancellation_policy ?? 'flexible',
+            'max_per_booking' => $trip->max_per_booking,
+
+            // ── Arrêt intermédiaire (pour _ItineraryCard) ─────────────────
             'waypoint_city'    => $firstWaypoint['city']   ?? null,
             'waypoint_note'    => $firstWaypoint['note']   ?? null,
         ];

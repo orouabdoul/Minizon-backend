@@ -522,16 +522,21 @@ class PassengerReservationController extends Controller
             // ── Points prise en charge passager — commune → arrondissement → quartier → point précis ──
             'departure_city'             => $booking->pickup_city             ?: ($trip?->departure_city ?? '—'),
             'departure_arrondissement'   => $booking->pickup_arrondissement   ?? null,
+            'departure_neighborhood'     => $booking->pickup_neighborhood     ?: ($trip?->departure_neighborhood ?? null),
+            'departure_point'            => $booking->pickup_address          ?: ($trip?->departure_point ?? null),
+            // Note courte (quartier en priorité, sinon point précis)
             'departure_note'             => $booking->pickup_neighborhood     ?: ($trip?->departure_neighborhood ?? ''),
-            'departure_address'          => $booking->pickup_address          ?: '',
+            'departure_address'          => $booking->pickup_address          ?: ($trip?->departure_point ?? ''),
             'departure_latitude'         => $booking->pickup_latitude,
             'departure_longitude'        => $booking->pickup_longitude,
 
             // ── Points dépose passager — commune → arrondissement → quartier → point précis ──
             'arrival_city'               => $booking->dropoff_city            ?: ($trip?->arrival_city ?? '—'),
             'arrival_arrondissement'     => $booking->dropoff_arrondissement  ?? null,
+            'arrival_neighborhood'       => $booking->dropoff_neighborhood    ?: ($trip?->arrival_neighborhood ?? null),
+            'arrival_point'              => $booking->dropoff_address         ?: ($trip?->arrival_point ?? null),
             'arrival_note'               => $booking->dropoff_neighborhood    ?: ($trip?->arrival_neighborhood ?? ''),
-            'arrival_address'            => $booking->dropoff_address         ?: '',
+            'arrival_address'            => $booking->dropoff_address         ?: ($trip?->arrival_point ?? ''),
             'arrival_latitude'           => $booking->dropoff_latitude,
             'arrival_longitude'          => $booking->dropoff_longitude,
 
@@ -546,6 +551,13 @@ class PassengerReservationController extends Controller
             'vehicle'               => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
             'vehicle_plate'         => $vehicle?->license_plate ?? '—',
 
+            // ── Métriques trajet ──────────────────────────────────────────
+            'distance_km'           => $trip?->distance_km,
+            'estimated_duration_minutes' => $trip?->estimated_duration_minutes,
+            'duration_label'        => $trip?->estimated_duration_minutes
+                ? $this->formatDuration((int) $trip->estimated_duration_minutes)
+                : null,
+
             // ── En cours ──────────────────────────────────────────────────
             'eta_minutes'           => $etaMinutes,
             // Indique si le passager a déjà confirmé être à bord
@@ -556,6 +568,15 @@ class PassengerReservationController extends Controller
             'has_rated'             => $hasRated,
             'refund_status'         => $refundStatus,
         ];
+    }
+
+    private function formatDuration(int $minutes): string
+    {
+        $h = intdiv($minutes, 60);
+        $m = $minutes % 60;
+        if ($h === 0) return "{$m}min";
+        if ($m === 0) return "{$h}h";
+        return "{$h}h{$m}";
     }
 
     private function relativeTime(?\Carbon\CarbonInterface $date): string

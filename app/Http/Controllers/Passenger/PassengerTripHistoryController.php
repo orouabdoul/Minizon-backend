@@ -113,15 +113,21 @@ class PassengerTripHistoryController extends Controller
                 ? (int) $payment->gross_amount
                 : ((int) ($trip?->price_per_seat ?? 0)) * $seats;
 
-            // ── Dates ──────────────────────────────────────────────────────
+            // ── Dates (heure Bénin) ────────────────────────────────────────
             $depTime = $trip?->departure_time?->setTimezone($tz);
-            // "06 juil." — format affiché dans la TripCard (icône calendar)
             $date = $depTime ? $depTime->translatedFormat('d M.') : '—';
-            // "08:30" — format affiché dans la TripCard (icône clock)
             $time = $depTime ? $depTime->format('H:i') : '—';
+            $datetimeLabel = $depTime ? $depTime->translatedFormat('D. d/m \à H\hi') : '—';
+
+            // ── Durée ──────────────────────────────────────────────────────
+            $durationLabel = null;
+            if ($trip?->estimated_duration_minutes) {
+                $h = intdiv($trip->estimated_duration_minutes, 60);
+                $m = $trip->estimated_duration_minutes % 60;
+                $durationLabel = $h > 0 ? "{$h}h" . ($m > 0 ? "{$m}" : '') : "{$m}min";
+            }
 
             // ── Note personnelle (nullable) ────────────────────────────────
-            // Est null si le passager n'a pas encore noté ce trajet.
             $myRating = isset($personalRatings[$trip?->id])
                 ? (float) $personalRatings[$trip->id]
                 : null;
@@ -130,15 +136,42 @@ class PassengerTripHistoryController extends Controller
                 'uuid'          => $b->uuid,
                 'trip_uuid'     => $trip?->uuid,
                 'status'        => $status,
-                'date'          => $date,
-                'time'          => $time,
-                'origin'        => $trip?->origin ?? $trip?->departure_city ?? '—',
-                'destination'   => $trip?->destination ?? $trip?->arrival_city ?? '—',
+
+                // ── Dates ──────────────────────────────────────────────────
+                'date'                  => $date,
+                'time'                  => $time,
+                'datetime_label'        => $datetimeLabel,
+                'departure_datetime'    => $depTime?->toIso8601String(),
+
+                // ── Géographie départ ──────────────────────────────────────
+                'origin'                    => $trip?->departure_city ?? '—',
+                'departure_arrondissement'  => $trip?->departure_arrondissement,
+                'departure_neighborhood'    => $trip?->departure_neighborhood,
+                'departure_point'           => $trip?->departure_point,
+                'departure_note'            => $trip?->departure_neighborhood ?? $trip?->departure_point ?? '',
+
+                // ── Géographie arrivée ─────────────────────────────────────
+                'destination'               => $trip?->arrival_city ?? '—',
+                'arrival_arrondissement'    => $trip?->arrival_arrondissement,
+                'arrival_neighborhood'      => $trip?->arrival_neighborhood,
+                'arrival_point'             => $trip?->arrival_point,
+                'arrival_note'              => $trip?->arrival_neighborhood ?? $trip?->arrival_point ?? '',
+
+                // ── Métriques trajet ───────────────────────────────────────
+                'distance_km'                => $trip?->distance_km,
+                'estimated_duration_minutes' => $trip?->estimated_duration_minutes,
+                'duration_label'             => $durationLabel,
+
+                // ── Prix & réservation ─────────────────────────────────────
                 'price'         => $price,
                 'seats'         => $seats,
+
+                // ── Conducteur & véhicule ──────────────────────────────────
                 'driver_name'   => $driverName,
                 'vehicle'       => $vehicle ? trim("{$vehicle->brand} {$vehicle->model}") : '—',
                 'vehicle_plate' => $vehicle?->license_plate ?? '—',
+
+                // ── Note personnelle ───────────────────────────────────────
                 'rating'        => $myRating,
             ];
         });
