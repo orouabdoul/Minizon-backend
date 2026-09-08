@@ -77,13 +77,27 @@ class PassengerBookingController extends Controller
                             property: 'body',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'booking_uuid',           type: 'string',  format: 'uuid'),
-                                new OA\Property(property: 'booking_mode',           type: 'string',  enum: ['instant', 'approval'], example: 'approval'),
-                                new OA\Property(property: 'price_total',            type: 'integer', example: 630,  description: 'Montant total à payer (base + 5% service fee)'),
-                                new OA\Property(property: 'calculated_price',       type: 'integer', example: 600,  description: 'Prix proraté par place selon distance (XOF)'),
-                                new OA\Property(property: 'service_fee',            type: 'integer', example: 30,   description: 'Frais de service Minizon 5% ajoutés au passager (XOF)'),
-                                new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4),
-                                new OA\Property(property: 'trip_distance_km',       type: 'number',  format: 'float', example: 420.0),
+                                new OA\Property(property: 'booking_uuid',            type: 'string',  format: 'uuid'),
+                                new OA\Property(property: 'booking_mode',            type: 'string',  enum: ['instant', 'approval'], example: 'approval'),
+                                new OA\Property(property: 'price_total',             type: 'integer', example: 630,   description: 'Montant total à payer (base + 5% service fee)'),
+                                new OA\Property(property: 'calculated_price',        type: 'integer', example: 600,   description: 'Prix proraté par place selon distance (XOF)'),
+                                new OA\Property(property: 'service_fee',             type: 'integer', example: 30,    description: 'Frais de service Minizon 5% ajoutés au passager (XOF)'),
+                                new OA\Property(property: 'passenger_distance_km',   type: 'number',  format: 'float', example: 127.4),
+                                new OA\Property(property: 'trip_distance_km',        type: 'number',  format: 'float', example: 420.0),
+                                // Prise en charge confirmée
+                                new OA\Property(property: 'pickup_city',             type: 'string',  example: 'Cotonou'),
+                                new OA\Property(property: 'pickup_arrondissement',   type: 'string',  nullable: true, example: '6ème Arrondissement'),
+                                new OA\Property(property: 'pickup_neighborhood',     type: 'string',  nullable: true, example: 'Akpakpa'),
+                                new OA\Property(property: 'pickup_address',          type: 'string',  example: 'Face pharmacie du centre', description: 'Point précis de prise en charge'),
+                                new OA\Property(property: 'pickup_latitude',         type: 'number',  format: 'float', nullable: true, example: 6.3654),
+                                new OA\Property(property: 'pickup_longitude',        type: 'number',  format: 'float', nullable: true, example: 2.4183),
+                                // Dépôt confirmé
+                                new OA\Property(property: 'dropoff_city',            type: 'string',  example: 'Parakou'),
+                                new OA\Property(property: 'dropoff_arrondissement',  type: 'string',  nullable: true, example: '1er Arrondissement'),
+                                new OA\Property(property: 'dropoff_neighborhood',    type: 'string',  nullable: true, example: 'Zongo'),
+                                new OA\Property(property: 'dropoff_address',         type: 'string',  example: 'Carrefour étoile rouge', description: 'Point précis de dépôt'),
+                                new OA\Property(property: 'dropoff_latitude',        type: 'number',  format: 'float', nullable: true, example: 9.3370),
+                                new OA\Property(property: 'dropoff_longitude',       type: 'number',  format: 'float', nullable: true, example: 2.6280),
                             ]
                         ),
                     ]
@@ -233,13 +247,28 @@ class PassengerBookingController extends Controller
         $this->notifyDriver($trip, $booking);
 
         return $this->apiResponse(true, 'Réservation créée.', [
-            'booking_uuid'          => $booking->uuid,
-            'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'price_total'           => $totalPrice,
-            'calculated_price'      => $calculatedPrice,
-            'service_fee'           => $serviceFee,
-            'passenger_distance_km' => round($passengerDistanceKm, 2),
-            'trip_distance_km'      => round($tripDistanceKm, 2),
+            'booking_uuid'           => $booking->uuid,
+            'booking_mode'           => $trip->booking_mode ?? 'approval',
+            // Prix
+            'price_total'            => $totalPrice,
+            'calculated_price'       => $calculatedPrice,
+            'service_fee'            => $serviceFee,
+            'passenger_distance_km'  => round($passengerDistanceKm, 2),
+            'trip_distance_km'       => round($tripDistanceKm, 2),
+            // Prise en charge — confirmée (avec GPS résolu si fourni)
+            'pickup_city'            => $booking->pickup_city,
+            'pickup_arrondissement'  => $booking->pickup_arrondissement,
+            'pickup_neighborhood'    => $booking->pickup_neighborhood,
+            'pickup_address'         => $booking->pickup_address,
+            'pickup_latitude'        => $booking->pickup_latitude  ? (float) $booking->pickup_latitude  : null,
+            'pickup_longitude'       => $booking->pickup_longitude ? (float) $booking->pickup_longitude : null,
+            // Dépôt — confirmé (avec GPS résolu si fourni)
+            'dropoff_city'           => $booking->dropoff_city,
+            'dropoff_arrondissement' => $booking->dropoff_arrondissement,
+            'dropoff_neighborhood'   => $booking->dropoff_neighborhood,
+            'dropoff_address'        => $booking->dropoff_address,
+            'dropoff_latitude'       => $booking->dropoff_latitude  ? (float) $booking->dropoff_latitude  : null,
+            'dropoff_longitude'      => $booking->dropoff_longitude ? (float) $booking->dropoff_longitude : null,
         ], 201);
     }
 
