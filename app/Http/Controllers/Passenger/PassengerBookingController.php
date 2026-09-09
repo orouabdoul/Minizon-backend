@@ -207,42 +207,54 @@ class PassengerBookingController extends Controller
         $serviceFee = (int) round($base * self::SERVICE_FEE_RATE);
         $totalPrice = $base + $serviceFee;
 
-        $booking = DB::transaction(function () use (
-            $trip, $request, $validated, $seatsRequested,
-            $passengerDistanceKm, $calculatedPrice, $serviceFee, $totalPrice,
-            $pickupLat, $pickupLng, $dropoffLat, $dropoffLng
-        ) {
-            $booking = Booking::create([
-                'trip_id'                => $trip->id,
-                'passenger_id'           => $request->user()->id,
-                'seats_booked'           => $seatsRequested,
-                // ── Prise en charge (GPS résolu depuis commune/arrondissement/quartier si non fourni) ──
-                'pickup_city'            => $validated['pickup_city'],
-                'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
-                'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
-                'pickup_address'         => $validated['pickup_address'],
-                'pickup_latitude'        => $pickupLat,
-                'pickup_longitude'       => $pickupLng,
-                // ── Dépôt (GPS résolu depuis commune/arrondissement/quartier si non fourni) ──
-                'dropoff_city'           => $validated['dropoff_city'],
-                'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
-                'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
-                'dropoff_address'        => $validated['dropoff_address'],
-                'dropoff_latitude'       => $dropoffLat,
-                'dropoff_longitude'      => $dropoffLng,
-                // ── Prix ──
-                'passenger_distance_km'  => round($passengerDistanceKm, 2),
-                'calculated_price'       => $calculatedPrice,
-                'service_fee'            => $serviceFee,
-                'total_price'            => $totalPrice,
-                'status'                 => 'pending',
-                'payment_status'         => 'unpaid',
+        try {
+            $booking = DB::transaction(function () use (
+                $trip, $request, $validated, $seatsRequested,
+                $passengerDistanceKm, $calculatedPrice, $serviceFee, $totalPrice,
+                $pickupLat, $pickupLng, $dropoffLat, $dropoffLng
+            ) {
+                $booking = Booking::create([
+                    'trip_id'                => $trip->id,
+                    'passenger_id'           => $request->user()->id,
+                    'seats_booked'           => $seatsRequested,
+                    // ── Prise en charge ──
+                    'pickup_city'            => $validated['pickup_city'],
+                    'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
+                    'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
+                    'pickup_address'         => $validated['pickup_address'],
+                    'pickup_latitude'        => $pickupLat ?? 0.0,
+                    'pickup_longitude'       => $pickupLng ?? 0.0,
+                    // ── Dépôt ──
+                    'dropoff_city'           => $validated['dropoff_city'],
+                    'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
+                    'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
+                    'dropoff_address'        => $validated['dropoff_address'],
+                    'dropoff_latitude'       => $dropoffLat ?? 0.0,
+                    'dropoff_longitude'      => $dropoffLng ?? 0.0,
+                    // ── Prix ──
+                    'passenger_distance_km'  => round($passengerDistanceKm, 2),
+                    'calculated_price'       => $calculatedPrice,
+                    'service_fee'            => $serviceFee,
+                    'total_price'            => $totalPrice,
+                    'status'                 => 'pending',
+                    'payment_status'         => 'unpaid',
+                ]);
+
+                $trip->decrement('available_seats', $seatsRequested);
+
+                return $booking;
+            });
+        } catch (\Throwable $e) {
+            Log::error('passengerBookingStore failed', [
+                'trip_uuid'  => $uuid,
+                'user_id'    => $request->user()->id,
+                'error'      => $e->getMessage(),
             ]);
 
-            $trip->decrement('available_seats', $seatsRequested);
-
-            return $booking;
-        });
+            return $this->apiResponse(false, 'Une erreur est survenue lors de la création de la réservation. Veuillez réessayer.', [
+                'error' => $e->getMessage(),
+            ], 500);
+        }
 
         $this->notifyDriver($trip, $booking);
 
