@@ -539,9 +539,9 @@ class PassengerBookingController extends Controller
 
     private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
     {
-        if (! $trip?->user) return;
-
         try {
+            if (! $trip?->user) return;
+
             if ($cancelled) {
                 $trip->user->notify(new PassengerCancelledBooking($booking));
 
