@@ -245,14 +245,18 @@ class PassengerBookingController extends Controller
                 return $booking;
             });
         } catch (\Throwable $e) {
-            Log::error('passengerBookingStore failed', [
-                'trip_uuid'  => $uuid,
-                'user_id'    => $request->user()->id,
-                'error'      => $e->getMessage(),
-                'trace'      => $e->getTraceAsString(),
-            ]);
+            try {
+                Log::error('passengerBookingStore failed', [
+                    'trip_uuid'  => $uuid,
+                    'user_id'    => $request->user()?->id,
+                    'class'      => get_class($e),
+                    'error'      => $e->getMessage(),
+                    'trace'      => substr($e->getTraceAsString(), 0, 2000),
+                ]);
+            } catch (\Throwable) {}
 
             return $this->apiResponse(false, 'Une erreur est survenue lors de la création de la réservation. Veuillez réessayer.', [
+                'class' => get_class($e),
                 'error' => $e->getMessage(),
             ], 500);
         }
