@@ -25,8 +25,8 @@ RUN printf '<Directory /var/www/html/public>\n    Options FollowSymLinks\n    Al
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-# CACHE_BUST: 2026-09-11T02 — force fresh COPY, fix notifyDriver uncaught exception
-ARG CACHE_BUST=2026-09-11T02
+# CACHE_BUST: 2026-09-11T03 — fix BookingController (mauvais controller, pas de try-catch)
+ARG CACHE_BUST=2026-09-11T03
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \

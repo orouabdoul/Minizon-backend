@@ -43,122 +43,150 @@ class BookingController extends Controller
             'dropoff_longitude'        => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
-        $trip = Trip::where('uuid', $uuid)->first();
+        try {
+            $trip = Trip::where('uuid', $uuid)->first();
 
-        if (! $trip) {
-            return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
-        }
+            if (! $trip) {
+                return $this->apiResponse(false, 'Trajet introuvable.', [], 404);
+            }
 
-        if (! $trip->is_published || $trip->status !== 'pending') {
-            return $this->apiResponse(false, 'Ce trajet n\'est plus disponible à la réservation.', [], 422);
-        }
+            if (! $trip->is_published || $trip->status !== 'pending') {
+                return $this->apiResponse(false, 'Ce trajet n\'est plus disponible à la réservation.', [], 422);
+            }
 
-        if ($trip->user_id === $request->user()->id) {
-            return $this->apiResponse(false, 'Vous ne pouvez pas réserver votre propre trajet.', [], 422);
-        }
+            if ($trip->user_id === $request->user()->id) {
+                return $this->apiResponse(false, 'Vous ne pouvez pas réserver votre propre trajet.', [], 422);
+            }
 
-        $seatsRequested = (int) $validated['seats_booked'];
+            $seatsRequested = (int) $validated['seats_booked'];
 
-        if ($trip->available_seats < $seatsRequested) {
-            return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
-        }
+            if ($trip->available_seats < $seatsRequested) {
+                return $this->apiResponse(false, "Seulement {$trip->available_seats} place(s) disponible(s) sur ce trajet.", [], 422);
+            }
 
-        // ── Résolution GPS pickup ─────────────────────────────────────────────
-        $pickupLat = isset($validated['pickup_latitude'])  ? (float) $validated['pickup_latitude']  : null;
-        $pickupLng = isset($validated['pickup_longitude']) ? (float) $validated['pickup_longitude'] : null;
-        if (! $pickupLat || ! $pickupLng) {
-            $coords    = GeoHelper::resolveCoordinates(
-                $validated['pickup_city'],
-                $validated['pickup_arrondissement'] ?? null,
-                $validated['pickup_neighborhood']   ?? null
+            $existing = Booking::where('trip_id', $trip->id)
+                ->where('passenger_id', $request->user()->id)
+                ->whereNotIn('status', ['rejected', 'cancelled'])
+                ->first();
+
+            if ($existing) {
+                return $this->apiResponse(false, 'Vous avez déjà une réservation active pour ce trajet.', [
+                    'booking_uuid' => $existing->uuid,
+                ], 409);
+            }
+
+            // ── Résolution GPS pickup ─────────────────────────────────────────────
+            $pickupLat = isset($validated['pickup_latitude'])  ? (float) $validated['pickup_latitude']  : null;
+            $pickupLng = isset($validated['pickup_longitude']) ? (float) $validated['pickup_longitude'] : null;
+            if (! $pickupLat || ! $pickupLng) {
+                $coords    = GeoHelper::resolveCoordinates(
+                    $validated['pickup_city'],
+                    $validated['pickup_arrondissement'] ?? null,
+                    $validated['pickup_neighborhood']   ?? null
+                );
+                [$pickupLat, $pickupLng] = $coords ?? [null, null];
+            }
+
+            // ── Résolution GPS dropoff ────────────────────────────────────────────
+            $dropoffLat = isset($validated['dropoff_latitude'])  ? (float) $validated['dropoff_latitude']  : null;
+            $dropoffLng = isset($validated['dropoff_longitude']) ? (float) $validated['dropoff_longitude'] : null;
+            if (! $dropoffLat || ! $dropoffLng) {
+                $coords     = GeoHelper::resolveCoordinates(
+                    $validated['dropoff_city'],
+                    $validated['dropoff_arrondissement'] ?? null,
+                    $validated['dropoff_neighborhood']   ?? null
+                );
+                [$dropoffLat, $dropoffLng] = $coords ?? [null, null];
+            }
+
+            // ── Calcul distance passager (ORS → haversine×1.3) ────────────────────
+            $passengerDistanceKm = ($pickupLat && $pickupLng && $dropoffLat && $dropoffLng)
+                ? GeoHelper::distanceKm($pickupLat, $pickupLng, $dropoffLat, $dropoffLng)
+                : 0.0;
+
+            // ── Distance trajet : utilise distance_km stockée ou recalcul ─────────
+            $tripDistanceKm = (float) ($trip->distance_km ?? 0);
+            if ($tripDistanceKm <= 0 && $trip->departure_latitude && $trip->arrival_latitude) {
+                $tripDistanceKm = GeoHelper::distanceKm(
+                    (float) $trip->departure_latitude, (float) $trip->departure_longitude,
+                    (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
+                );
+            }
+
+            $calculatedPrice = GeoHelper::calculatePassengerPrice(
+                $passengerDistanceKm,
+                $tripDistanceKm,
+                (int) $trip->price_per_seat
             );
-            [$pickupLat, $pickupLng] = $coords ?? [null, null];
-        }
 
-        // ── Résolution GPS dropoff ────────────────────────────────────────────
-        $dropoffLat = isset($validated['dropoff_latitude'])  ? (float) $validated['dropoff_latitude']  : null;
-        $dropoffLng = isset($validated['dropoff_longitude']) ? (float) $validated['dropoff_longitude'] : null;
-        if (! $dropoffLat || ! $dropoffLng) {
-            $coords     = GeoHelper::resolveCoordinates(
-                $validated['dropoff_city'],
-                $validated['dropoff_arrondissement'] ?? null,
-                $validated['dropoff_neighborhood']   ?? null
-            );
-            [$dropoffLat, $dropoffLng] = $coords ?? [null, null];
-        }
+            $priceSubtotal = $calculatedPrice * $seatsRequested;
+            $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
+            $priceTotal    = $priceSubtotal + $serviceFee;
 
-        // ── Calcul distance passager (ORS → haversine×1.3) ────────────────────
-        $passengerDistanceKm = ($pickupLat && $pickupLng && $dropoffLat && $dropoffLng)
-            ? GeoHelper::distanceKm($pickupLat, $pickupLng, $dropoffLat, $dropoffLng)
-            : 0.0;
+            $booking = DB::transaction(function () use (
+                $trip, $request, $validated, $seatsRequested,
+                $passengerDistanceKm, $calculatedPrice, $serviceFee, $priceTotal,
+                $pickupLat, $pickupLng, $dropoffLat, $dropoffLng
+            ) {
+                $booking = Booking::create([
+                    'trip_id'                => $trip->id,
+                    'passenger_id'           => $request->user()->id,
+                    'seats_booked'           => $seatsRequested,
+                    // ── Prise en charge (GPS résolu automatiquement) ──
+                    'pickup_city'            => $validated['pickup_city'],
+                    'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
+                    'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
+                    'pickup_address'         => $validated['pickup_address'],
+                    'pickup_latitude'        => $pickupLat ?? 0.0,
+                    'pickup_longitude'       => $pickupLng ?? 0.0,
+                    // ── Dépôt (GPS résolu automatiquement) ──
+                    'dropoff_city'           => $validated['dropoff_city'],
+                    'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
+                    'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
+                    'dropoff_address'        => $validated['dropoff_address'],
+                    'dropoff_latitude'       => $dropoffLat ?? 0.0,
+                    'dropoff_longitude'      => $dropoffLng ?? 0.0,
+                    // ── Prix ──
+                    'passenger_distance_km'  => round($passengerDistanceKm, 2),
+                    'calculated_price'       => $calculatedPrice,
+                    'service_fee'            => $serviceFee,
+                    'total_price'            => $priceTotal,
+                    'status'                 => 'pending',
+                    'payment_status'         => 'unpaid',
+                ]);
 
-        // ── Distance trajet : utilise distance_km stockée ou recalcul ─────────
-        $tripDistanceKm = (float) ($trip->distance_km ?? 0);
-        if ($tripDistanceKm <= 0 && $trip->departure_latitude && $trip->arrival_latitude) {
-            $tripDistanceKm = GeoHelper::distanceKm(
-                (float) $trip->departure_latitude, (float) $trip->departure_longitude,
-                (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
-            );
-        }
+                $trip->decrement('available_seats', $seatsRequested);
 
-        $calculatedPrice = GeoHelper::calculatePassengerPrice(
-            $passengerDistanceKm,
-            $tripDistanceKm,
-            (int) $trip->price_per_seat
-        );
+                return $booking;
+            });
 
-        $priceSubtotal = $calculatedPrice * $seatsRequested;
-        $serviceFee    = (int) round($priceSubtotal * self::SERVICE_FEE_RATE);
-        $priceTotal    = $priceSubtotal + $serviceFee;
+            $this->notifyDriver($trip, $booking);
 
-        $booking = DB::transaction(function () use (
-            $trip, $request, $validated, $seatsRequested,
-            $passengerDistanceKm, $calculatedPrice, $serviceFee,
-            $pickupLat, $pickupLng, $dropoffLat, $dropoffLng
-        ) {
-            $booking = Booking::create([
-                'trip_id'                => $trip->id,
-                'passenger_id'           => $request->user()->id,
-                'seats_booked'           => $seatsRequested,
-                // ── Prise en charge (GPS résolu automatiquement) ──
-                'pickup_city'            => $validated['pickup_city'],
-                'pickup_arrondissement'  => $validated['pickup_arrondissement'] ?? null,
-                'pickup_neighborhood'    => $validated['pickup_neighborhood'] ?? null,
-                'pickup_address'         => $validated['pickup_address'],
-                'pickup_latitude'        => $pickupLat,
-                'pickup_longitude'       => $pickupLng,
-                // ── Dépôt (GPS résolu automatiquement) ──
-                'dropoff_city'           => $validated['dropoff_city'],
-                'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
-                'dropoff_neighborhood'   => $validated['dropoff_neighborhood'] ?? null,
-                'dropoff_address'        => $validated['dropoff_address'],
-                'dropoff_latitude'       => $dropoffLat,
-                'dropoff_longitude'      => $dropoffLng,
-                // ── Prix ──
-                'passenger_distance_km'  => round($passengerDistanceKm, 2),
-                'calculated_price'       => $calculatedPrice,
-                'service_fee'            => $serviceFee,
-                'status'                 => 'pending',
-                'payment_status'         => 'unpaid',
+            return $this->apiResponse(true, 'Réservation créée.', [
+                'booking_uuid'          => $booking->uuid,
+                'booking_mode'          => $trip->booking_mode ?? 'approval',
+                'calculated_price'      => $calculatedPrice,
+                'price_subtotal'        => $priceSubtotal,
+                'service_fee'           => $serviceFee,
+                'price_total'           => $priceTotal,
+                'passenger_distance_km' => round($passengerDistanceKm, 2),
+                'trip_distance_km'      => round($tripDistanceKm, 2),
+            ], 201);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('bookingStore failed', [
+                'trip_uuid' => $uuid,
+                'user_id'   => $request->user()?->id,
+                'class'     => get_class($e),
+                'error'     => $e->getMessage(),
+                'trace'     => substr($e->getTraceAsString(), 0, 2000),
             ]);
 
-            $trip->decrement('available_seats', $seatsRequested);
-
-            return $booking;
-        });
-
-        $this->notifyDriver($trip, $booking);
-
-        return $this->apiResponse(true, 'Réservation créée.', [
-            'booking_uuid'          => $booking->uuid,
-            'booking_mode'          => $trip->booking_mode ?? 'approval',
-            'calculated_price'      => $calculatedPrice,
-            'price_subtotal'        => $priceSubtotal,
-            'service_fee'           => $serviceFee,
-            'price_total'           => $priceTotal,
-            'passenger_distance_km' => round($passengerDistanceKm, 2),
-            'trip_distance_km'      => round($tripDistanceKm, 2),
-        ], 201);
+            return $this->apiResponse(false, 'Une erreur est survenue lors de la création de la réservation. Veuillez réessayer.', [
+                'class' => get_class($e),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     // =========================================================================
@@ -330,9 +358,9 @@ class BookingController extends Controller
 
     private function notifyDriver(?Trip $trip, Booking $booking, bool $cancelled = false): void
     {
-        if (! $trip?->user) return;
-
         try {
+            if (! $trip?->user) return;
+
             if ($cancelled) {
                 $trip->user->notify(new PassengerCancelledBooking($booking));
 
