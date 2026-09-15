@@ -35,14 +35,18 @@ class Login extends Component
             'password' => $this->password,
         ];
 
+        $result = Auth::guard('admin')->attempt($credentials, $this->remember);
+
         \Illuminate\Support\Facades\Log::info('Admin login attempt', [
-            'email'    => $this->email,
-            'password_length' => strlen($this->password),
+            'email'          => $this->email,
+            'password_length'=> strlen($this->password),
+            'attempt_result' => $result,
+            'intended_url'   => session()->get('url.intended', 'none'),
         ]);
 
-        if (Auth::guard('admin')->attempt($credentials, $this->remember)) {
+        if ($result) {
             session()->regenerate();
-            return redirect()->intended(route('admin.dashboard'));
+            return redirect()->route('admin.dashboard');
         }
 
         $this->errorMessage = 'Identifiants incorrects. Veuillez réessayer.';
