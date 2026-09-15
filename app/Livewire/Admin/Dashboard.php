@@ -21,6 +21,17 @@ class Dashboard extends Component
     public array  $revenue7d    = [];
     public array  $financials   = [];
 
+    public int    $feedPage     = 1;
+    public int    $driversPage  = 1;
+
+    private const FEED_PER    = 5;
+    private const DRIVERS_PER = 5;
+
+    public function feedNext(): void    { $this->feedPage++; }
+    public function feedPrev(): void    { if ($this->feedPage > 1) $this->feedPage--; }
+    public function driversNext(): void { $this->driversPage++; }
+    public function driversPrev(): void { if ($this->driversPage > 1) $this->driversPage--; }
+
     public function mount(): void
     {
         $this->loadData();
@@ -86,7 +97,7 @@ class Dashboard extends Component
                 SUM(payments.net_amount) as total_earned')
             ->groupBy('users.id', 'users.uuid', 'users.phone', 'profiles.first_name', 'profiles.last_name')
             ->orderByDesc('trips_count')
-            ->limit(5)
+            ->limit(20)
             ->get()
             ->map(fn($d) => [
                 'name'   => trim(($d->first_name ?? '') . ' ' . ($d->last_name ?? '')) ?: $d->phone,
@@ -179,7 +190,7 @@ class Dashboard extends Component
         // ── Feed récent ──────────────────────────────────────────
         $recentTrips = Trip::with(['user.profile'])
             ->orderByDesc('updated_at')
-            ->limit(6)
+            ->limit(30)
             ->get()
             ->map(fn($t) => [
                 'type'   => 'trip',
@@ -189,12 +200,13 @@ class Dashboard extends Component
                     : ($t->user?->phone ?? '—'),
                 'status' => $t->status,
                 'time'   => $t->updated_at?->diffForHumans(),
+                'ts'     => $t->updated_at?->timestamp ?? 0,
                 'link'   => '/admin/trips',
             ]);
 
         $recentUsers = User::with('profile')
             ->orderByDesc('created_at')
-            ->limit(4)
+            ->limit(20)
             ->get()
             ->map(fn($u) => [
                 'type'   => 'user',
@@ -204,11 +216,12 @@ class Dashboard extends Component
                 'sub'    => $u->role_id == $driverRoleId ? 'Conducteur' : 'Passager',
                 'status' => $u->is_verified ? 'verified' : 'pending',
                 'time'   => $u->created_at?->diffForHumans(),
+                'ts'     => $u->created_at?->timestamp ?? 0,
                 'link'   => '/admin/users',
             ]);
 
         $this->recentFeed = $recentTrips->merge($recentUsers)
-            ->sortByDesc('time')
+            ->sortByDesc('ts')
             ->values()
             ->toArray();
 

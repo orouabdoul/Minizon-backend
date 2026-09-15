@@ -53,14 +53,16 @@
 @media(max-width:1100px){ .dash-main-grid { grid-template-columns:1fr; } }
 
 /* ── Feed ─────────────────────────────────────────────── */
-.feed-card { background:#fff; border-radius:14px; border:1px solid #F3F4F6; overflow:hidden; }
+.feed-card { background:#fff; border-radius:14px; border:1px solid #F3F4F6; overflow:hidden; display:flex; flex-direction:column; }
 .feed-card__header {
     padding:16px 20px; border-bottom:1px solid #F3F4F6;
     display:flex; justify-content:space-between; align-items:center;
+    flex-shrink:0;
 }
 .feed-card__title { font-size:14px; font-weight:600; color:#1F2933; display:flex; align-items:center; gap:8px; }
 .feed-card__live  { width:8px; height:8px; border-radius:50%; background:#17A398; animation:pulse 2s infinite; }
 .feed-card__link  { font-size:12px; color:#1A5FB4; text-decoration:none; font-weight:500; }
+.feed-card__body  { flex:1; }
 .feed-item {
     display:flex; align-items:center; gap:12px;
     padding:12px 20px; border-bottom:1px solid #FAFAFA; transition:background .15s;
@@ -73,6 +75,22 @@
 .feed-item__sub   { font-size:11px; color:#9CA3AF; margin-top:1px; }
 .feed-item__right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
 .feed-item__time  { font-size:11px; color:#9CA3AF; white-space:nowrap; }
+
+/* ── Pagination ───────────────────────────────────────── */
+.card-pag {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; border-top:1px solid #F3F4F6; background:#FAFAFA; flex-shrink:0;
+}
+.card-pag__info { font-size:11px; color:#9CA3AF; }
+.card-pag__btns { display:flex; gap:4px; align-items:center; }
+.pag-btn {
+    width:28px; height:28px; border-radius:7px; border:1px solid #E5E7EB;
+    background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#374151; transition:all .15s; line-height:1;
+}
+.pag-btn:hover:not([disabled]) { background:#1A5FB4; color:#fff; border-color:#1A5FB4; }
+.pag-btn[disabled] { opacity:0.35; cursor:not-allowed; }
+.pag-page { font-size:11px; font-weight:600; color:#374151; padding:0 6px; min-width:50px; text-align:center; }
 
 /* ── Panels droite ────────────────────────────────────── */
 .panels-col { display:flex; flex-direction:column; gap:12px; }
@@ -189,6 +207,15 @@ $statusMap = [
 
 <div class="dash-main-grid">
     {{-- Feed activité --}}
+    @php
+        $feedPerPage  = 5;
+        $feedTotal    = count($recentFeed);
+        $feedPages    = max(1, (int) ceil($feedTotal / $feedPerPage));
+        $feedSafePage = max(1, min($feedPage, $feedPages));
+        $feedItems    = array_slice($recentFeed, ($feedSafePage - 1) * $feedPerPage, $feedPerPage);
+        $feedFrom     = $feedTotal > 0 ? ($feedSafePage - 1) * $feedPerPage + 1 : 0;
+        $feedTo       = min($feedSafePage * $feedPerPage, $feedTotal);
+    @endphp
     <div class="feed-card">
         <div class="feed-card__header">
             <div class="feed-card__title">
@@ -198,38 +225,51 @@ $statusMap = [
             <a href="/admin/trips" class="feed-card__link">Voir tout →</a>
         </div>
 
-        @if(count($recentFeed) > 0)
-            @foreach($recentFeed as $item)
-            @php
-                $isTripType = $item['type'] === 'trip';
-                $st = $statusMap[$item['status']] ?? ['label'=>$item['status'],'bg'=>'#F3F4F6','color'=>'#374151'];
-            @endphp
-            <div class="feed-item">
-                <div class="feed-item__icon" style="background:{{ $isTripType ? '#EDE9FE' : '#DCFCE7' }}">
-                    @if($isTripType)
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
-                    </svg>
-                    @else
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    @endif
+        <div class="feed-card__body">
+            @if(count($feedItems) > 0)
+                @foreach($feedItems as $item)
+                @php
+                    $isTripType = $item['type'] === 'trip';
+                    $st = $statusMap[$item['status']] ?? ['label'=>$item['status'],'bg'=>'#F3F4F6','color'=>'#374151'];
+                @endphp
+                <div class="feed-item">
+                    <div class="feed-item__icon" style="background:{{ $isTripType ? '#EDE9FE' : '#DCFCE7' }}">
+                        @if($isTripType)
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                        </svg>
+                        @else
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        @endif
+                    </div>
+                    <div class="feed-item__body">
+                        <div class="feed-item__title">{{ $item['title'] }}</div>
+                        <div class="feed-item__sub">{{ $item['sub'] }}</div>
+                    </div>
+                    <div class="feed-item__right">
+                        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:{{ $st['bg'] }};color:{{ $st['color'] }}">
+                            {{ $st['label'] }}
+                        </span>
+                        <span class="feed-item__time">{{ $item['time'] }}</span>
+                    </div>
                 </div>
-                <div class="feed-item__body">
-                    <div class="feed-item__title">{{ $item['title'] }}</div>
-                    <div class="feed-item__sub">{{ $item['sub'] }}</div>
-                </div>
-                <div class="feed-item__right">
-                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:{{ $st['bg'] }};color:{{ $st['color'] }}">
-                        {{ $st['label'] }}
-                    </span>
-                    <span class="feed-item__time">{{ $item['time'] }}</span>
-                </div>
+                @endforeach
+            @else
+                <div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px">Aucune activité récente</div>
+            @endif
+        </div>
+
+        @if($feedTotal > $feedPerPage)
+        <div class="card-pag">
+            <span class="card-pag__info">{{ $feedFrom }}–{{ $feedTo }} sur {{ $feedTotal }}</span>
+            <div class="card-pag__btns">
+                <button class="pag-btn" wire:click="feedPrev" @if($feedSafePage <= 1) disabled @endif title="Précédent">‹</button>
+                <span class="pag-page">{{ $feedSafePage }} / {{ $feedPages }}</span>
+                <button class="pag-btn" wire:click="feedNext" @if($feedSafePage >= $feedPages) disabled @endif title="Suivant">›</button>
             </div>
-            @endforeach
-        @else
-            <div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px">Aucune activité récente</div>
+        </div>
         @endif
     </div>
 
@@ -268,17 +308,25 @@ $statusMap = [
         </div>
 
         {{-- Top conducteurs --}}
-        <div class="mini-panel">
-            <div class="mini-panel__header" style="display:flex;justify-content:space-between;align-items:center">
+        @php
+            $driversPerPage  = 5;
+            $driversTotal    = count($topDrivers);
+            $driversPages    = max(1, (int) ceil($driversTotal / $driversPerPage));
+            $driversSafePage = max(1, min($driversPage, $driversPages));
+            $driversItems    = array_slice($topDrivers, ($driversSafePage - 1) * $driversPerPage, $driversPerPage);
+            $driversOffset   = ($driversSafePage - 1) * $driversPerPage;
+        @endphp
+        <div class="mini-panel" style="display:flex;flex-direction:column;">
+            <div class="mini-panel__header" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
                 <div class="mini-panel__title">Top Conducteurs</div>
                 <a href="/admin/drivers" style="font-size:11px;color:#1A5FB4;text-decoration:none">Voir →</a>
             </div>
-            <div class="mini-panel__body">
-                @if(count($topDrivers) > 0)
-                    @foreach($topDrivers as $i => $d)
+            <div class="mini-panel__body" style="flex:1">
+                @if(count($driversItems) > 0)
+                    @foreach($driversItems as $i => $d)
                     <div class="mini-row">
                         <span class="mini-row__label">
-                            <span style="color:#9CA3AF;font-size:10px;margin-right:6px;">{{ $i+1 }}.</span>
+                            <span style="color:#9CA3AF;font-size:10px;margin-right:6px;font-weight:700;">{{ $driversOffset + $i + 1 }}.</span>
                             {{ $d['name'] }}
                         </span>
                         <span class="mini-row__value" style="color:#1A5FB4">{{ $d['trips'] }} trajets</span>
@@ -288,6 +336,16 @@ $statusMap = [
                     <div style="padding:12px 16px;font-size:12px;color:#9CA3AF">Aucune donnée</div>
                 @endif
             </div>
+            @if($driversTotal > $driversPerPage)
+            <div class="card-pag" style="flex-shrink:0">
+                <span class="card-pag__info">{{ $driversOffset + 1 }}–{{ min(($driversSafePage) * $driversPerPage, $driversTotal) }} / {{ $driversTotal }}</span>
+                <div class="card-pag__btns">
+                    <button class="pag-btn" wire:click="driversPrev" @if($driversSafePage <= 1) disabled @endif>‹</button>
+                    <span class="pag-page">{{ $driversSafePage }} / {{ $driversPages }}</span>
+                    <button class="pag-btn" wire:click="driversNext" @if($driversSafePage >= $driversPages) disabled @endif>›</button>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </div>
