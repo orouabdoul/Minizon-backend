@@ -18,7 +18,7 @@
 <body>
     <div class="header">
         <h1>MINIZON Admin Platform</h1>
-        <form method="POST" action="{{ route('admin.logout') }}">
+        <form method="POST" action="{{ route('panel.logout') }}">
             @csrf
             <button class="logout-btn">Déconnexion</button>
         </form>
