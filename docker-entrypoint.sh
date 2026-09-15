@@ -14,6 +14,9 @@ php artisan view:cache   2>/dev/null || true
         echo "[migrate] $line" >&2
     done
     echo "[migrate] Done." >&2
+    php artisan db:seed --class=AdminSeeder --force 2>&1 | while IFS= read -r line; do
+        echo "[seed] $line" >&2
+    done
 ) &
 
 # Start Apache in the foreground — Render health checks pass immediately

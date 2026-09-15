@@ -11,10 +11,10 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         Admin::firstOrCreate(
-            ['email' => 'admin@minizon.com'],
+            ['email' => env('ADMIN_EMAIL', 'admin@minizon.com')],
             [
                 'name'     => 'Super Admin',
-                'password' => Hash::make('Admin@2024!'),
+                'password' => Hash::make(env('ADMIN_PASSWORD', 'minizon@229')),
             ]
         );
     }
