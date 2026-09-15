@@ -18,6 +18,7 @@ $statusLabels = [
 ];
 @endphp
 
+<div>
 {{-- KPI Cards --}}
 <div class="dash-kpi-grid">
     @foreach($kpis as $kpi)
@@ -120,4 +121,5 @@ $statusLabels = [
             Aucune activité récente
         </div>
     @endif
+</div>
 </div>

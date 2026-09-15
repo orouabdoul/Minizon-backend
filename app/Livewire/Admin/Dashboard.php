@@ -37,7 +37,7 @@ class Dashboard extends Component
         $cancelledBookings= Booking::where('status', 'cancelled')->count();
 
         $platformRevenue = Payment::where('status', 'success')->sum('commission_amount') ?? 0;
-        $escrowLocked    = Payment::where('status', 'pending')->sum('amount') ?? 0;
+        $escrowLocked    = Payment::where('status', 'pending')->sum('gross_amount') ?? 0;
 
         $openDisputes    = Dispute::whereIn('status', ['open', 'in_progress'])->count();
         $totalDisputes   = Dispute::count();
