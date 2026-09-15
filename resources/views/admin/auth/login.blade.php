@@ -139,7 +139,7 @@
                             </svg>
                             Se connecter
                         </span>
-                        <span wire:loading style="display:flex; align-items:center; gap:8px;">
+                        <span wire:loading wire:loading.class="lw-flex" style="gap:8px; align-items:center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                  style="animation: spin 0.8s linear infinite;">
                                 <line x1="12" y1="2" x2="12" y2="6"/>
@@ -207,4 +207,5 @@
 
 <style>
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.lw-flex { display: flex !important; }
 </style>
