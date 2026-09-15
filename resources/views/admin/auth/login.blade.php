@@ -82,14 +82,11 @@
                                           border-radius:8px; font-size:16px; font-family:inherit; color:var(--color-text);
                                           background:var(--color-surface); outline:none; transition:border-color .2s;"
                                    onfocus="this.style.borderColor='var(--color-primary)'"
-                                   onblur="this.style.borderColor='var(--color-border)'"
-                                   x-data
-                                   :type="$el.getAttribute('data-show') === 'true' ? 'text' : 'password'"
-                                   data-show="false">
+                                   onblur="this.style.borderColor='var(--color-border)'">
                             <button type="button"
                                     style="position:absolute; right:14px; top:50%; transform:translateY(-50%);
                                            background:none; border:none; padding:0; cursor:pointer; display:flex;"
-                                    onclick="const i=document.getElementById('password'); const show=i.getAttribute('data-show')==='true'; i.setAttribute('data-show', !show); i.type=show?'password':'text'; this.querySelector('svg').style.opacity=show?'0.5':'1';"
+                                    onclick="const i=document.getElementById('password'); i.type=i.type==='password'?'text':'password'; this.querySelector('svg').style.opacity=i.type==='text'?'1':'0.5';"
                                     aria-label="Afficher/masquer le mot de passe">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>

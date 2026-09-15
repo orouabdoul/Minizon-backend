@@ -35,6 +35,11 @@ class Login extends Component
             'password' => $this->password,
         ];
 
+        \Illuminate\Support\Facades\Log::info('Admin login attempt', [
+            'email'    => $this->email,
+            'password_length' => strlen($this->password),
+        ]);
+
         if (Auth::guard('admin')->attempt($credentials, $this->remember)) {
             session()->regenerate();
             return redirect()->intended(route('admin.dashboard'));
