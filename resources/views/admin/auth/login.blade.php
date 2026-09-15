@@ -48,7 +48,7 @@
                                    type="email"
                                    wire:model="email"
                                    autocomplete="email"
-                                   placeholder="admin@minizon.com"
+                                   placeholder="Adresse email"
                                    style="width:100%; padding:12px 14px 12px 42px; border:1px solid var(--color-border);
                                           border-radius:8px; font-size:16px; font-family:inherit; color:var(--color-text);
                                           background:var(--color-surface); outline:none; transition:border-color .2s;"
@@ -77,7 +77,7 @@
                                    type="password"
                                    wire:model="password"
                                    autocomplete="current-password"
-                                   placeholder="••••••••"
+                                   placeholder="Mot de passe"
                                    style="width:100%; padding:12px 42px 12px 42px; border:1px solid var(--color-border);
                                           border-radius:8px; font-size:16px; font-family:inherit; color:var(--color-text);
                                           background:var(--color-surface); outline:none; transition:border-color .2s;"
@@ -131,15 +131,15 @@
                                    box-shadow:var(--shadow-button); transition:background .2s;"
                             onmouseover="this.style.background='var(--color-primary-dark)'"
                             onmouseout="this.style.background='var(--color-primary)'">
-                        <span wire:loading.remove>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:4px;">
+                        <span wire:loading.remove wire:target="login" style="display:flex; align-items:center; gap:6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
                                 <polyline points="10 17 15 12 10 7"/>
                                 <line x1="15" y1="12" x2="3" y2="12"/>
                             </svg>
                             Se connecter
                         </span>
-                        <span wire:loading wire:loading.class="lw-flex" style="gap:8px; align-items:center;">
+                        <span wire:loading wire:target="login" style="display:none; align-items:center; gap:8px;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                  style="animation: spin 0.8s linear infinite;">
                                 <line x1="12" y1="2" x2="12" y2="6"/>
@@ -207,5 +207,4 @@
 
 <style>
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.lw-flex { display: flex !important; }
 </style>
