@@ -24,8 +24,8 @@ class Dashboard extends Component
     public int    $feedPage     = 1;
     public int    $driversPage  = 1;
 
-    private const FEED_PER    = 5;
-    private const DRIVERS_PER = 5;
+    private const FEED_PER    = 8;
+    private const DRIVERS_PER = 8;
 
     public function feedNext(): void    { $this->feedPage++; }
     public function feedPrev(): void    { if ($this->feedPage > 1) $this->feedPage--; }

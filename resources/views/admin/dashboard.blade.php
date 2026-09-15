@@ -208,7 +208,7 @@ $statusMap = [
 <div class="dash-main-grid">
     {{-- Feed activité --}}
     @php
-        $feedPerPage  = 5;
+        $feedPerPage  = 8;
         $feedTotal    = count($recentFeed);
         $feedPages    = max(1, (int) ceil($feedTotal / $feedPerPage));
         $feedSafePage = max(1, min($feedPage, $feedPages));
