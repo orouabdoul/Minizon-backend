@@ -23,5 +23,8 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     // Passager — confirmer l'arrivée (libère l'escrow immédiatement)
     Route::post('bookings/{uuid}/confirm-arrival', [PaymentController::class, 'confirmArrival'])->name('payments.confirm-arrival');
 
+    // Passager — synchroniser son propre paiement avec FedaPay (appelé par l'app après confirmation WebView)
+    Route::post('payments/{uuid}/sync',            [PaymentController::class, 'syncSelf'])->name('payments.sync-self');
+
     // Admin — voir admin-payments.php pour la supervision complète
 });

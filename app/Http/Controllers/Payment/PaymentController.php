@@ -365,6 +365,104 @@ class PaymentController extends Controller
     }
 
     // =========================================================================
+    //  POST /api/payments/{uuid}/sync
+    //  Appelé par l'app Flutter dès que FedaPay confirme dans la WebView.
+    //  Permet la synchronisation automatique sans intervention admin.
+    // =========================================================================
+
+    public function syncSelf(Request $request, string $uuid): JsonResponse
+    {
+        $payment = Payment::with('booking')
+            ->where('uuid', $uuid)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (! $payment) {
+            return $this->apiResponse(false, 'Paiement introuvable.', [], 404);
+        }
+
+        // Paiement déjà traité → rien à faire, retourner le statut actuel
+        if ($payment->status !== 'pending') {
+            return $this->apiResponse(true, 'Paiement déjà traité.', [
+                'payment_uuid' => $payment->uuid,
+                'status'       => $payment->status,
+            ]);
+        }
+
+        if (empty($payment->provider_reference)) {
+            return $this->apiResponse(false, 'Référence FedaPay manquante.', [], 400);
+        }
+
+        FedaPay::setApiKey(config('fedapay.secret_key'));
+        FedaPay::setEnvironment(config('fedapay.environment'));
+
+        try {
+            $fedaTx     = FedaTransaction::retrieve((int) $payment->provider_reference);
+            $fedaStatus = $fedaTx->status ?? null;
+
+            if ($fedaStatus === 'approved') {
+                DB::transaction(function () use ($payment) {
+                    $payment->update(['status' => 'locked']);
+
+                    $booking = $payment->booking;
+                    if ($booking) {
+                        $booking->update(['payment_status' => 'escrow_locked']);
+
+                        TripValidation::firstOrCreate(
+                            ['booking_id' => $booking->id],
+                            [
+                                'trip_id'             => $booking->trip_id,
+                                'passenger_confirmed' => false,
+                                'auto_release_at'     => now()->addHours(24),
+                                'status'              => 'waiting',
+                            ]
+                        );
+                    }
+                });
+
+                // Notifications (même logique que le webhook)
+                $booking = $payment->fresh('booking')->booking;
+                try {
+                    $passenger = $booking?->passenger;
+                    if ($passenger) {
+                        $passenger->notify(new \App\Notifications\PaymentConfirmed($payment));
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('syncSelf: notif passager échouée', ['error' => $e->getMessage()]);
+                }
+                try {
+                    $driver = $booking?->trip?->user;
+                    if ($driver) {
+                        $driver->notify(new \App\Notifications\PassengerPaymentReceived($booking));
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('syncSelf: notif conducteur échouée', ['error' => $e->getMessage()]);
+                }
+
+                Log::info('syncSelf: paiement synchronisé depuis Flutter', [
+                    'payment_uuid' => $payment->uuid,
+                    'fedapay_id'   => $payment->provider_reference,
+                ]);
+
+            } elseif (in_array($fedaStatus, ['declined', 'cancelled'], true)) {
+                $payment->update(['status' => 'failed']);
+            }
+
+        } catch (\Throwable $e) {
+            Log::error('syncSelf: erreur FedaPay', [
+                'payment_uuid' => $payment->uuid,
+                'error'        => $e->getMessage(),
+            ]);
+            return $this->apiResponse(false, 'Erreur de synchronisation FedaPay.', [], 502);
+        }
+
+        return $this->apiResponse(true, 'Paiement synchronisé.', [
+            'payment_uuid' => $payment->uuid,
+            'status'       => $payment->fresh()->status,
+        ]);
+    }
+
+    // =========================================================================
     //  POST /api/bookings/{uuid}/confirm-arrival
     //  Passager confirme son arrivée → libère l'escrow immédiatement
     // =========================================================================

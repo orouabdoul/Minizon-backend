@@ -178,6 +178,8 @@ class DriverActiveTripController extends Controller
                 'duration_label'           => $durationLabel,
                 'passengers_count'         => $passengersCount,
                 'booking_mode'             => $trip->booking_mode ?? 'instant',
+                'arrival_latitude'         => $trip->arrival_latitude,
+                'arrival_longitude'        => $trip->arrival_longitude,
             ],
             'all_green'        => $allGreen,
             'checklist'        => $checklist,
