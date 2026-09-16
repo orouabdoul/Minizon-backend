@@ -62,6 +62,19 @@ class Trips extends Component
 
     public function render()
     {
+        try {
+            return $this->doRender();
+        } catch (\Throwable $e) {
+            logger()->error('[Admin\Trips] render failed: ' . $e->getMessage(), [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ]);
+            throw $e;
+        }
+    }
+
+    private function doRender()
+    {
         $query = Trip::with(['user.profile', 'vehicle', 'bookings'])
             ->when($this->search, function ($q) {
                 $s = '%' . $this->search . '%';
@@ -112,4 +125,5 @@ class Trips extends Component
             'selectedTrip' => $selectedTrip,
         ])->layout('admin.layouts.app', ['title' => 'Trajets']);
     }
+
 }
