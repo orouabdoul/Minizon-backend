@@ -211,7 +211,7 @@ $providerLabels = [
                     $uName     = trim(($prf?->first_name ?? '') . ' ' . ($prf?->last_name ?? '')) ?: ($usr?->phone ?? 'Inconnu');
                     $uInit     = strtoupper(substr($prf?->first_name ?? 'U', 0, 1) . substr($prf?->last_name ?? '', 0, 1)) ?: 'U';
                     $palette   = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-                    $uBg       = $palette[crc32($uName) % count($palette)];
+                    $uBg       = $palette[abs(crc32($uName)) % count($palette)];
 
                     $bk        = $pay->booking;
                     $tr        = $bk?->trip;

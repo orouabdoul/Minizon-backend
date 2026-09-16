@@ -89,19 +89,15 @@ class Trips extends Component
             'active'    => Trip::where('status', 'active')->count(),
             'completed' => Trip::where('status', 'completed')->count(),
             'flagged'   => Trip::where('is_flagged', true)->count(),
-            'revenue'   => Trip::where('status', 'completed')
+            'revenue'   => Trip::where('trips.status', 'completed')
                 ->join('bookings', 'trips.id', '=', 'bookings.trip_id')
                 ->where('bookings.payment_status', 'escrow_locked')
                 ->sum('bookings.total_price'),
         ];
 
-        $cities = Trip::select('departure_city')
-            ->union(Trip::select('arrival_city'))
-            ->distinct()
-            ->pluck('departure_city')
-            ->filter()
-            ->sort()
-            ->values();
+        $departures = Trip::distinct()->pluck('departure_city');
+        $arrivals   = Trip::distinct()->pluck('arrival_city');
+        $cities     = $departures->merge($arrivals)->unique()->filter()->sort()->values();
 
         $selectedTrip = $this->selectedTripId
             ? Trip::with(['user.profile', 'vehicle.vehicleType', 'bookings.passenger.profile', 'bookings.payment', 'incidents'])

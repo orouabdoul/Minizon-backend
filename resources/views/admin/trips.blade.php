@@ -239,7 +239,7 @@
                     $dName      = trim(($dProfile?->first_name ?? '') . ' ' . ($dProfile?->last_name ?? '')) ?: 'Inconnu';
                     $dInitials  = strtoupper(substr($dProfile?->first_name ?? 'U', 0, 1) . substr($dProfile?->last_name ?? '', 0, 1)) ?: 'U';
                     $colors     = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-                    $dBg        = $colors[crc32($dName) % count($colors)];
+                    $dBg        = $colors[abs(crc32($dName)) % count($colors)];
                     $dPhotoPath = $dProfile?->profile_photo;
                     $dPhotoUrl  = $dPhotoPath ? (str_starts_with($dPhotoPath,'http') ? $dPhotoPath : \Illuminate\Support\Facades\Storage::disk('public')->url($dPhotoPath)) : null;
 
@@ -368,7 +368,7 @@
     $drvPhotoUrl = $drvPhoto ? (str_starts_with($drvPhoto,'http') ? $drvPhoto : \Illuminate\Support\Facades\Storage::disk('public')->url($drvPhoto)) : null;
     $drvInit  = strtoupper(substr($dPrf?->first_name ?? 'U', 0, 1) . substr($dPrf?->last_name ?? '', 0, 1));
     $colors   = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-    $drvBg    = $colors[crc32($drvName) % count($colors)];
+    $drvBg    = $colors[abs(crc32($drvName)) % count($colors)];
 
     $veh = $t->vehicle;
     $totalRevenue = $t->bookings->where('payment_status', 'escrow_locked')->sum('total_price');
@@ -518,7 +518,7 @@
                 $paxPrf     = $pax?->profile;
                 $paxName    = trim(($paxPrf?->first_name ?? '') . ' ' . ($paxPrf?->last_name ?? '')) ?: 'Passager #' . $bk->id;
                 $paxInit    = strtoupper(substr($paxPrf?->first_name ?? 'P', 0, 1) . substr($paxPrf?->last_name ?? '', 0, 1));
-                $paxBg      = $colors[crc32($paxName) % count($colors)];
+                $paxBg      = $colors[abs(crc32($paxName)) % count($colors)];
                 $bkStData   = $statusLabels[$bk->status ?? 'pending'] ?? ['label'=>$bk->status,'color'=>'#6B7280','bg'=>'#F3F4F6'];
                 $payStData  = $payLabels[$bk->payment_status ?? 'pending'] ?? ['label'=>$bk->payment_status,'color'=>'#6B7280','bg'=>'#F3F4F6'];
             @endphp

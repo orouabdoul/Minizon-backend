@@ -201,7 +201,7 @@ $reasonLabels = [
                     $rName   = trim(($rPrf?->first_name ?? '') . ' ' . ($rPrf?->last_name ?? '')) ?: ($rep?->phone ?? 'Inconnu');
                     $rInit   = strtoupper(substr($rPrf?->first_name ?? 'U', 0, 1) . substr($rPrf?->last_name ?? '', 0, 1)) ?: 'U';
                     $palette = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-                    $rBg     = $palette[crc32($rName) % count($palette)];
+                    $rBg     = $palette[abs(crc32($rName)) % count($palette)];
 
                     $bk      = $d->booking;
                     $tr      = $bk?->trip;

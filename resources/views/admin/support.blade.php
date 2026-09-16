@@ -210,7 +210,7 @@ $channelLabels = [
                     $uName  = trim(($prf?->first_name ?? '') . ' ' . ($prf?->last_name ?? '')) ?: ($usr?->phone ?? 'Inconnu');
                     $uInit  = strtoupper(substr($prf?->first_name ?? 'U', 0, 1) . substr($prf?->last_name ?? '', 0, 1)) ?: 'U';
                     $pal    = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-                    $uBg    = $pal[crc32($uName) % count($pal)];
+                    $uBg    = $pal[abs(crc32($uName)) % count($pal)];
                     $prio   = $priorityLabels[$tk->priority ?? 'medium'] ?? ['label'=>$tk->priority,'color'=>'#6B7280','bg'=>'#F3F4F6','dot'=>'#9CA3AF'];
                     $stD    = $statusLabels[$tk->status ?? 'new'] ?? ['label'=>$tk->status,'color'=>'#6B7280','bg'=>'#F3F4F6'];
                     $isUrgent = ($tk->priority === 'urgent') && !in_array($tk->status, ['resolved','closed']);
