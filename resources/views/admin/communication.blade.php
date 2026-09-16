@@ -144,7 +144,7 @@
                 </div>
                 <div class="conv-last">
                     @if($lastMsg)
-                        {{ $lastMsg->sender?->profile?->first_name ?? 'Inconnu' }}: {{ Str::limit($lastMsg->body ?? '[Pièce jointe]', 50) }}
+                        {{ $lastMsg->sender?->profile?->first_name ?? 'Inconnu' }}: {{ \Illuminate\Support\Str::limit($lastMsg->body ?? '[Pièce jointe]', 50) }}
                     @else
                         Aucun message
                     @endif
@@ -183,7 +183,7 @@
 <div class="panel-drawer">
     <div class="panel-head">
         <div>
-            <h2>{{ Str::limit($cvTitle, 45) }}</h2>
+            <h2>{{ \Illuminate\Support\Str::limit($cvTitle, 45) }}</h2>
             <div class="panel-sub">
                 {{ $cv->messages->count() }} message(s) · {{ $cv->type ?? 'direct' }}
                 @if($cv->trip) · Trajet {{ $cv->trip->departure_city }} → {{ $cv->trip->arrival_city }} @endif
