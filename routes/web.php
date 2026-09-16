@@ -4,6 +4,10 @@ use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Login;
 use App\Livewire\Admin\Drivers;
 use App\Livewire\Admin\Users;
+use App\Livewire\Admin\Trips;
+use App\Livewire\Admin\Payments;
+use App\Livewire\Admin\Disputes;
+use App\Livewire\Admin\Support;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -33,5 +37,9 @@ Route::prefix('admin')->name('panel.')->group(function () {
         Route::get('dashboard', Dashboard::class)->name('dashboard');
         Route::get('users',     Users::class)->name('users');
         Route::get('drivers',   Drivers::class)->name('drivers');
+        Route::get('trips',     Trips::class)->name('trips');
+        Route::get('payments',  Payments::class)->name('payments');
+        Route::get('disputes',  Disputes::class)->name('disputes');
+        Route::get('support',   Support::class)->name('support');
     });
 });

@@ -228,10 +228,11 @@
                 <td>
                     <div class="user-info">
                         @if($photoUrl)
-                            <img src="{{ $photoUrl }}" alt="{{ $initials }}" class="user-avatar" style="border:2px solid {{ $avatarBg }}">
-                        @else
-                            <div class="user-avatar" style="background:{{ $avatarBg }};color:{{ $avatarClr }}">{{ $initials }}</div>
+                            <img src="{{ $photoUrl }}" alt="{{ $initials }}" class="user-avatar"
+                                 style="border:2px solid {{ $avatarBg }}"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                         @endif
+                        <div class="user-avatar" style="background:{{ $avatarBg }};color:{{ $avatarClr }};{{ $photoUrl ? 'display:none' : '' }}">{{ $initials }}</div>
                         <div>
                             <div class="user-info__name">{{ $name ?: '— Sans profil —' }}</div>
                             <div class="user-info__phone">{{ $user->phone }}</div>
@@ -325,10 +326,10 @@
         {{-- Avatar + nom --}}
         <div class="panel-avatar-wrap">
             @if($uPhotoUrl)
-                <img src="{{ $uPhotoUrl }}" alt="{{ $uInitials }}" class="panel-avatar">
-            @else
-                <div class="panel-avatar-initials" style="background:{{ $uAvatarBg }};color:{{ $uAvatarCl }}">{{ $uInitials }}</div>
+                <img src="{{ $uPhotoUrl }}" alt="{{ $uInitials }}" class="panel-avatar"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
             @endif
+            <div class="panel-avatar-initials" style="background:{{ $uAvatarBg }};color:{{ $uAvatarCl }};{{ $uPhotoUrl ? 'display:none' : '' }}">{{ $uInitials }}</div>
             <div>
                 <div class="panel-name">{{ $uName ?: '— Sans profil —' }}</div>
                 <div class="panel-phone">{{ $u->phone }}</div>
@@ -412,7 +413,10 @@
                         @if($p->$field)
                         @php $url = str_starts_with($p->$field, 'http') ? $p->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($p->$field); @endphp
                         <div>
-                            <div class="panel-photo"><img src="{{ $url }}" alt="{{ $label }}" loading="lazy"></div>
+                            <div class="panel-photo">
+                                <img src="{{ $url }}" alt="{{ $label }}" loading="lazy"
+                                     onerror="this.parentElement.innerHTML='<span style=\'font-size:11px;color:#9CA3AF\'>Non disponible</span>'">
+                            </div>
                             <div class="panel-photo__label">{{ $label }}</div>
                         </div>
                         @endif
@@ -430,7 +434,10 @@
                         @if($p->$field)
                         @php $url = str_starts_with($p->$field, 'http') ? $p->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($p->$field); @endphp
                         <div>
-                            <div class="panel-photo"><img src="{{ $url }}" alt="{{ $label }}" loading="lazy"></div>
+                            <div class="panel-photo">
+                                <img src="{{ $url }}" alt="{{ $label }}" loading="lazy"
+                                     onerror="this.parentElement.innerHTML='<span style=\'font-size:11px;color:#9CA3AF\'>Non disponible</span>'">
+                            </div>
                             <div class="panel-photo__label">{{ $label }}</div>
                         </div>
                         @endif
