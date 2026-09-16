@@ -9,6 +9,11 @@ use App\Livewire\Admin\Payments;
 use App\Livewire\Admin\Disputes;
 use App\Livewire\Admin\Support;
 use App\Livewire\Admin\Reservations;
+use App\Livewire\Admin\Passengers;
+use App\Livewire\Admin\Vehicles;
+use App\Livewire\Admin\Payouts;
+use App\Livewire\Admin\Reports;
+use App\Livewire\Admin\Settings;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -43,5 +48,10 @@ Route::prefix('admin')->name('panel.')->group(function () {
         Route::get('disputes',  Disputes::class)->name('disputes');
         Route::get('support',       Support::class)->name('support');
         Route::get('reservations',  Reservations::class)->name('reservations');
+        Route::get('passengers',    Passengers::class)->name('passengers');
+        Route::get('vehicles',      Vehicles::class)->name('vehicles');
+        Route::get('payouts',       Payouts::class)->name('payouts');
+        Route::get('reports',       Reports::class)->name('reports');
+        Route::get('settings',      Settings::class)->name('settings');
     });
 });
