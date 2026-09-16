@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -16,15 +17,37 @@ class Users extends Component
     public string $kycFilter  = '';
     public string $statFilter = '';
 
+    public ?int $selectedUserId = null;
+
     public function updatingSearch(): void    { $this->resetPage(); }
     public function updatingTab(): void       { $this->resetPage(); }
     public function updatingKycFilter(): void  { $this->resetPage(); }
     public function updatingStatFilter(): void { $this->resetPage(); }
 
+    public function viewUser(int $id): void
+    {
+        $this->selectedUserId = $id;
+    }
+
+    public function closeView(): void
+    {
+        $this->selectedUserId = null;
+    }
+
     public function toggleBlock(int $userId): void
     {
         $user = User::findOrFail($userId);
         $user->update(['is_blocked' => ! $user->is_blocked]);
+    }
+
+    public function deleteUser(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        // Close panel if deleting the viewed user
+        if ($this->selectedUserId === $userId) {
+            $this->selectedUserId = null;
+        }
+        $user->delete();
     }
 
     public function render()
@@ -56,10 +79,24 @@ class Users extends Component
             'blocked'    => User::whereIn('role_id', $roleIds)->where('is_blocked', true)->count(),
         ];
 
+        // Load selected user with full relations for the panel
+        $selectedUser = $this->selectedUserId
+            ? User::with(['profile', 'role', 'vehicle.vehicleType'])->find($this->selectedUserId)
+            : null;
+
         return view('admin.users', [
-            'users'          => $query->paginate(15),
-            'stats'          => $stats,
-            'driverRoleId'   => $driverRoleId,
+            'users'        => $query->paginate(15),
+            'stats'        => $stats,
+            'driverRoleId' => $driverRoleId,
+            'selectedUser' => $selectedUser,
         ])->layout('admin.layouts.app', ['title' => 'Utilisateurs']);
+    }
+
+    // Helper accessible from the view via @php
+    public static function storageUrl(?string $path): ?string
+    {
+        if (!$path) return null;
+        if (str_starts_with($path, 'http')) return $path;
+        return Storage::disk('public')->exists($path) ? Storage::disk('public')->url($path) : null;
     }
 }
