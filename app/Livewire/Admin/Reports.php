@@ -63,13 +63,13 @@ class Reports extends Component
             )
             ->where('status', 'completed')
             ->where('created_at', '>=', $from)
-            ->groupBy('day')
-            ->orderBy('day')
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy(DB::raw('DATE(created_at)'))
             ->get();
 
         // ── Top drivers ───────────────────────────────────────────────────
-        $topDrivers = Trip::select('user_id', DB::raw('count(*) as trips_count'), DB::raw('sum(completed_at is not null) as completed'))
-            ->where('trips.status', 'completed')
+        $topDrivers = Trip::select('user_id', DB::raw('count(*) as trips_count'))
+            ->where('status', 'completed')
             ->where('created_at', '>=', $from)
             ->groupBy('user_id')
             ->orderByDesc('trips_count')

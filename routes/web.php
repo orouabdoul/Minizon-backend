@@ -18,6 +18,8 @@ use App\Livewire\Admin\Notifications;
 use App\Livewire\Admin\AuditLog;
 use App\Livewire\Admin\Communication;
 use App\Livewire\Admin\Tracking;
+use App\Livewire\Admin\Reviews;
+use App\Livewire\Admin\Refunds;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -61,5 +63,7 @@ Route::prefix('admin')->name('panel.')->group(function () {
         Route::get('audit',          AuditLog::class)->name('audit');
         Route::get('messaging',      Communication::class)->name('messaging');
         Route::get('tracking',       Tracking::class)->name('tracking');
+        Route::get('reviews',        Reviews::class)->name('reviews');
+        Route::get('refunds',        Refunds::class)->name('refunds');
     });
 });
