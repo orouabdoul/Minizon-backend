@@ -89,8 +89,9 @@ class Trips extends Component
             'active'    => Trip::where('status', 'active')->count(),
             'completed' => Trip::where('status', 'completed')->count(),
             'flagged'   => Trip::where('is_flagged', true)->count(),
-            'revenue'   => Trip::where('trips.status', 'completed')
-                ->join('bookings', 'trips.id', '=', 'bookings.trip_id')
+            'revenue'   => (int) DB::table('bookings')
+                ->join('trips', 'trips.id', '=', 'bookings.trip_id')
+                ->where('trips.status', 'completed')
                 ->where('bookings.payment_status', 'escrow_locked')
                 ->sum('bookings.total_price'),
         ];
