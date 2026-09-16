@@ -13,6 +13,7 @@
     ];
 @endphp
 
+<div>
 <style>
 /* ── Trips page ─────────────────────────────────────────── */
 .trips-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
@@ -584,3 +585,4 @@
     </div>
 </div>
 @endif
+</div>

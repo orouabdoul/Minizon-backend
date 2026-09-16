@@ -15,6 +15,7 @@ $providerLabels = [
 ];
 @endphp
 
+<div>
 <style>
 .pay-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
 .pay-header{margin-bottom:24px}
@@ -429,3 +430,4 @@ $providerLabels = [
     </div>
 </div>
 @endif
+</div>

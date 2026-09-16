@@ -17,6 +17,7 @@ $reasonLabels = [
 ];
 @endphp
 
+<div>
 <style>
 .disp-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
 .disp-header{margin-bottom:24px}
@@ -404,3 +405,4 @@ $reasonLabels = [
     </div>
 </div>
 @endif
+</div>
