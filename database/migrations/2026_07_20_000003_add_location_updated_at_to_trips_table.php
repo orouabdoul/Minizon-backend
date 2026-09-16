@@ -9,14 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            $table->timestamp('location_updated_at')->nullable()->after('current_speed');
+            if (!Schema::hasColumn('trips', 'location_updated_at'))
+                $table->timestamp('location_updated_at')->nullable();
         });
     }
 
-    public function down(): void
-    {
-        Schema::table('trips', function (Blueprint $table) {
-            $table->dropColumn('location_updated_at');
-        });
-    }
+    public function down(): void {}
 };

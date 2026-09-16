@@ -9,15 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            $table->timestamp('started_at')->nullable()->after('is_published');
-            $table->timestamp('completed_at')->nullable()->after('started_at');
+            if (!Schema::hasColumn('trips', 'started_at'))
+                $table->timestamp('started_at')->nullable();
+            if (!Schema::hasColumn('trips', 'completed_at'))
+                $table->timestamp('completed_at')->nullable();
         });
     }
 
-    public function down(): void
-    {
-        Schema::table('trips', function (Blueprint $table) {
-            $table->dropColumn(['started_at', 'completed_at']);
-        });
-    }
+    public function down(): void {}
 };

@@ -9,14 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            $table->decimal('distance_km', 8, 2)->nullable()->after('estimated_duration_minutes');
+            if (!Schema::hasColumn('trips', 'distance_km'))
+                $table->decimal('distance_km', 8, 2)->nullable();
         });
     }
 
-    public function down(): void
-    {
-        Schema::table('trips', function (Blueprint $table) {
-            $table->dropColumn('distance_km');
-        });
-    }
+    public function down(): void {}
 };

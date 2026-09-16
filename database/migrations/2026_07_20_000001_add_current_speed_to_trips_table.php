@@ -9,14 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            $table->decimal('current_speed', 6, 2)->nullable()->after('current_longitude');
+            if (!Schema::hasColumn('trips', 'current_speed'))
+                $table->decimal('current_speed', 6, 2)->nullable();
         });
     }
 
-    public function down(): void
-    {
-        Schema::table('trips', function (Blueprint $table) {
-            $table->dropColumn('current_speed');
-        });
-    }
+    public function down(): void {}
 };
