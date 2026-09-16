@@ -2,6 +2,8 @@
 
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Login;
+use App\Livewire\Admin\Drivers;
+use App\Livewire\Admin\Users;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -29,5 +31,7 @@ Route::prefix('admin')->name('panel.')->group(function () {
     // Protected admin pages
     Route::middleware(\App\Http\Middleware\AdminAuth::class)->group(function () {
         Route::get('dashboard', Dashboard::class)->name('dashboard');
+        Route::get('users',     Users::class)->name('users');
+        Route::get('drivers',   Drivers::class)->name('drivers');
     });
 });
