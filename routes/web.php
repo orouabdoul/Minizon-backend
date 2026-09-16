@@ -14,6 +14,10 @@ use App\Livewire\Admin\Vehicles;
 use App\Livewire\Admin\Payouts;
 use App\Livewire\Admin\Reports;
 use App\Livewire\Admin\Settings;
+use App\Livewire\Admin\Notifications;
+use App\Livewire\Admin\AuditLog;
+use App\Livewire\Admin\Communication;
+use App\Livewire\Admin\Tracking;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -51,7 +55,11 @@ Route::prefix('admin')->name('panel.')->group(function () {
         Route::get('passengers',    Passengers::class)->name('passengers');
         Route::get('vehicles',      Vehicles::class)->name('vehicles');
         Route::get('payouts',       Payouts::class)->name('payouts');
-        Route::get('reports',       Reports::class)->name('reports');
-        Route::get('settings',      Settings::class)->name('settings');
+        Route::get('reports',        Reports::class)->name('reports');
+        Route::get('settings',       Settings::class)->name('settings');
+        Route::get('notifications',  Notifications::class)->name('notifications');
+        Route::get('audit',          AuditLog::class)->name('audit');
+        Route::get('messaging',      Communication::class)->name('messaging');
+        Route::get('tracking',       Tracking::class)->name('tracking');
     });
 });
