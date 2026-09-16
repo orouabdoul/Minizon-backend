@@ -46,66 +46,108 @@
         /* ── Sidebar ────────────────────────────────────────── */
         .dash-sidebar {
             width: var(--sidebar-width); min-height: 100vh;
-            background: var(--primary);
+            background: linear-gradient(175deg, #1A5FB4 0%, #1352A3 55%, #0F4A9E 100%);
             display: flex; flex-direction: column;
             position: fixed; left: 0; top: 0; bottom: 0;
             z-index: 50; transition: transform 0.25s ease;
+            box-shadow: 2px 0 16px rgba(15,74,158,0.25);
         }
         @media (max-width: 1023px) {
             .dash-sidebar { transform: translateX(-100%); }
             .dash-sidebar.open { transform: translateX(0); }
         }
 
+        /* ── Logo ───────────────────────────────────────────── */
         .dash-sidebar__logo {
-            padding: 20px 16px 16px;
+            padding: 18px 14px 16px;
             display: flex; align-items: center; gap: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.12);
+            border-bottom: 1px solid rgba(255,255,255,0.10);
+            flex-shrink: 0;
         }
         .dash-sidebar__logo-box {
-            width: 40px; height: 40px; background: rgba(255,255,255,0.15);
+            width: 38px; height: 38px;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.25);
             border-radius: 10px; display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
-        .dash-sidebar__logo-title { color: #fff; font-size: 16px; font-weight: 700; line-height: 1.2; }
-        .dash-sidebar__logo-sub   { color: rgba(255,255,255,0.6); font-size: 11px; }
+        .dash-sidebar__logo-title { color: #fff; font-size: 15px; font-weight: 700; line-height: 1.2; letter-spacing: 0.3px; }
+        .dash-sidebar__logo-sub   { color: rgba(255,255,255,0.5); font-size: 10px; margin-top:1px; display:flex; align-items:center; gap:5px; }
+        .dash-logo-badge {
+            background: rgba(255,122,69,0.25); border: 1px solid rgba(255,122,69,0.4);
+            color: #FFB59A; font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+            padding: 1px 5px; border-radius: 4px; text-transform: uppercase;
+        }
         .dash-sidebar__close {
             margin-left: auto; background: none; border: none; padding: 4px;
-            cursor: pointer; display: none; color: white;
+            cursor: pointer; display: none; color: white; border-radius: 6px;
         }
         @media (max-width: 1023px) { .dash-sidebar__close { display: flex; } }
 
+        /* ── Nav ────────────────────────────────────────────── */
         .dash-sidebar__nav {
-            flex: 1; overflow-y: auto; padding: 12px 8px;
-            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+            flex: 1; overflow-y: auto; padding: 10px 8px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
         }
-        .dash-nav-group { margin-bottom: 4px; }
+        .dash-nav-group { margin-bottom: 2px; }
         .dash-nav-group__label {
-            color: rgba(255,255,255,0.45); font-size: 10px; font-weight: 600;
-            letter-spacing: 0.8px; text-transform: uppercase;
-            padding: 8px 10px 4px;
+            color: rgba(255,255,255,0.38); font-size: 9.5px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase;
+            padding: 10px 10px 3px;
         }
         .dash-nav-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 9px 10px; border-radius: 8px;
-            color: rgba(255,255,255,0.75); font-size: 13.5px; font-weight: 500;
-            text-decoration: none; transition: background 0.15s, color 0.15s;
-            margin-bottom: 1px;
+            display: flex; align-items: center; gap: 9px;
+            padding: 8.5px 10px; border-radius: 8px;
+            color: rgba(255,255,255,0.68); font-size: 13px; font-weight: 500;
+            text-decoration: none;
+            transition: background 0.15s, color 0.15s, transform 0.12s;
+            margin-bottom: 1px; position: relative;
         }
-        .dash-nav-item:hover { background: rgba(255,255,255,0.10); color: #fff; }
-        .dash-nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 600; }
+        .dash-nav-item:hover {
+            background: rgba(255,255,255,0.10);
+            color: #fff;
+            transform: translateX(2px);
+        }
+        .dash-nav-item.active {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            font-weight: 600;
+            box-shadow: inset 3px 0 0 #FF7A45;
+            border-radius: 0 8px 8px 0;
+        }
+        .dash-nav-item.active svg { opacity: 1; }
 
+        /* ── Footer ─────────────────────────────────────────── */
         .dash-sidebar__footer {
-            padding: 12px 8px 16px;
-            border-top: 1px solid rgba(255,255,255,0.12);
+            padding: 10px 8px 14px;
+            border-top: 1px solid rgba(255,255,255,0.10);
+            flex-shrink: 0;
         }
-        .dash-logout-btn {
-            width: 100%; display: flex; align-items: center; gap: 10px;
+        .dash-admin-card {
+            display: flex; align-items: center; gap: 9px;
             padding: 9px 10px; border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.10);
+            margin-bottom: 6px;
+        }
+        .dash-admin-card__avatar {
+            width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+            background: rgba(255,255,255,0.20);
+            border: 2px solid rgba(255,255,255,0.30);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 700; font-size: 12px;
+        }
+        .dash-admin-card__name   { color: #fff; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dash-admin-card__status { display: flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.5); font-size: 10px; margin-top: 1px; }
+        .dash-status-dot         { width: 6px; height: 6px; border-radius: 50%; background: #22C55E; display: inline-block; flex-shrink: 0; box-shadow: 0 0 4px #22C55E; }
+        .dash-logout-btn {
+            width: 100%; display: flex; align-items: center; gap: 9px;
+            padding: 8px 10px; border-radius: 8px;
             background: none; border: none; cursor: pointer;
-            color: rgba(255,255,255,0.7); font-size: 13.5px; font-weight: 500;
+            color: rgba(255,255,255,0.60); font-size: 13px; font-weight: 500;
             font-family: inherit; transition: background 0.15s, color 0.15s;
         }
-        .dash-logout-btn:hover { background: rgba(239,68,68,0.2); color: #FCA5A5; }
+        .dash-logout-btn:hover { background: rgba(239,68,68,0.18); color: #FCA5A5; }
 
         /* ── Main area ──────────────────────────────────────── */
         .dash-main {
@@ -239,17 +281,20 @@
         {{-- Logo --}}
         <div class="dash-sidebar__logo">
             <div class="dash-sidebar__logo-box">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                 </svg>
             </div>
-            <div style="flex:1">
+            <div style="flex:1;min-width:0">
                 <div class="dash-sidebar__logo-title">MINIZON</div>
-                <div class="dash-sidebar__logo-sub">Admin Platform</div>
+                <div class="dash-sidebar__logo-sub">
+                    Admin Platform
+                    <span class="dash-logo-badge">ADMIN</span>
+                </div>
             </div>
             <button class="dash-sidebar__close" @click="sidebarOpen = false" aria-label="Fermer">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
 
@@ -293,7 +338,7 @@
                     <div class="dash-nav-group__label">{{ $groupLabel }}</div>
                     @foreach($items as [$id, $label, $path])
                         <a href="{{ $path }}"
-                           class="dash-nav-item {{ 'admin/'.ltrim(parse_url($path, PHP_URL_PATH), '/admin/') === $currentPath || $currentPath === ltrim($path, '/') ? 'active' : '' }}">
+                           class="dash-nav-item {{ ltrim($path, '/') === $currentPath ? 'active' : '' }}">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 {!! $icons[$id] ?? '' !!}
                             </svg>
@@ -304,17 +349,29 @@
             @endforeach
         </nav>
 
-        {{-- Footer logout --}}
+        {{-- Footer : profil + logout --}}
         <div class="dash-sidebar__footer">
+            <div class="dash-admin-card">
+                <div class="dash-admin-card__avatar">
+                    {{ strtoupper(substr(Auth::guard('admin')->user()->name ?? 'A', 0, 1)) }}
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div class="dash-admin-card__name">{{ Auth::guard('admin')->user()->name ?? 'Admin' }}</div>
+                    <div class="dash-admin-card__status">
+                        <span class="dash-status-dot"></span>
+                        En ligne
+                    </div>
+                </div>
+            </div>
             <form method="POST" action="{{ route('panel.logout') }}">
                 @csrf
                 <button type="submit" class="dash-logout-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                         <polyline points="16 17 21 12 16 7"/>
                         <line x1="21" y1="12" x2="9" y2="12"/>
                     </svg>
-                    Déconnexion
+                    Se déconnecter
                 </button>
             </form>
         </div>

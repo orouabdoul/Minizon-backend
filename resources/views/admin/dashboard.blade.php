@@ -309,7 +309,7 @@ $statusMap = [
 
         {{-- Top conducteurs --}}
         @php
-            $driversPerPage  = 5;
+            $driversPerPage  = 8;
             $driversTotal    = count($topDrivers);
             $driversPages    = max(1, (int) ceil($driversTotal / $driversPerPage));
             $driversSafePage = max(1, min($driversPage, $driversPages));
