@@ -9,14 +9,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            $table->unsignedInteger('total_seats')->default(1)->after('description');
-            $table->unsignedInteger('available_seats')->default(1)->after('total_seats');
+            if (!Schema::hasColumn('trips', 'total_seats')) {
+                $table->unsignedInteger('total_seats')->default(1)->after('description');
+            }
+            if (!Schema::hasColumn('trips', 'available_seats')) {
+                $table->unsignedInteger('available_seats')->default(1)->after('total_seats');
+            }
 
-            // Index pour les recherches fréquentes
-            $table->index('departure_city');
-            $table->index('arrival_city');
-            $table->index('departure_time');
-            $table->index('status');
+            // Index pour les recherches fréquentes (ignorés s'ils existent déjà)
+            try { $table->index('departure_city'); } catch (\Exception $e) {}
+            try { $table->index('arrival_city'); } catch (\Exception $e) {}
+            try { $table->index('departure_time'); } catch (\Exception $e) {}
+            try { $table->index('status'); } catch (\Exception $e) {}
         });
     }
 
