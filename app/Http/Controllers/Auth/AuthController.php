@@ -1064,6 +1064,13 @@ class AuthController extends Controller
             ]);
         }
 
+        // Sync is_verified if kyc_status is approved but is_verified is still false
+        $kycApproved = ($profile?->kyc_status === 'approved');
+        if ($kycApproved && ! (bool) $user->is_verified) {
+            $user->update(['is_verified' => true]);
+            $user->is_verified = true;
+        }
+
         $accountStatus = match (true) {
             (bool) $user->is_blocked  => 'suspended',
             ! (bool) $user->is_verified => 'pending_approval',
