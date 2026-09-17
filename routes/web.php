@@ -23,6 +23,36 @@ use App\Livewire\Admin\Refunds;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+// ── Temporary debug route — REMOVE AFTER FIX ─────────────────────────────────
+Route::get('/debug-trips', function () {
+    $r = [];
+    try {
+        $r['db']        = config('database.default');
+        $r['trip_count']= \App\Models\Trip::count();
+        $r['active']    = \App\Models\Trip::where('status', 'active')->count();
+        $r['flagged']   = \App\Models\Trip::where('is_flagged', true)->count();
+        $r['revenue']   = (int) \Illuminate\Support\Facades\DB::table('bookings')
+            ->join('trips', 'trips.id', '=', 'bookings.trip_id')
+            ->where('trips.status', 'completed')
+            ->where('bookings.payment_status', 'escrow_locked')
+            ->sum('bookings.total_price');
+        $r['cities']    = \App\Models\Trip::distinct()->pluck('departure_city')->take(5)->toArray();
+        $r['paginate']  = \App\Models\Trip::with(['user.profile', 'vehicle', 'bookings'])
+            ->orderByDesc('departure_time')->paginate(3)->total();
+        return response()->json(['ok' => true] + $r);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'ok'    => false,
+            'step'  => array_key_last($r),
+            'error' => $e->getMessage(),
+            'class' => class_basename($e),
+            'file'  => basename($e->getFile()),
+            'line'  => $e->getLine(),
+            'so_far'=> $r,
+        ], 200);
+    }
+});
+
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
         return redirect()->route('panel.dashboard');
