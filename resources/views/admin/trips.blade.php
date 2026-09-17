@@ -267,7 +267,7 @@
                                 {{ $trip->arrival_city }}
                             </div>
                             <div class="route-sub">
-                                @if($trip->distance_km){{ number_format($trip->distance_km, 1) }} km@endif
+                                @if($trip->distance_km){{ number_format($trip->distance_km, 1) }} km @endif
                                 @if($trip->is_flagged) &nbsp; 🚩@endif
                                 @if(!$trip->is_published) &nbsp; 📝@endif
                             </div>
