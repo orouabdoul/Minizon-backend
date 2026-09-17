@@ -15,6 +15,12 @@ php artisan storage:link  2>/dev/null || true
         echo "[migrate] $line" >&2
     done
     echo "[migrate] Done." >&2
+    php artisan db:seed --class=RoleSeeder --force 2>&1 | while IFS= read -r line; do
+        echo "[seed] $line" >&2
+    done
+    php artisan db:seed --class=VehicleTypeSeeder --force 2>&1 | while IFS= read -r line; do
+        echo "[seed] $line" >&2
+    done
     php artisan db:seed --class=AdminSeeder --force 2>&1 | while IFS= read -r line; do
         echo "[seed] $line" >&2
     done

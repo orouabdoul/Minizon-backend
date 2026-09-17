@@ -25,8 +25,8 @@ RUN printf '<Directory /var/www/html/public>\n    Options FollowSymLinks\n    Al
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-# CACHE_BUST: 2026-09-17T01 — fix Trips blade ParseError (km@endif not compiled by Blade regex)
-ARG CACHE_BUST=2026-09-17T01
+# CACHE_BUST: 2026-09-17T02 — seed roles+vehicle_types on startup (fixes FK violation + vehicle_type invalid)
+ARG CACHE_BUST=2026-09-17T02
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
