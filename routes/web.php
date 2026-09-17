@@ -23,7 +23,52 @@ use App\Livewire\Admin\Refunds;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-// ── Temporary debug route — REMOVE AFTER FIX ─────────────────────────────────
+// ── Temporary debug routes — REMOVE AFTER FIX ────────────────────────────────
+
+// Show last 80 lines of Laravel log to see the actual exception
+Route::get('/debug-log', function () {
+    $path = storage_path('logs/laravel.log');
+    if (! file_exists($path)) return response()->json(['msg' => 'no log file found']);
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $last  = array_slice($lines, -80);
+    return response('<pre style="font-size:11px;font-family:monospace;white-space:pre-wrap">'
+        . implode("\n", array_map('htmlspecialchars', $last))
+        . '</pre>', 200, ['Content-Type' => 'text/html']);
+});
+
+// Render trips blade template directly (bypassing Livewire) to isolate blade errors
+Route::get('/debug-trips-render', function () {
+    try {
+        $trips = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+        $stats = ['total' => 0, 'active' => 0, 'completed' => 0, 'flagged' => 0, 'revenue' => 0];
+        $cities       = collect();
+        $selectedTrip = null;
+        // Simulate Livewire component properties
+        $search = $statusFilter = $cityFilter = $dateFrom = $dateTo = $flagFilter = '';
+        $selectedTripId = null;
+        $paginators = [];
+
+        $html = view('admin.trips', compact(
+            'trips', 'stats', 'cities', 'selectedTrip',
+            'search', 'statusFilter', 'cityFilter',
+            'dateFrom', 'dateTo', 'flagFilter',
+            'selectedTripId', 'paginators'
+        ))->render();
+
+        return response('<pre style="font-size:11px">BLADE OK — ' . strlen($html) . ' bytes</pre>'
+            . $html, 200, ['Content-Type' => 'text/html']);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'blade_ok' => false,
+            'error'    => $e->getMessage(),
+            'class'    => class_basename($e),
+            'file'     => basename($e->getFile()),
+            'line'     => $e->getLine(),
+            'trace'    => array_slice(explode("\n", $e->getTraceAsString()), 0, 15),
+        ]);
+    }
+});
+
 Route::get('/debug-trips', function () {
     $r = [];
     try {
