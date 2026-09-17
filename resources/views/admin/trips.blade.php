@@ -1,3 +1,4 @@
+<div>
 @php
     $statusLabels = [
         'pending'   => ['label' => 'En attente', 'color' => '#F59E0B', 'bg' => '#FEF3C7'],
@@ -6,14 +7,18 @@
         'cancelled' => ['label' => 'Annulé',     'color' => '#EF4444', 'bg' => '#FEE2E2'],
     ];
     $payLabels = [
-        'escrow_locked' => ['label' => 'Payé',      'color' => '#10B981', 'bg' => '#D1FAE5'],
-        'released'      => ['label' => 'Libéré',    'color' => '#6366F1', 'bg' => '#EDE9FE'],
-        'pending'       => ['label' => 'En attente','color' => '#F59E0B', 'bg' => '#FEF3C7'],
-        'refunded'      => ['label' => 'Remboursé', 'color' => '#EF4444', 'bg' => '#FEE2E2'],
+        'escrow_locked'      => ['label' => 'Payé',       'color' => '#10B981', 'bg' => '#D1FAE5'],
+        'released_to_driver' => ['label' => 'Libéré',     'color' => '#6366F1', 'bg' => '#EDE9FE'],
+        'unpaid'             => ['label' => 'Non payé',   'color' => '#F59E0B', 'bg' => '#FEF3C7'],
+        'refunded'           => ['label' => 'Remboursé',  'color' => '#EF4444', 'bg' => '#FEE2E2'],
     ];
 @endphp
-
-<div>
+@if(isset($renderError))
+<div style="background:#FEE2E2;border:2px solid #EF4444;border-radius:10px;padding:18px 22px;margin:24px;font-family:monospace;font-size:13px;color:#7F1D1D">
+    <div style="font-weight:700;font-size:15px;margin-bottom:8px">⚠️ Erreur de rendu — Trajets</div>
+    <div>{{ $renderError }}</div>
+</div>
+@else
 <style>
 /* ── Trips page ─────────────────────────────────────────── */
 .trips-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
@@ -441,7 +446,7 @@
                     </div>
                     <div class="info-item">
                         <label>Immatriculation</label>
-                        <span style="font-family:monospace;letter-spacing:1px">{{ $veh->plate_number ?? '—' }}</span>
+                        <span style="font-family:monospace;letter-spacing:1px">{{ $veh->license_plate ?? '—' }}</span>
                     </div>
                     <div class="info-item">
                         <label>Couleur</label>
@@ -449,7 +454,7 @@
                     </div>
                     <div class="info-item">
                         <label>Places totales</label>
-                        <span>{{ $veh->seats ?? '—' }}</span>
+                        <span>{{ $veh->available_seats ?? '—' }}</span>
                     </div>
                 </div>
             </div>
@@ -551,8 +556,8 @@
             @foreach($t->incidents as $inc)
             <div style="background:#FEF3C7;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px">
                 <div style="font-weight:600;color:#92400E">⚠️ {{ $inc->type ?? 'Incident' }}</div>
-                @if($inc->description)
-                <div style="color:#78350F;margin-top:4px">{{ $inc->description }}</div>
+                @if($inc->notes)
+                <div style="color:#78350F;margin-top:4px">{{ $inc->notes }}</div>
                 @endif
                 <div style="color:#92400E;margin-top:4px;font-size:11px">
                     {{ $inc->created_at?->format('d/m/Y H:i') }}
@@ -584,5 +589,6 @@
         <button class="btn-panel btn-panel-primary" wire:click="closeView">Fermer</button>
     </div>
 </div>
+@endif
 @endif
 </div>

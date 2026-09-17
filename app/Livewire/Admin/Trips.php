@@ -65,11 +65,17 @@ class Trips extends Component
         try {
             return $this->doRender();
         } catch (\Throwable $e) {
-            logger()->error('[Admin\Trips] render failed: ' . $e->getMessage(), [
-                'file'  => $e->getFile(),
-                'line'  => $e->getLine(),
-            ]);
-            throw $e;
+            $msg = '[' . class_basename($e) . '] ' . $e->getMessage()
+                 . ' — ' . basename($e->getFile()) . ':' . $e->getLine();
+            logger()->error('[Admin\Trips] render failed: ' . $msg);
+
+            return view('admin.trips', [
+                'renderError'  => $msg,
+                'trips'        => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15),
+                'stats'        => ['total' => 0, 'active' => 0, 'completed' => 0, 'flagged' => 0, 'revenue' => 0],
+                'cities'       => collect(),
+                'selectedTrip' => null,
+            ])->layout('admin.layouts.app', ['title' => 'Trajets']);
         }
     }
 
