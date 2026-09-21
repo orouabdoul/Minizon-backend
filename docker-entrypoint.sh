@@ -24,6 +24,9 @@ php artisan storage:link  2>/dev/null || true
     php artisan db:seed --class=AdminSeeder --force 2>&1 | while IFS= read -r line; do
         echo "[seed] $line" >&2
     done
+    php artisan db:seed --class=AdminUserSeeder --force 2>&1 | while IFS= read -r line; do
+        echo "[seed] $line" >&2
+    done
 ) &
 
 # Start Apache in the foreground — Render health checks pass immediately
