@@ -276,7 +276,7 @@ class Communication extends Component
         $query = Conversation::with([
             'participants.profile',
             'trip',
-            'messages' => fn ($q) => $q->latest()->limit(1),
+            'lastMessage.sender.profile',
         ])
         ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
             $s = '%' . $this->search . '%';
@@ -287,12 +287,16 @@ class Communication extends Component
         ->withCount('messages')
         ->orderByDesc('updated_at');
 
-        $stats = [
-            'total'   => Conversation::count(),
-            'messages'=> Message::count(),
-            'today'   => Conversation::whereDate('created_at', today())->count(),
-            'flagged' => Message::whereNotNull('deleted_at')->withTrashed()->count(),
-        ];
+        try {
+            $stats = [
+                'total'   => Conversation::count(),
+                'messages'=> Message::withoutGlobalScopes()->count(),
+                'today'   => Conversation::whereDate('created_at', today())->count(),
+                'flagged' => Message::onlyTrashed()->count(),
+            ];
+        } catch (\Throwable) {
+            $stats = ['total' => 0, 'messages' => 0, 'today' => 0, 'flagged' => 0];
+        }
 
         $selectedConv = $this->selectedId
             ? Conversation::with(['participants.profile', 'trip', 'messages.sender.profile'])->find($this->selectedId)
@@ -339,8 +343,14 @@ class Communication extends Component
                 ->get();
         }
 
+        try {
+            $conversations = $query->paginate(20);
+        } catch (\Throwable) {
+            $conversations = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+        }
+
         return view('admin.communication', [
-            'conversations'  => $query->paginate(20),
+            'conversations'  => $conversations,
             'stats'          => $stats,
             'selectedConv'   => $selectedConv,
             'adminId'        => $adminId,

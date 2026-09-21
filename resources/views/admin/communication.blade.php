@@ -196,7 +196,7 @@
         @php
             $parts  = $conv->participants;
             $colors = ['#1A5FB4','#10B981','#F59E0B','#EF4444','#6366F1','#EC4899'];
-            $lastMsg = $conv->messages->first();
+            $lastMsg = $conv->lastMessage;
             $typeLabels = ['booking'=>'Réservation','support'=>'Support','direct'=>'Direct'];
             $typeBgs    = ['booking'=>'#EFF6FF','support'=>'#EDE9FE','direct'=>'#F3F4F6'];
             $typeColors = ['booking'=>'#1A5FB4','support'=>'#7C3AED','direct'=>'#374151'];
