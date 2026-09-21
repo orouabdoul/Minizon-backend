@@ -4,29 +4,32 @@ namespace App\Livewire\Admin;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\FcmService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Communication extends Component
 {
-    use WithFileUploads;
+    use WithPagination, WithFileUploads;
 
-    // ── Filtres liste (ancien) ────────────────────────────
+    // ── Filtres supervision (ancien) ──────────────────────
     public string $search     = '';
     public string $typeFilter = '';
     public ?int   $selectedId = null;
 
-    // ── Panneau d'envoi admin ─────────────────────────────
-    public bool   $showChat       = false;
-    public string $chatSearch     = '';
-    public string $chatRole       = '';
-    public ?int   $chatConvId     = null;   // conversation sélectionnée dans le panneau
-    public string $chatMessage    = '';
-    public $chatAttachment        = null;
+    // ── Panneau chat admin ────────────────────────────────
+    public bool    $showChat         = false;
+    public string  $chatSearch       = '';
+    public string  $chatRole         = '';
+    public ?string $chatTargetUuid   = null;  // UUID de l'utilisateur sélectionné
+    public ?int    $chatConvId       = null;  // ID conversation (null = pas encore créée)
+    public string  $chatMessage      = '';
+    public $chatAttachment           = null;
 
     // ── Diffusion ─────────────────────────────────────────
     public bool   $showBroadcast    = false;
@@ -40,48 +43,69 @@ class Communication extends Component
     public function updatingSearch(): void     { $this->resetPage(); }
     public function updatingTypeFilter(): void { $this->resetPage(); }
 
-    public function resetPage(): void { /* pagination si ajoutée plus tard */ }
-
     // ─── Supervision (ancien) ──────────────────────────────
+
     public function view(int $id): void   { $this->selectedId = $id; }
     public function closeView(): void     { $this->selectedId = null; }
 
-    // ─── Panneau chat admin ────────────────────────────────
+    // ─── Panneau chat ──────────────────────────────────────
+
     public function openChat(): void
     {
-        $this->showChat    = true;
-        $this->chatConvId  = null;
-        $this->chatMessage = '';
+        $this->showChat       = true;
+        $this->chatTargetUuid = null;
+        $this->chatConvId     = null;
+        $this->chatMessage    = '';
+        $this->chatAttachment = null;
+        $this->chatSearch     = '';
+    }
+
+    public function closeChat(): void
+    {
+        $this->showChat       = false;
+        $this->chatTargetUuid = null;
+        $this->chatConvId     = null;
+    }
+
+    public function backToSearch(): void
+    {
+        $this->chatTargetUuid = null;
+        $this->chatConvId     = null;
+        $this->chatMessage    = '';
         $this->chatAttachment = null;
     }
 
-    public function closeChat(): void   { $this->showChat = false; }
-
+    /**
+     * Sélectionner un utilisateur → ouvre la vue chat immédiatement,
+     * sans attendre l'existence d'un admin user.
+     */
     public function startChatWith(string $userUuid): void
     {
-        $adminId    = $this->getAdminUserId();
-        if (! $adminId) return;
+        $this->chatTargetUuid = $userUuid;
+        $this->chatConvId     = null;
+        $this->chatMessage    = '';
+        $this->chatAttachment = null;
 
-        $target = User::where('uuid', $userUuid)->first();
-        if (! $target) return;
-
-        $conv = Conversation::whereNull('trip_id')
-            ->whereNull('booking_id')
-            ->whereHas('participants', fn ($q) => $q->where('users.id', $adminId))
-            ->whereHas('participants', fn ($q) => $q->where('users.id', $target->id))
-            ->first();
-
-        if (! $conv) {
-            $conv = Conversation::create(['type' => 'support', 'trip_id' => null, 'booking_id' => null]);
-            $conv->participants()->attach([$adminId, $target->id]);
+        // Cherche une conversation existante (si un admin user existe)
+        $adminId = $this->resolveAdminUserId();
+        if ($adminId) {
+            $target = User::where('uuid', $userUuid)->value('id');
+            if ($target) {
+                $conv = Conversation::whereNull('trip_id')
+                    ->whereNull('booking_id')
+                    ->whereHas('participants', fn ($q) => $q->where('users.id', $adminId))
+                    ->whereHas('participants', fn ($q) => $q->where('users.id', $target))
+                    ->first();
+                $this->chatConvId = $conv?->id;
+            }
         }
 
-        $this->chatConvId  = $conv->id;
-        $this->chatMessage = '';
-        $this->chatAttachment = null;
         $this->dispatch('chat-panel-opened');
     }
 
+    /**
+     * Envoyer un message. Crée la conversation si elle n'existe pas encore.
+     */
     public function sendChatMessage(): void
     {
         $this->validate([
@@ -93,14 +117,36 @@ class Communication extends Component
         $hasFile = $this->chatAttachment !== null;
         if (! $hasText && ! $hasFile) return;
 
-        $adminId = $this->getAdminUserId();
+        if (! $this->chatTargetUuid) return;
+
+        $adminId = $this->resolveAdminUserId();
         if (! $adminId) {
-            $this->flash     = "Aucun utilisateur avec le rôle 'admin' trouvé dans la table users.";
+            $this->flash     = "Impossible d'envoyer : aucun utilisateur avec le rôle 'admin' trouvé. Créez-en un via la page Utilisateurs ou lancez : php artisan db:seed --class=AdminUserSeeder";
             $this->flashType = 'error';
             return;
         }
 
-        $conv = Conversation::with('participants')->findOrFail($this->chatConvId);
+        // Trouver ou créer la conversation
+        if (! $this->chatConvId) {
+            $target = User::where('uuid', $this->chatTargetUuid)->first();
+            if (! $target) return;
+
+            $conv = Conversation::whereNull('trip_id')
+                ->whereNull('booking_id')
+                ->whereHas('participants', fn ($q) => $q->where('users.id', $adminId))
+                ->whereHas('participants', fn ($q) => $q->where('users.id', $target->id))
+                ->first();
+
+            if (! $conv) {
+                $conv = Conversation::create(['type' => 'support', 'trip_id' => null, 'booking_id' => null]);
+                $conv->participants()->attach([$adminId, $target->id]);
+            }
+
+            $this->chatConvId = $conv->id;
+        }
+
+        $conv = Conversation::with('participants')->find($this->chatConvId);
+        if (! $conv) return;
 
         $attachmentPath = null;
         $attachmentType = null;
@@ -130,7 +176,9 @@ class Communication extends Component
         $conv->touch();
 
         $preview = $hasText ? trim($this->chatMessage) : match ($attachmentType) {
-            'audio' => '🎙️ Message vocal', 'image' => '📷 Photo', default => '📄 Document',
+            'audio' => '🎙️ Message vocal',
+            'image' => '📷 Photo',
+            default => '📄 Document',
         };
 
         $tokens = $conv->participants
@@ -149,6 +197,7 @@ class Communication extends Component
     }
 
     // ─── Diffusion ─────────────────────────────────────────
+
     public function sendBroadcast(): void
     {
         $this->validate([
@@ -156,21 +205,30 @@ class Communication extends Component
             'broadcastTarget'  => 'required|in:tous,tous_conducteurs,tous_passagers,en_ligne,en_trajet',
         ]);
 
-        $adminId = $this->getAdminUserId();
-        if (! $adminId) return;
+        $adminId = $this->resolveAdminUserId();
+        if (! $adminId) {
+            $this->flash     = "Impossible de diffuser : aucun utilisateur avec le rôle 'admin' trouvé. Créez-en un via la page Utilisateurs.";
+            $this->flashType = 'error';
+            $this->showBroadcast = false;
+            return;
+        }
 
         $q = User::where('is_blocked', false)->where('id', '!=', $adminId);
 
-        match ($this->broadcastTarget) {
-            'tous_conducteurs' => $q->whereHas('role', fn ($r) => $r->where('name', 'driver')),
-            'tous_passagers'   => $q->whereHas('role', fn ($r) => $r->where('name', 'passenger')),
-            'en_ligne'         => $q->whereHas('role', fn ($r) => $r->where('name', 'driver'))->where('is_online', true),
-            'en_trajet'        => $q->whereHas('role', fn ($r) => $r->where('name', 'driver'))
-                                    ->whereHas('trips', fn ($t) => $t->where('status', 'active')),
-            default            => $q->whereHas('role', fn ($r) => $r->whereIn('name', ['driver', 'passenger'])),
-        };
+        if ($this->broadcastTarget === 'tous_conducteurs') {
+            $q->whereHas('role', fn ($r) => $r->where('name', 'driver'));
+        } elseif ($this->broadcastTarget === 'tous_passagers') {
+            $q->whereHas('role', fn ($r) => $r->where('name', 'passenger'));
+        } elseif ($this->broadcastTarget === 'en_ligne') {
+            $q->whereHas('role', fn ($r) => $r->where('name', 'driver'))->where('is_online', true);
+        } elseif ($this->broadcastTarget === 'en_trajet') {
+            $q->whereHas('role', fn ($r) => $r->where('name', 'driver'))
+              ->whereHas('trips', fn ($t) => $t->where('status', 'active'));
+        } else {
+            $q->whereHas('role', fn ($r) => $r->whereIn('name', ['driver', 'passenger']));
+        }
 
-        $users = $q->get();
+        $users  = $q->get();
         $tokens = [];
 
         foreach ($users as $user) {
@@ -189,15 +247,18 @@ class Communication extends Component
                 'sender_id'       => $adminId,
                 'body'            => trim($this->broadcastMessage),
             ]);
+
             $conv->touch();
             if ($user->fcm_token) $tokens[] = $user->fcm_token;
         }
 
         if (! empty($tokens)) {
-            app(FcmService::class)->sendToMultiple($tokens, 'Minizon Admin', trim($this->broadcastMessage), ['type' => 'admin_broadcast']);
+            app(FcmService::class)->sendToMultiple(
+                $tokens, 'Minizon Admin', trim($this->broadcastMessage), ['type' => 'admin_broadcast']
+            );
         }
 
-        $this->flash          = "Message diffusé à {$users->count()} utilisateur(s).";
+        $this->flash          = "✅ Message diffusé à {$users->count()} utilisateur(s).";
         $this->flashType      = 'success';
         $this->broadcastMessage = '';
         $this->showBroadcast  = false;
@@ -206,11 +267,12 @@ class Communication extends Component
     public function clearFlash(): void { $this->flash = null; }
 
     // ─── Render ─────────────────────────────────────────────
+
     public function render()
     {
-        $adminId = $this->getAdminUserId() ?? 0;
+        $adminId = $this->resolveAdminUserId() ?? 0;
 
-        // ── Ancien : supervision de toutes les conversations ──
+        // Supervision : toutes les conversations
         $query = Conversation::with([
             'participants.profile',
             'trip',
@@ -219,8 +281,7 @@ class Communication extends Component
         ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
             $s = '%' . $this->search . '%';
             $q2->where('phone', 'like', $s)
-               ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)
-                   ->orWhere('last_name', 'like', $s));
+               ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s));
         }))
         ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
         ->withCount('messages')
@@ -237,9 +298,31 @@ class Communication extends Component
             ? Conversation::with(['participants.profile', 'trip', 'messages.sender.profile'])->find($this->selectedId)
             : null;
 
-        // ── Panneau chat : recherche utilisateur ──
+        // Panneau chat : utilisateur ciblé
+        $chatTargetUser = null;
+        if ($this->chatTargetUuid) {
+            $chatTargetUser = User::with(['profile', 'role'])->where('uuid', $this->chatTargetUuid)->first();
+        }
+
+        // Panneau chat : messages
+        $chatMessages = collect();
+        if ($this->chatConvId) {
+            $chatMessages = Message::where('conversation_id', $this->chatConvId)
+                ->orderBy('created_at')
+                ->get();
+
+            // Marquer les messages du destinataire comme lus
+            if ($adminId) {
+                Message::where('conversation_id', $this->chatConvId)
+                    ->where('sender_id', '!=', $adminId)
+                    ->whereNull('read_at')
+                    ->update(['read_at' => now()]);
+            }
+        }
+
+        // Panneau chat : résultats de recherche
         $chatUsers = collect();
-        if ($this->showChat && ! $this->chatConvId && strlen($this->chatSearch) >= 2) {
+        if ($this->showChat && ! $this->chatTargetUuid && strlen($this->chatSearch) >= 2) {
             $s = '%' . $this->chatSearch . '%';
             $chatUsers = User::with(['profile', 'role'])
                 ->where('is_blocked', false)
@@ -256,29 +339,37 @@ class Communication extends Component
                 ->get();
         }
 
-        // ── Panneau chat : messages de la conversation ──
-        $chatConv = null;
-        $chatMessages = collect();
-        if ($this->chatConvId) {
-            $chatConv     = Conversation::with(['participants.profile'])->find($this->chatConvId);
-            $chatMessages = Message::where('conversation_id', $this->chatConvId)
-                ->orderBy('created_at')
-                ->get();
-        }
-
         return view('admin.communication', [
-            'conversations' => $query->paginate(20),
-            'stats'         => $stats,
-            'selectedConv'  => $selectedConv,
-            'adminId'       => $adminId,
-            'chatUsers'     => $chatUsers,
-            'chatConv'      => $chatConv,
-            'chatMessages'  => $chatMessages,
+            'conversations'  => $query->paginate(20),
+            'stats'          => $stats,
+            'selectedConv'   => $selectedConv,
+            'adminId'        => $adminId,
+            'chatUsers'      => $chatUsers,
+            'chatTargetUser' => $chatTargetUser,
+            'chatMessages'   => $chatMessages,
+            'hasAdminUser'   => $adminId > 0,
         ])->layout('admin.layouts.app', ['title' => 'Communication']);
     }
 
-    private function getAdminUserId(): ?int
+    // ─── Helpers ────────────────────────────────────────────
+
+    /**
+     * Cherche l'ID de l'utilisateur avec rôle admin dans la table users.
+     * Essaie aussi par email (web admin ↔ users table).
+     */
+    private function resolveAdminUserId(): ?int
     {
-        return User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->value('id');
+        // 1. Par rôle
+        $id = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->value('id');
+        if ($id) return $id;
+
+        // 2. Par email (si l'admin web a un compte user avec le même email)
+        $email = auth('admin')->user()?->email;
+        if ($email) {
+            $id = User::where('email', $email)->value('id');
+            if ($id) return $id;
+        }
+
+        return null;
     }
 }
