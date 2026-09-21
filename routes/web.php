@@ -79,6 +79,36 @@ Route::get('/debug-dashboard', function () {
     }
 });
 
+// Render dashboard blade directly to isolate render errors — REMOVE AFTER FIX
+Route::get('/debug-dashboard-render', function () {
+    try {
+        $alerts      = [];
+        $kpis        = [];
+        $miniPanels  = [];
+        $recentFeed  = [];
+        $topDrivers  = [];
+        $revenue7d   = array_map(fn($i) => ['label' => now()->subDays($i)->format('d/m'), 'revenue' => 0.0, 'volume' => 0.0], range(6, 0));
+        $financials  = ['volume' => '0 FCFA', 'revenue' => '0 FCFA', 'escrow' => '0 FCFA', 'refunded' => '0 FCFA'];
+        $feedPage    = 1;
+        $driversPage = 1;
+        $renderError = '';
+        $html = view('admin.dashboard', compact(
+            'alerts','kpis','miniPanels','recentFeed','topDrivers',
+            'revenue7d','financials','feedPage','driversPage','renderError'
+        ))->render();
+        return response('<pre>BLADE OK — ' . strlen($html) . ' bytes</pre>' . $html, 200, ['Content-Type' => 'text/html']);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'blade_ok' => false,
+            'error'    => $e->getMessage(),
+            'class'    => get_class($e),
+            'file'     => basename($e->getFile()),
+            'line'     => $e->getLine(),
+            'trace'    => array_slice(explode("\n", $e->getTraceAsString()), 0, 12),
+        ]);
+    }
+});
+
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
         return redirect()->route('panel.dashboard');

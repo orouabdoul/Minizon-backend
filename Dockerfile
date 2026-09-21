@@ -26,7 +26,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 # CACHE_BUST: 2026-09-17T03 — dashboard try/catch + debug route
-ARG CACHE_BUST=2026-09-17T03
+ARG CACHE_BUST=2026-09-17T04
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
