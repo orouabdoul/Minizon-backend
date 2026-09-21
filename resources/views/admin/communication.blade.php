@@ -50,7 +50,9 @@
 .msg-item.mine .msg-sender{color:#075E54;text-align:right;padding-right:2px}
 .msg-bubble{padding:6px 10px 4px;border-radius:7.5px;font-size:13.5px;line-height:1.5;word-break:break-word;box-shadow:0 1px 0.5px rgba(11,20,26,.18);position:relative}
 .msg-item.other .msg-bubble{background:#fff;color:#111B21;border-top-left-radius:0}
+.msg-item.other .msg-bubble::before{content:"";position:absolute;top:0;left:-8px;border:8px solid transparent;border-right-color:#fff;border-top:0;border-left:0}
 .msg-item.mine .msg-bubble{background:#DCF8C6;color:#111B21;border-top-right-radius:0}
+.msg-item.mine .msg-bubble::after{content:"";position:absolute;top:0;right:-8px;border:8px solid transparent;border-left-color:#DCF8C6;border-top:0;border-right:0}
 .msg-meta{font-size:11px;color:#667781;display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:1px;padding-right:2px}
 .panel-footer{padding:10px 18px;border-top:1px solid #E9EDEF;background:#F0F2F5;flex-shrink:0;text-align:center;font-size:12px;color:#667781}
 
@@ -91,9 +93,11 @@
 .cpm-row{display:flex;flex-direction:column;gap:1px;max-width:80%}
 .cpm-row.me{align-self:flex-end;align-items:flex-end}
 .cpm-row.them{align-self:flex-start}
-.cpm-bub{padding:6px 10px 4px;border-radius:7.5px;font-size:13px;line-height:1.5;word-break:break-word;box-shadow:0 1px 0.5px rgba(11,20,26,.18)}
+.cpm-bub{padding:6px 10px 4px;border-radius:7.5px;font-size:13px;line-height:1.5;word-break:break-word;box-shadow:0 1px 0.5px rgba(11,20,26,.18);position:relative}
 .cpm-row.me .cpm-bub{background:#DCF8C6;color:#111B21;border-top-right-radius:0}
+.cpm-row.me .cpm-bub::after{content:"";position:absolute;top:0;right:-8px;border:8px solid transparent;border-left-color:#DCF8C6;border-top:0;border-right:0}
 .cpm-row.them .cpm-bub{background:#fff;color:#111B21;border-top-left-radius:0}
+.cpm-row.them .cpm-bub::before{content:"";position:absolute;top:0;left:-8px;border:8px solid transparent;border-right-color:#fff;border-top:0;border-left:0}
 .cpm-meta{font-size:10.5px;color:#667781;margin-top:1px}
 .cpm-tick{color:#53BDEB}
 .cpm-audio{display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,.15);border-radius:8px}
@@ -409,7 +413,7 @@
             <div class="cpm-bub">{{ $msg->body }}</div>
             @endif
             @if($msg->attachment_path)
-            <div class="cpm-bub" style="{{ $isMe ? 'background:#1A5FB4;padding:8px' : 'background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:8px' }}">
+            <div class="cpm-bub" style="padding:8px">
                 @if($msg->attachment_type === 'image')
                 <img class="cpm-img" src="{{ Storage::disk('public')->url($msg->attachment_path) }}">
                 @elseif($msg->attachment_type === 'audio')
