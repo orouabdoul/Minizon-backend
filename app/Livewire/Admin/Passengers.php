@@ -30,6 +30,18 @@ class Passengers extends Component
     public function view(int $id): void  { $this->selectedId = $id; }
     public function closeView(): void    { $this->selectedId = null; }
 
+    public function approveKyc(int $id): void
+    {
+        $user = User::find($id);
+        if ($user) $user->profile?->update(['kyc_status' => 'approved', 'approved_at' => now()]);
+    }
+
+    public function rejectKyc(int $id): void
+    {
+        $user = User::find($id);
+        if ($user) $user->profile?->update(['kyc_status' => 'rejected']);
+    }
+
     public function toggleBlock(int $id): void
     {
         $user = User::find($id);

@@ -102,6 +102,10 @@ $kycLabels = [
 .btn-block.unblock:hover{background:#10B981;color:#fff}
 .btn-close-panel{flex:1;padding:10px;background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;color:#6B7280;cursor:pointer}
 .btn-close-panel:hover{background:#E5E7EB}
+.btn-kyc-approve{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BBF7D0;color:#16A34A;background:#F0FDF4;transition:.15s}
+.btn-kyc-approve:hover{background:#16A34A;color:#fff;border-color:#16A34A}
+.btn-kyc-reject{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2;transition:.15s}
+.btn-kyc-reject:hover{background:#DC2626;color:#fff;border-color:#DC2626}
 </style>
 
 <div class="pax-wrap">
@@ -414,6 +418,28 @@ $kycLabels = [
 
     </div>
     <div class="panel-footer">
+        {{-- KYC --}}
+        @if($pr2?->kyc_status === 'pending' || !$pr2?->kyc_status)
+        <button class="btn-kyc-approve" wire:click="approveKyc({{ $s->id }})" wire:confirm="Approuver le KYC de {{ $nm2 }} ?">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Approuver KYC
+        </button>
+        <button class="btn-kyc-reject" wire:click="rejectKyc({{ $s->id }})" wire:confirm="Rejeter le KYC de {{ $nm2 }} ?">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Rejeter KYC
+        </button>
+        @elseif($pr2?->kyc_status === 'approved')
+        <button class="btn-kyc-reject" wire:click="rejectKyc({{ $s->id }})" wire:confirm="Révoquer l'approbation KYC ?">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Révoquer KYC
+        </button>
+        @elseif($pr2?->kyc_status === 'rejected')
+        <button class="btn-kyc-approve" wire:click="approveKyc({{ $s->id }})" wire:confirm="Ré-approuver le KYC ?">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Ré-approuver KYC
+        </button>
+        @endif
+        {{-- Bloquer --}}
         <button class="btn-block {{ $s->is_blocked ? 'unblock' : 'block' }}"
                 wire:click="toggleBlock({{ $s->id }})"
                 wire:confirm="{{ $s->is_blocked ? 'Débloquer ce passager ?' : 'Bloquer ce passager ?' }}">

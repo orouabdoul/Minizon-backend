@@ -249,37 +249,47 @@
 
                 {{-- Actions KYC --}}
                 <td>
-                    <div class="action-btns">
+                    <div class="action-btns" style="flex-direction:column;gap:4px;align-items:flex-start">
+                        {{-- KYC conducteur --}}
                         @if($kyc === 'pending' || !$kyc)
-                        <button class="action-btn action-btn--approve"
-                            wire:click="approveKyc({{ $driver->id }})"
-                            wire:confirm="Approuver le KYC de {{ $name ?: $driver->phone }} ?"
-                            title="Approuver KYC">
+                        <button class="action-btn action-btn--approve" wire:click="approveKyc({{ $driver->id }})" wire:confirm="Approuver le KYC de {{ $name ?: $driver->phone }} ?" title="Approuver KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            Approuver
+                            KYC Approuver
                         </button>
-                        <button class="action-btn action-btn--reject"
-                            wire:click="rejectKyc({{ $driver->id }})"
-                            wire:confirm="Rejeter le KYC de {{ $name ?: $driver->phone }} ?"
-                            title="Rejeter KYC">
+                        <button class="action-btn action-btn--reject" wire:click="rejectKyc({{ $driver->id }})" wire:confirm="Rejeter le KYC de {{ $name ?: $driver->phone }} ?" title="Rejeter KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            Rejeter
+                            KYC Rejeter
                         </button>
                         @elseif($kyc === 'approved')
-                        <button class="action-btn action-btn--reject"
-                            wire:click="rejectKyc({{ $driver->id }})"
-                            wire:confirm="Révoquer l'approbation KYC ?"
-                            title="Révoquer">
+                        <button class="action-btn action-btn--reject" wire:click="rejectKyc({{ $driver->id }})" wire:confirm="Révoquer l'approbation KYC ?" title="Révoquer KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            Révoquer
+                            KYC Révoquer
                         </button>
                         @elseif($kyc === 'rejected')
-                        <button class="action-btn action-btn--approve"
-                            wire:click="approveKyc({{ $driver->id }})"
-                            wire:confirm="Approuver quand même le KYC ?"
-                            title="Approuver quand même">
+                        <button class="action-btn action-btn--approve" wire:click="approveKyc({{ $driver->id }})" wire:confirm="Ré-approuver le KYC ?" title="Ré-approuver KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            Ré-approuver
+                            KYC Ré-approuver
+                        </button>
+                        @endif
+                        {{-- Véhicule --}}
+                        @if($veh && ($vStatus === 'pending' || !$vStatus))
+                        <button class="action-btn action-btn--approve" wire:click="approveVehicle({{ $driver->id }})" wire:confirm="Approuver le véhicule de {{ $name ?: $driver->phone }} ?" title="Approuver véhicule">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Véh. Approuver
+                        </button>
+                        <button class="action-btn action-btn--reject" wire:click="rejectVehicle({{ $driver->id }})" wire:confirm="Rejeter le véhicule de {{ $name ?: $driver->phone }} ?" title="Rejeter véhicule">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            Véh. Rejeter
+                        </button>
+                        @elseif($veh && $vStatus === 'approved')
+                        <button class="action-btn action-btn--reject" wire:click="rejectVehicle({{ $driver->id }})" wire:confirm="Révoquer l'approbation du véhicule ?" title="Révoquer véhicule">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            Véh. Révoquer
+                        </button>
+                        @elseif($veh && $vStatus === 'rejected')
+                        <button class="action-btn action-btn--approve" wire:click="approveVehicle({{ $driver->id }})" wire:confirm="Approuver quand même le véhicule ?" title="Ré-approuver véhicule">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Véh. Ré-approuver
                         </button>
                         @endif
                     </div>

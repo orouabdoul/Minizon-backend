@@ -108,6 +108,10 @@
 /* Panel actions */
 .panel-actions { padding:16px 20px; border-top:1px solid #F3F4F6; display:flex; gap:8px; flex-shrink:0; position:sticky; bottom:0; background:#fff; }
 .panel-action-btn { flex:1; padding:10px; border-radius:9px; border:1px solid; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; gap:6px; }
+.panel-action-btn--approve { border-color:#BBF7D0; color:#16A34A; background:#F0FDF4; }
+.panel-action-btn--approve:hover { background:#16A34A; color:#fff; border-color:#16A34A; }
+.panel-action-btn--reject  { border-color:#FECACA; color:#DC2626; background:#FEF2F2; }
+.panel-action-btn--reject:hover  { background:#DC2626; color:#fff; border-color:#DC2626; }
 .panel-action-btn--block  { border-color:#FDE68A; color:#D97706; background:#FFFBEB; }
 .panel-action-btn--block:hover  { background:#D97706; color:#fff; border-color:#D97706; }
 .panel-action-btn--unblock { border-color:#BBF7D0; color:#16A34A; background:#F0FDF4; }
@@ -450,6 +454,28 @@
 
         {{-- Actions --}}
         <div class="panel-actions">
+            {{-- KYC --}}
+            @if($p?->kyc_status === 'pending' || !$p?->kyc_status)
+            <button class="panel-action-btn panel-action-btn--approve" wire:click="approveKyc({{ $u->id }})" wire:confirm="Approuver le KYC de {{ $uName ?: $u->phone }} ?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Approuver KYC
+            </button>
+            <button class="panel-action-btn panel-action-btn--reject" wire:click="rejectKyc({{ $u->id }})" wire:confirm="Rejeter le KYC de {{ $uName ?: $u->phone }} ?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Rejeter KYC
+            </button>
+            @elseif($p?->kyc_status === 'approved')
+            <button class="panel-action-btn panel-action-btn--reject" wire:click="rejectKyc({{ $u->id }})" wire:confirm="Révoquer l'approbation KYC ?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Révoquer KYC
+            </button>
+            @elseif($p?->kyc_status === 'rejected')
+            <button class="panel-action-btn panel-action-btn--approve" wire:click="approveKyc({{ $u->id }})" wire:confirm="Ré-approuver le KYC ?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Ré-approuver KYC
+            </button>
+            @endif
+            {{-- Bloquer / Débloquer --}}
             @if($u->is_blocked)
             <button class="panel-action-btn panel-action-btn--unblock" wire:click="toggleBlock({{ $u->id }})" wire:confirm="Débloquer cet utilisateur ?">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>

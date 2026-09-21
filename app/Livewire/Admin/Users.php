@@ -34,6 +34,18 @@ class Users extends Component
         $this->selectedUserId = null;
     }
 
+    public function approveKyc(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        $user->profile?->update(['kyc_status' => 'approved', 'approved_at' => now()]);
+    }
+
+    public function rejectKyc(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        $user->profile?->update(['kyc_status' => 'rejected']);
+    }
+
     public function toggleBlock(int $userId): void
     {
         $user = User::findOrFail($userId);
