@@ -284,7 +284,7 @@ class Communication extends Component
                ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s));
         }))
         ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
-        ->withCount('messages')
+        ->withCount(['messages' => fn ($q) => $q->withoutGlobalScopes()])
         ->orderByDesc('updated_at');
 
         try {
