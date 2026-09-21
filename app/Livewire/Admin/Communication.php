@@ -270,101 +270,120 @@ class Communication extends Component
 
     public function render()
     {
-        $adminId = $this->resolveAdminUserId() ?? 0;
-
-        // Supervision : toutes les conversations
-        $query = Conversation::with([
-            'participants.profile',
-            'trip',
-            'lastMessage' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
-        ])
-        ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
-            $s = '%' . $this->search . '%';
-            $q2->where('phone', 'like', $s)
-               ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s));
-        }))
-        ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
-        ->withCount(['messages' => fn ($q) => $q->withoutGlobalScopes()])
-        ->orderByDesc('updated_at');
+        $emptyView = fn () => view('admin.communication', [
+            'conversations'  => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
+            'stats'          => ['total' => 0, 'messages' => 0, 'today' => 0, 'flagged' => 0],
+            'selectedConv'   => null,
+            'adminId'        => 0,
+            'chatUsers'      => collect(),
+            'chatTargetUser' => null,
+            'chatMessages'   => collect(),
+            'hasAdminUser'   => false,
+        ])->layout('admin.layouts.app', ['title' => 'Communication']);
 
         try {
-            $stats = [
-                'total'   => Conversation::count(),
-                'messages'=> Message::withoutGlobalScopes()->count(),
-                'today'   => Conversation::whereDate('created_at', today())->count(),
-                'flagged' => Message::onlyTrashed()->count(),
-            ];
-        } catch (\Throwable) {
-            $stats = ['total' => 0, 'messages' => 0, 'today' => 0, 'flagged' => 0];
-        }
+            $adminId = $this->resolveAdminUserId() ?? 0;
 
-        $selectedConv = $this->selectedId
-            ? Conversation::with([
+            // Supervision : toutes les conversations
+            $query = Conversation::with([
                 'participants.profile',
                 'trip',
-                'messages' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
-            ])->find($this->selectedId)
-            : null;
+                'lastMessage' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
+            ])
+            ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
+                $s = '%' . $this->search . '%';
+                $q2->where('phone', 'like', $s)
+                   ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s));
+            }))
+            ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
+            ->withCount(['messages' => fn ($q) => $q->withoutGlobalScopes()])
+            ->orderByDesc('updated_at');
 
-        // Panneau chat : utilisateur ciblé
-        $chatTargetUser = null;
-        if ($this->chatTargetUuid) {
-            $chatTargetUser = User::with(['profile', 'role'])->where('uuid', $this->chatTargetUuid)->first();
-        }
-
-        // Panneau chat : messages
-        $chatMessages = collect();
-        if ($this->chatConvId) {
-            $chatMessages = Message::withoutGlobalScopes()
-                ->where('conversation_id', $this->chatConvId)
-                ->orderBy('created_at')
-                ->get();
-
-            // Marquer les messages du destinataire comme lus
-            if ($adminId) {
-                Message::withoutGlobalScopes()
-                    ->where('conversation_id', $this->chatConvId)
-                    ->where('sender_id', '!=', $adminId)
-                    ->whereNull('read_at')
-                    ->update(['read_at' => now()]);
+            try {
+                $stats = [
+                    'total'   => Conversation::count(),
+                    'messages'=> Message::withoutGlobalScopes()->count(),
+                    'today'   => Conversation::whereDate('created_at', today())->count(),
+                    'flagged' => Message::onlyTrashed()->count(),
+                ];
+            } catch (\Throwable) {
+                $stats = ['total' => 0, 'messages' => 0, 'today' => 0, 'flagged' => 0];
             }
-        }
 
-        // Panneau chat : résultats de recherche
-        $chatUsers = collect();
-        if ($this->showChat && ! $this->chatTargetUuid && strlen($this->chatSearch) >= 2) {
-            $s = '%' . $this->chatSearch . '%';
-            $chatUsers = User::with(['profile', 'role'])
-                ->where('is_blocked', false)
-                ->where('id', '!=', $adminId)
-                ->whereHas('role', $this->chatRole !== ''
-                    ? fn ($q) => $q->where('name', $this->chatRole)
-                    : fn ($q) => $q->whereIn('name', ['driver', 'passenger'])
-                )
-                ->where(fn ($qb) => $qb
-                    ->where('phone', 'like', $s)
-                    ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s))
-                )
-                ->limit(10)
-                ->get();
-        }
+            $selectedConv = $this->selectedId
+                ? Conversation::with([
+                    'participants.profile',
+                    'trip',
+                    'messages' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
+                ])->find($this->selectedId)
+                : null;
 
-        try {
-            $conversations = $query->paginate(20);
-        } catch (\Throwable) {
-            $conversations = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
-        }
+            // Panneau chat : utilisateur ciblé
+            $chatTargetUser = null;
+            if ($this->chatTargetUuid) {
+                $chatTargetUser = User::with(['profile', 'role'])->where('uuid', $this->chatTargetUuid)->first();
+            }
 
-        return view('admin.communication', [
-            'conversations'  => $conversations,
-            'stats'          => $stats,
-            'selectedConv'   => $selectedConv,
-            'adminId'        => $adminId,
-            'chatUsers'      => $chatUsers,
-            'chatTargetUser' => $chatTargetUser,
-            'chatMessages'   => $chatMessages,
-            'hasAdminUser'   => $adminId > 0,
-        ])->layout('admin.layouts.app', ['title' => 'Communication']);
+            // Panneau chat : messages
+            $chatMessages = collect();
+            if ($this->chatConvId) {
+                $chatMessages = Message::withoutGlobalScopes()
+                    ->where('conversation_id', $this->chatConvId)
+                    ->orderBy('created_at')
+                    ->get();
+
+                if ($adminId) {
+                    Message::withoutGlobalScopes()
+                        ->where('conversation_id', $this->chatConvId)
+                        ->where('sender_id', '!=', $adminId)
+                        ->whereNull('read_at')
+                        ->update(['read_at' => now()]);
+                }
+            }
+
+            // Panneau chat : résultats de recherche
+            $chatUsers = collect();
+            if ($this->showChat && ! $this->chatTargetUuid && strlen($this->chatSearch) >= 2) {
+                $s = '%' . $this->chatSearch . '%';
+                $chatUsers = User::with(['profile', 'role'])
+                    ->where('is_blocked', false)
+                    ->where('id', '!=', $adminId)
+                    ->whereHas('role', $this->chatRole !== ''
+                        ? fn ($q) => $q->where('name', $this->chatRole)
+                        : fn ($q) => $q->whereIn('name', ['driver', 'passenger'])
+                    )
+                    ->where(fn ($qb) => $qb
+                        ->where('phone', 'like', $s)
+                        ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s))
+                    )
+                    ->limit(10)
+                    ->get();
+            }
+
+            try {
+                $conversations = $query->paginate(20);
+            } catch (\Throwable) {
+                $conversations = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+            }
+
+            return view('admin.communication', [
+                'conversations'  => $conversations,
+                'stats'          => $stats,
+                'selectedConv'   => $selectedConv,
+                'adminId'        => $adminId,
+                'chatUsers'      => $chatUsers,
+                'chatTargetUser' => $chatTargetUser,
+                'chatMessages'   => $chatMessages,
+                'hasAdminUser'   => $adminId > 0,
+            ])->layout('admin.layouts.app', ['title' => 'Communication']);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Communication::render - ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return $emptyView();
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────
