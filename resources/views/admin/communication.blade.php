@@ -219,7 +219,11 @@
                 </div>
                 <div class="conv-last">
                     @if($lastMsg)
-                        {{ $lastMsg->sender?->profile?->first_name ?? 'Inconnu' }}: {{ \Illuminate\Support\Str::limit($lastMsg->body ?? '[Pièce jointe]', 50) }}
+                    @php
+                        $senderName = trim(($lastMsg->sender?->profile?->first_name??'').(' '.($lastMsg->sender?->profile?->last_name??'')))
+                                   ?: ($lastMsg->sender?->phone ?? 'Inconnu');
+                    @endphp
+                        {{ $senderName }}: {{ \Illuminate\Support\Str::limit($lastMsg->body ?? '[Pièce jointe]', 50) }}
                     @else Aucun message @endif
                 </div>
             </div>
