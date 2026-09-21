@@ -1,4 +1,7 @@
 <div>
+@if($renderError)
+<div style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;padding:16px 20px;border-radius:10px;margin:20px;font-family:monospace;font-size:13px;white-space:pre-wrap">⚠ Dashboard error: {{ $renderError }}</div>
+@else
 <style>
 /* ── Alerts ───────────────────────────────────────────── */
 .alert-bar { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
@@ -426,4 +429,5 @@ $statusMap = [
     </div>
 </div>
 
+@endif
 </div>

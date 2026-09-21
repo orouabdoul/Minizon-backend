@@ -20,6 +20,7 @@ class Dashboard extends Component
     public array  $topDrivers   = [];
     public array  $revenue7d    = [];
     public array  $financials   = [];
+    public string $renderError  = '';
 
     public int    $feedPage     = 1;
     public int    $driversPage  = 1;
@@ -34,7 +35,12 @@ class Dashboard extends Component
 
     public function mount(): void
     {
-        $this->loadData();
+        try {
+            $this->loadData();
+        } catch (\Throwable $e) {
+            $this->renderError = get_class($e) . ': ' . $e->getMessage()
+                . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
+        }
     }
 
     private function loadData(): void

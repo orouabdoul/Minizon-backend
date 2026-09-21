@@ -24,6 +24,61 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 
+// Temporary — REMOVE AFTER FIX
+Route::get('/debug-dashboard', function () {
+    $r = [];
+    try {
+        $r['step'] = 'roles';
+        $driverRoleId    = \Illuminate\Support\Facades\DB::table('roles')->where('name', 'driver')->value('id');
+        $passengerRoleId = \Illuminate\Support\Facades\DB::table('roles')->where('name', 'passenger')->value('id');
+        $r['driver_role_id']    = $driverRoleId;
+        $r['passenger_role_id'] = $passengerRoleId;
+
+        $r['step'] = 'users';
+        $r['total_drivers']    = \App\Models\User::where('role_id', $driverRoleId)->count();
+        $r['total_passengers'] = \App\Models\User::where('role_id', $passengerRoleId)->count();
+        $r['blocked']          = \App\Models\User::where('is_blocked', true)->count();
+
+        $r['step'] = 'trips';
+        $r['active_trips']    = \App\Models\Trip::where('status', 'in_progress')->count();
+        $r['flagged_trips']   = \App\Models\Trip::where('is_flagged', true)->count();
+
+        $r['step'] = 'payments_sum';
+        $r['revenue'] = (float) \App\Models\Payment::where('status', 'success')->sum('commission_amount');
+
+        $r['step'] = 'payments_join';
+        $r['top_drivers'] = \App\Models\Payment::join('bookings', 'payments.booking_id', '=', 'bookings.id')
+            ->join('trips', 'bookings.trip_id', '=', 'trips.id')
+            ->join('users', 'trips.user_id', '=', 'users.id')
+            ->leftJoin('profiles', 'users.id', '=', 'profiles.user_id')
+            ->where('payments.status', 'success')
+            ->selectRaw('users.uuid, users.phone, profiles.first_name, profiles.last_name,
+                COUNT(payments.id) as trips_count, SUM(payments.net_amount) as total_earned')
+            ->groupBy('users.id', 'users.uuid', 'users.phone', 'profiles.first_name', 'profiles.last_name')
+            ->orderByDesc('trips_count')
+            ->limit(5)
+            ->get()->count();
+
+        $r['step'] = 'disputes';
+        $r['open_disputes'] = \App\Models\Dispute::whereIn('status', ['open', 'in_progress', 'pending'])->count();
+
+        $r['step'] = 'profiles';
+        $r['pending_kyc'] = \App\Models\Profile::where('kyc_status', 'pending')->count();
+
+        $r['step'] = 'done';
+        return response()->json(['ok' => true] + $r);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'ok'    => false,
+            'error' => $e->getMessage(),
+            'class' => get_class($e),
+            'file'  => basename($e->getFile()),
+            'line'  => $e->getLine(),
+            'so_far'=> $r,
+        ]);
+    }
+});
+
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
         return redirect()->route('panel.dashboard');
