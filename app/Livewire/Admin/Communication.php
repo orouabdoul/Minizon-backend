@@ -360,10 +360,8 @@ class Communication extends Component
                     ->get();
             }
 
-            \Illuminate\Support\Facades\Log::error('Communication::debug - total_convs=' . Conversation::count());
             try {
                 $conversations = $query->paginate(20);
-                \Illuminate\Support\Facades\Log::error('Communication::debug - paginate_count=' . $conversations->total());
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('Communication::paginate - ' . $e->getMessage(), [
                     'file' => $e->getFile(),
@@ -394,23 +392,8 @@ class Communication extends Component
 
     // ─── Helpers ────────────────────────────────────────────
 
-    /**
-     * Cherche l'ID de l'utilisateur avec rôle admin dans la table users.
-     * Essaie aussi par email (web admin ↔ users table).
-     */
     private function resolveAdminUserId(): ?int
     {
-        // 1. Par rôle
-        $id = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->value('id');
-        if ($id) return $id;
-
-        // 2. Par email (si l'admin web a un compte user avec le même email)
-        $email = auth('admin')->user()?->email;
-        if ($email) {
-            $id = User::where('email', $email)->value('id');
-            if ($id) return $id;
-        }
-
-        return null;
+        return User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->value('id');
     }
 }
