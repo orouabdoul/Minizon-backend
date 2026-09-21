@@ -408,18 +408,22 @@
 @script
 <script>
 // ─── Constantes ────────────────────────────────────────────────────────────────
-const COTONOU = [6.3656, 2.4183];
+const COTONOU    = [6.3656, 2.4183];
+const OSRM_BASE  = 'https://router.project-osrm.org/route/v1/driving';
 
 // ─── État ──────────────────────────────────────────────────────────────────────
-let leafletMap  = null;
-let markers     = {};   // uuid → L.marker
-let pathLines   = {};   // uuid → { polyline, coords[] }
-let depMarkers  = {};   // uuid → marker départ
-let arrMarkers  = {};   // uuid → marker arrivée
-let focusedUuid = null;
-let focusedPath = null;
+let leafletMap    = null;
+let markers       = {};   // uuid → L.marker véhicule
+let depMarkers    = {};   // uuid → L.marker départ
+let arrMarkers    = {};   // uuid → L.marker arrivée
+let routeLines    = {};   // uuid → L.polyline itinéraire OSRM planifié
+let gpsLines      = {};   // uuid → { polyline, coords[] } chemin GPS réel
+let focusedUuid   = null;
+let focusedPath   = null; // L.polyline surbrillance au focus
+let routeCache    = {};   // uuid → [[lat,lng], ...] itinéraire OSRM mis en cache
+let fetchQueue    = new Set(); // uuids en cours de fetch pour éviter les doublons
 
-// ─── Init map ──────────────────────────────────────────────────────────────────
+// ─── Init carte ────────────────────────────────────────────────────────────────
 function initMap() {
     if (leafletMap) return;
     leafletMap = L.map('minizon-map', { zoomControl: true }).setView(COTONOU, 8);
@@ -429,15 +433,67 @@ function initMap() {
     }).addTo(leafletMap);
 }
 
+// ─── OSRM : récupérer l'itinéraire par les routes réelles ─────────────────────
+async function fetchOsrmRoute(depLat, depLng, arrLat, arrLng) {
+    // OSRM attend lng,lat (inverse de Leaflet)
+    const url = `${OSRM_BASE}/${depLng},${depLat};${arrLng},${arrLat}?overview=full&geometries=geojson`;
+    try {
+        const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+        if (data.code === 'Ok' && data.routes?.[0]) {
+            // Retourner en [lat,lng] pour Leaflet
+            return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        }
+    } catch (_) {}
+    return null;
+}
+
+// ─── Afficher/mettre à jour l'itinéraire OSRM d'un trajet ─────────────────────
+async function showPlannedRoute(pos) {
+    const { uuid, departure_lat: dLat, departure_lng: dLng,
+            arrival_lat: aLat,   arrival_lng: aLng, status } = pos;
+
+    if (!dLat || !dLng || !aLat || !aLng) return;
+    if (fetchQueue.has(uuid)) return; // déjà en cours
+
+    // Couleur et style selon le statut
+    const styles = {
+        pending:   { color: '#F59E0B', weight: 4, opacity: 0.75, dashArray: '10 6' },
+        active:    { color: '#9CA3AF', weight: 3, opacity: 0.50, dashArray: '6 5'  },
+        completed: { color: '#D1D5DB', weight: 2, opacity: 0.40, dashArray: '4 4'  },
+    };
+    const style = styles[status] ?? styles.active;
+
+    // Utiliser le cache si disponible
+    let coords = routeCache[uuid];
+
+    if (!coords) {
+        fetchQueue.add(uuid);
+        coords = await fetchOsrmRoute(dLat, dLng, aLat, aLng);
+        fetchQueue.delete(uuid);
+        if (!coords) return;
+        routeCache[uuid] = coords;
+    }
+
+    // Supprimer l'ancienne polyline si le statut a changé
+    if (routeLines[uuid]) {
+        leafletMap.removeLayer(routeLines[uuid]);
+    }
+
+    // Dessiner sous les marqueurs (pane par défaut overlayPane)
+    routeLines[uuid] = L.polyline(coords, style).addTo(leafletMap);
+    routeLines[uuid].bringToBack();
+}
+
 // ─── Icônes par statut ─────────────────────────────────────────────────────────
 function vehicleIcon(status, hasIncident, hasGps) {
     let color, emoji;
-    if (hasIncident)       { color = '#EF4444'; emoji = '⚠️'; }
-    else if (!hasGps && status === 'active') { color = '#6B7280'; emoji = '📡'; }
-    else if (status === 'active')   { color = '#1A5FB4'; emoji = '🚗'; }
-    else if (status === 'pending')  { color = '#F59E0B'; emoji = '⏳'; }
-    else if (status === 'completed'){ color = '#6B7280'; emoji = '✅'; }
-    else                            { color = '#6B7280'; emoji = '🚗'; }
+    if (hasIncident)                      { color = '#EF4444'; emoji = '⚠️'; }
+    else if (!hasGps && status==='active'){ color = '#6B7280'; emoji = '📡'; }
+    else if (status === 'active')         { color = '#1A5FB4'; emoji = '🚗'; }
+    else if (status === 'pending')        { color = '#F59E0B'; emoji = '⏳'; }
+    else if (status === 'completed')      { color = '#6B7280'; emoji = '✅'; }
+    else                                  { color = '#6B7280'; emoji = '🚗'; }
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
         <ellipse cx="18" cy="43" rx="8" ry="3.5" fill="rgba(0,0,0,.18)"/>
@@ -450,23 +506,23 @@ function vehicleIcon(status, hasIncident, hasGps) {
 }
 
 function pinIcon(color, emoji) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="${color}" stroke="#fff" stroke-width="2"/>
-        <text x="12" y="16" text-anchor="middle" font-size="10" font-family="system-ui">${emoji}</text>
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+        <circle cx="13" cy="13" r="11" fill="${color}" stroke="#fff" stroke-width="2"/>
+        <text x="13" y="17" text-anchor="middle" font-size="11" font-family="system-ui">${emoji}</text>
     </svg>`;
-    return L.divIcon({ html: svg, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+    return L.divIcon({ html: svg, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
 }
 
-// ─── Popup ─────────────────────────────────────────────────────────────────────
+// ─── Popup véhicule ────────────────────────────────────────────────────────────
 function buildPopup(pos) {
-    const statusLabel = {active:'🚗 En cours', pending:'⏳ En attente', completed:'✅ Terminé'}[pos.status] ?? pos.status;
-    const speed  = pos.speed   ? `<div style="font-size:12px;color:#1A5FB4;margin-top:3px">⚡ ${Math.round(pos.speed)} km/h</div>` : '';
-    const inc    = pos.has_incident ? `<div style="font-size:12px;color:#DC2626;margin-top:3px">⚠️ Incident signalé</div>` : '';
-    const dep    = pos.departure_time ? `<div style="font-size:11px;color:#6B7280;margin-top:2px">Départ : ${pos.departure_time}</div>` : '';
+    const label = { active:'🚗 En cours', pending:'⏳ En attente', completed:'✅ Terminé' }[pos.status] ?? pos.status;
+    const speed = pos.speed ? `<div style="font-size:12px;color:#1A5FB4;margin-top:3px">⚡ ${Math.round(pos.speed)} km/h</div>` : '';
+    const inc   = pos.has_incident ? `<div style="font-size:12px;color:#DC2626;margin-top:3px">⚠️ Incident signalé</div>` : '';
+    const dep   = pos.departure_time ? `<div style="font-size:11px;color:#6B7280;margin-top:2px">Départ : ${pos.departure_time}</div>` : '';
     return `<div style="min-width:200px">
-        <div style="font-weight:700;font-size:13px;color:#111827;margin-bottom:2px">${pos.from} → ${pos.to}</div>
-        <div style="font-size:11px;background:#F3F4F6;display:inline-block;padding:2px 7px;border-radius:10px;color:#374151;font-weight:600;margin-bottom:4px">${statusLabel}</div>
-        <div style="font-size:12px;color:#6B7280">${pos.driver_name}${pos.driver_phone ? ' · '+pos.driver_phone : ''}</div>
+        <div style="font-weight:700;font-size:13px;color:#111827;margin-bottom:3px">${pos.from} → ${pos.to}</div>
+        <span style="font-size:11px;background:#F3F4F6;padding:2px 8px;border-radius:10px;color:#374151;font-weight:600">${label}</span>
+        <div style="font-size:12px;color:#6B7280;margin-top:5px">${pos.driver_name}${pos.driver_phone ? ' · '+pos.driver_phone : ''}</div>
         ${dep}${speed}${inc}
         <button onclick="window.openPanel(${pos.id})"
             style="margin-top:8px;padding:5px 12px;background:#1A5FB4;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;width:100%">
@@ -475,7 +531,7 @@ function buildPopup(pos) {
     </div>`;
 }
 
-// ─── Mise à jour des marqueurs ─────────────────────────────────────────────────
+// ─── Mise à jour des marqueurs + routes ────────────────────────────────────────
 function updateMarkers(positions) {
     const seen = new Set();
 
@@ -487,32 +543,40 @@ function updateMarkers(positions) {
         const icon   = vehicleIcon(pos.status, pos.has_incident, pos.has_gps);
         const popup  = buildPopup(pos);
 
+        // Marqueur véhicule
         if (markers[pos.uuid]) {
             markers[pos.uuid].setLatLng(latlng).setIcon(icon);
-            if (markers[pos.uuid].getPopup()) markers[pos.uuid].getPopup().setContent(popup);
+            markers[pos.uuid].getPopup()?.setContent(popup);
         } else {
             markers[pos.uuid] = L.marker(latlng, { icon })
                 .addTo(leafletMap)
                 .bindPopup(popup, { maxWidth: 240 });
         }
 
-        // Tracé progressif uniquement pour les trajets actifs avec GPS
+        // Itinéraire OSRM planifié (fetchs asynchrones, mis en cache)
+        if (!routeCache[pos.uuid]) {
+            showPlannedRoute(pos); // async, non bloquant
+        } else if (!routeLines[pos.uuid]) {
+            showPlannedRoute(pos); // recréer la polyline si absente
+        }
+
+        // Chemin GPS réel (uniquement trajets actifs avec signal)
         if (pos.status === 'active' && pos.has_gps && pos.uuid !== focusedUuid) {
-            if (!pathLines[pos.uuid]) {
-                pathLines[pos.uuid] = {
-                    polyline: L.polyline([], { color: '#1A5FB4', weight: 3, opacity: 0.5, dashArray: '5 5' }).addTo(leafletMap),
-                    coords: [],
+            if (!gpsLines[pos.uuid]) {
+                gpsLines[pos.uuid] = {
+                    polyline: L.polyline([], { color: '#1A5FB4', weight: 4, opacity: 0.85 }).addTo(leafletMap),
+                    coords:   [],
                 };
             }
-            const coords = pathLines[pos.uuid].coords;
-            const last   = coords[coords.length - 1];
-            if (!last || last[0] !== pos.lat || last[1] !== pos.lng) {
-                coords.push(latlng);
-                pathLines[pos.uuid].polyline.setLatLngs(coords);
+            const c = gpsLines[pos.uuid].coords;
+            const l = c[c.length - 1];
+            if (!l || l[0] !== pos.lat || l[1] !== pos.lng) {
+                c.push(latlng);
+                gpsLines[pos.uuid].polyline.setLatLngs(c);
             }
         }
 
-        // Pins départ/arrivée (une seule fois)
+        // Pins départ / arrivée (créés une seule fois)
         if (pos.departure_lat && pos.departure_lng && !depMarkers[pos.uuid]) {
             depMarkers[pos.uuid] = L.marker([pos.departure_lat, pos.departure_lng], { icon: pinIcon('#10B981', '🟢') })
                 .addTo(leafletMap).bindPopup(`<b>Départ</b><br>${pos.from}`);
@@ -523,64 +587,71 @@ function updateMarkers(positions) {
         }
     });
 
-    // Nettoyer les marqueurs disparus
+    // Supprimer les trajets disparus
     [...Object.keys(markers)].forEach(uuid => {
         if (seen.has(uuid)) return;
-        leafletMap.removeLayer(markers[uuid]); delete markers[uuid];
-        if (pathLines[uuid])  { leafletMap.removeLayer(pathLines[uuid].polyline);  delete pathLines[uuid]; }
-        if (depMarkers[uuid]) { leafletMap.removeLayer(depMarkers[uuid]); delete depMarkers[uuid]; }
-        if (arrMarkers[uuid]) { leafletMap.removeLayer(arrMarkers[uuid]); delete arrMarkers[uuid]; }
+        leafletMap.removeLayer(markers[uuid]);     delete markers[uuid];
+        if (routeLines[uuid])  { leafletMap.removeLayer(routeLines[uuid]);          delete routeLines[uuid]; }
+        if (gpsLines[uuid])    { leafletMap.removeLayer(gpsLines[uuid].polyline);   delete gpsLines[uuid]; }
+        if (depMarkers[uuid])  { leafletMap.removeLayer(depMarkers[uuid]);          delete depMarkers[uuid]; }
+        if (arrMarkers[uuid])  { leafletMap.removeLayer(arrMarkers[uuid]);          delete arrMarkers[uuid]; }
+        delete routeCache[uuid];
     });
 
-    // Mise à jour du compteur
     const el = document.getElementById('map-counter');
     if (el) el.textContent = `${seen.size} trajet(s) affiché(s)`;
 }
 
-// ─── Focus sur un trajet (depuis liste ou popup) ───────────────────────────────
-function focusTrip(tripData) {
+// ─── Focus sur un trajet ───────────────────────────────────────────────────────
+async function focusTrip(tripData) {
     focusedUuid = tripData.uuid;
     if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
 
+    // 1. Priorité : chemin GPS réel (trajet démarré)
     if (tripData.path && tripData.path.length > 1) {
         const coords = tripData.path.map(p => [p.lat, p.lng]);
-        focusedPath  = L.polyline(coords, { color: '#1A5FB4', weight: 4, opacity: 0.9 }).addTo(leafletMap);
-        const bounds = focusedPath.getBounds();
-        if (bounds.isValid()) leafletMap.fitBounds(bounds, { padding: [60, 60] });
-    } else if (tripData.lat && tripData.lng) {
-        leafletMap.flyTo([tripData.lat, tripData.lng], 14, { duration: 1 });
-    } else if (tripData.departure_lat && tripData.departure_lng) {
-        leafletMap.flyTo([tripData.departure_lat, tripData.departure_lng], 13, { duration: 1 });
+        focusedPath  = L.polyline(coords, { color: '#1A5FB4', weight: 5, opacity: 0.95 }).addTo(leafletMap);
+        const b = focusedPath.getBounds();
+        if (b.isValid()) leafletMap.fitBounds(b, { padding: [60, 60] });
+
+    // 2. Itinéraire OSRM (trajet en attente ou actif sans historique)
+    } else {
+        let coords = routeCache[tripData.uuid];
+        if (!coords && tripData.departure_lat && tripData.arrival_lat) {
+            coords = await fetchOsrmRoute(
+                tripData.departure_lat, tripData.departure_lng,
+                tripData.arrival_lat,   tripData.arrival_lng
+            );
+            if (coords) routeCache[tripData.uuid] = coords;
+        }
+        if (coords && coords.length > 1) {
+            focusedPath = L.polyline(coords, { color: '#1A5FB4', weight: 5, opacity: 0.95 }).addTo(leafletMap);
+            const b = focusedPath.getBounds();
+            if (b.isValid()) leafletMap.fitBounds(b, { padding: [60, 60] });
+        } else if (tripData.lat && tripData.lng) {
+            leafletMap.flyTo([tripData.lat, tripData.lng], 14, { duration: 1 });
+        } else if (tripData.departure_lat && tripData.departure_lng) {
+            leafletMap.flyTo([tripData.departure_lat, tripData.departure_lng], 13, { duration: 1 });
+        }
     }
 
-    // Ouvrir la popup du marqueur
-    setTimeout(() => { markers[tripData.uuid]?.openPopup(); }, 1200);
+    setTimeout(() => markers[tripData.uuid]?.openPopup(), 1200);
 }
 
-// ─── Exposés globalement ───────────────────────────────────────────────────────
+// ─── Globaux ───────────────────────────────────────────────────────────────────
 window.openPanel = (id) => $wire.view(id);
 
 window.flyToSelected = () => {
     if (!focusedUuid) return;
     const m = markers[focusedUuid];
-    if (m) {
-        leafletMap.flyTo(m.getLatLng(), 15, { duration: 1 });
-        setTimeout(() => m.openPopup(), 1100);
-    }
-    // Fermer le panneau pour voir la carte
+    if (m) { leafletMap.flyTo(m.getLatLng(), 15, { duration: 1 }); setTimeout(() => m.openPopup(), 1100); }
     document.querySelector('.panel-overlay')?.click();
 };
 
 // ─── Événements Livewire ───────────────────────────────────────────────────────
-$wire.on('map-positions-updated', ({ positions }) => {
-    updateMarkers(positions);
-});
-
-$wire.on('trip-focused', (tripData) => {
-    focusTrip(tripData);
-});
-
-$wire.on('trip-closed', () => {
+$wire.on('map-positions-updated', ({ positions }) => updateMarkers(positions));
+$wire.on('trip-focused',  (tripData) => focusTrip(tripData));
+$wire.on('trip-closed',   () => {
     focusedUuid = null;
     if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
 });
