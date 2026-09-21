@@ -34,22 +34,25 @@
 .empty-state{background:#fff;border-radius:12px;padding:60px;text-align:center;color:#9CA3AF;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .empty-state .icon{font-size:40px;margin-bottom:12px}
 
-/* ── Slide-over supervision ─────────────────────────── */
+/* ── Slide-over supervision ─── WhatsApp style ──────── */
 .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;backdrop-filter:blur(2px)}
 .panel-drawer{position:fixed;top:0;right:0;bottom:0;width:560px;max-width:96vw;background:#fff;z-index:501;display:flex;flex-direction:column;box-shadow:-4px 0 30px rgba(0,0,0,.15)}
-.panel-head{padding:18px 22px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#1A5FB4;color:#fff}
+.panel-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#075E54;color:#fff}
 .panel-head h2{font-size:15px;font-weight:700;margin:0}
-.panel-close{width:30px;height:30px;border-radius:8px;border:none;background:rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
-.panel-close:hover{background:rgba(255,255,255,.35)}
-.panel-sub{font-size:11px;opacity:.85;margin-top:2px}
-.msg-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#F2F4F7}
-.msg-item{max-width:78%;display:flex;flex-direction:column;gap:3px}
+.panel-close{width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+.panel-close:hover{background:rgba(255,255,255,.28)}
+.panel-sub{font-size:11px;opacity:.8;margin-top:2px}
+.msg-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:4px;background:#E5DDD5;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E")}
+.msg-item{max-width:75%;display:flex;flex-direction:column;gap:1px}
 .msg-item.other{align-self:flex-start}
 .msg-item.mine{align-self:flex-end;align-items:flex-end}
-.msg-bubble{padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.5;word-break:break-word;background:#fff;color:#374151;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.msg-item.mine .msg-bubble{background:#1A5FB4;color:#fff;border-bottom-left-radius:16px;border-bottom-right-radius:4px}
-.msg-meta{font-size:10px;color:#9CA3AF;display:flex;align-items:center;gap:6px}
-.panel-footer{padding:14px 18px;border-top:1px solid #F3F4F6;background:#fff;flex-shrink:0;text-align:center;font-size:12px;color:#9CA3AF}
+.msg-sender{font-size:11.5px;font-weight:600;color:#128C7E;margin-bottom:2px;padding-left:2px}
+.msg-item.mine .msg-sender{color:#075E54;text-align:right;padding-right:2px}
+.msg-bubble{padding:6px 10px 4px;border-radius:7.5px;font-size:13.5px;line-height:1.5;word-break:break-word;box-shadow:0 1px 0.5px rgba(11,20,26,.18);position:relative}
+.msg-item.other .msg-bubble{background:#fff;color:#111B21;border-top-left-radius:0}
+.msg-item.mine .msg-bubble{background:#DCF8C6;color:#111B21;border-top-right-radius:0}
+.msg-meta{font-size:11px;color:#667781;display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:1px;padding-right:2px}
+.panel-footer{padding:10px 18px;border-top:1px solid #E9EDEF;background:#F0F2F5;flex-shrink:0;text-align:center;font-size:12px;color:#667781}
 
 /* ══ FAB + panneau chat admin ═══════════════════════════ */
 .fab-wrap{position:fixed;bottom:28px;right:28px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -59,15 +62,15 @@
 .fab-bcast{background:#7C3AED;width:42px;height:42px;font-size:18px;box-shadow:0 3px 12px rgba(124,58,237,.4)}
 .fab-tooltip{font-size:10px;color:#fff;background:rgba(0,0,0,.5);padding:2px 7px;border-radius:6px;white-space:nowrap}
 
-/* Panneau chat */
+/* Panneau chat — WhatsApp style */
 .cp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:900}
-.cp{position:fixed;bottom:0;right:0;width:390px;max-width:96vw;height:540px;max-height:88vh;background:#fff;z-index:901;display:flex;flex-direction:column;border-radius:16px 16px 0 0;box-shadow:-2px -4px 24px rgba(0,0,0,.15)}
+.cp{position:fixed;bottom:0;right:0;width:390px;max-width:96vw;height:560px;max-height:88vh;background:#fff;z-index:901;display:flex;flex-direction:column;border-radius:16px 16px 0 0;box-shadow:-2px -4px 24px rgba(0,0,0,.18)}
 
-.cp-head{background:#1A5FB4;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;border-radius:16px 16px 0 0;flex-shrink:0}
+.cp-head{background:#075E54;color:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;border-radius:16px 16px 0 0;flex-shrink:0}
 .cp-head-title{font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cp-head-sub{font-size:10px;opacity:.75;margin-top:1px}
-.cp-hbtn{width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,.18);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.cp-hbtn:hover{background:rgba(255,255,255,.3)}
+.cp-head-sub{font-size:10px;opacity:.8;margin-top:1px}
+.cp-hbtn{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.cp-hbtn:hover{background:rgba(255,255,255,.28)}
 
 /* Zone recherche */
 .cp-search{padding:10px 12px;border-bottom:1px solid #F3F4F6;flex-shrink:0}
@@ -83,36 +86,36 @@
 .cp-uname{font-size:12px;font-weight:600;color:#111827}
 .cp-usub{font-size:11px;color:#6B7280}
 
-/* Messages dans le panneau */
-.cp-messages{flex:1;overflow-y:auto;padding:10px;background:#F8FAFC;display:flex;flex-direction:column;gap:8px}
-.cpm-row{display:flex;flex-direction:column;gap:2px;max-width:82%}
+/* Messages dans le panneau — WhatsApp style */
+.cp-messages{flex:1;overflow-y:auto;padding:10px 12px;background:#E5DDD5;display:flex;flex-direction:column;gap:4px}
+.cpm-row{display:flex;flex-direction:column;gap:1px;max-width:80%}
 .cpm-row.me{align-self:flex-end;align-items:flex-end}
 .cpm-row.them{align-self:flex-start}
-.cpm-bub{padding:8px 12px;border-radius:14px;font-size:12px;line-height:1.5;word-break:break-word}
-.cpm-row.me .cpm-bub{background:#1A5FB4;color:#fff;border-bottom-right-radius:3px}
-.cpm-row.them .cpm-bub{background:#fff;color:#374151;border-bottom-left-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
-.cpm-meta{font-size:10px;color:#9CA3AF}
-.cpm-tick{color:#60A5FA}
+.cpm-bub{padding:6px 10px 4px;border-radius:7.5px;font-size:13px;line-height:1.5;word-break:break-word;box-shadow:0 1px 0.5px rgba(11,20,26,.18)}
+.cpm-row.me .cpm-bub{background:#DCF8C6;color:#111B21;border-top-right-radius:0}
+.cpm-row.them .cpm-bub{background:#fff;color:#111B21;border-top-left-radius:0}
+.cpm-meta{font-size:10.5px;color:#667781;margin-top:1px}
+.cpm-tick{color:#53BDEB}
 .cpm-audio{display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,.15);border-radius:8px}
 .cpm-audio audio{height:26px;flex:1;min-width:0}
 .cpm-img{max-width:170px;border-radius:8px;display:block;margin-top:3px}
 .cpm-doc{font-size:11px;display:flex;align-items:center;gap:5px;text-decoration:none}
 
-/* Zone saisie */
-.cp-input{padding:9px 10px;border-top:1px solid #F3F4F6;background:#fff;flex-shrink:0}
-.cp-attach-prev{font-size:11px;color:#1A5FB4;background:#EFF6FF;border-radius:6px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+/* Zone saisie — WhatsApp style */
+.cp-input{padding:8px 10px;border-top:none;background:#F0F2F5;flex-shrink:0}
+.cp-attach-prev{font-size:11px;color:#128C7E;background:#E8F5E9;border-radius:6px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
 .cp-attach-prev button{background:none;border:none;color:#EF4444;cursor:pointer;font-size:12px;margin-left:auto;padding:0}
 .cp-rec-bar{font-size:11px;color:#EF4444;font-weight:600;display:none;align-items:center;gap:5px;margin-bottom:5px}
 .cp-rdot{width:7px;height:7px;background:#EF4444;border-radius:50%;animation:cpblink 1s infinite}
 @keyframes cpblink{0%,100%{opacity:1}50%{opacity:.25}}
 .cp-irow{display:flex;align-items:flex-end;gap:6px}
-.cp-ta{flex:1;border:1.5px solid #E5E7EB;border-radius:10px;padding:7px 10px;font-size:12px;resize:none;outline:none;min-height:34px;max-height:90px;font-family:inherit;line-height:1.4}
-.cp-ta:focus{border-color:#1A5FB4}
-.cp-ibtn{width:32px;height:32px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:all .12s}
-.cp-ibtn:hover{border-color:#1A5FB4;background:#EFF6FF}
-.cp-ibtn.rec{border-color:#EF4444;background:#FEE2E2;animation:cpblink 1s infinite}
-.cp-send{width:32px;height:32px;border-radius:8px;border:none;background:#1A5FB4;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:background .12s}
-.cp-send:hover{background:#0F4A9E}
+.cp-ta{flex:1;border:none;border-radius:21px;padding:8px 14px;font-size:13px;resize:none;outline:none;min-height:36px;max-height:100px;font-family:inherit;line-height:1.4;background:#fff;color:#111B21}
+.cp-ta::placeholder{color:#8696A0}
+.cp-ibtn{width:36px;height:36px;border-radius:50%;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all .12s;color:#54656F}
+.cp-ibtn:hover{background:#E9EDEF}
+.cp-ibtn.rec{background:#FEE2E2;color:#EF4444;animation:cpblink 1s infinite}
+.cp-send{width:40px;height:40px;border-radius:50%;border:none;background:#25D366;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;transition:background .12s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.cp-send:hover{background:#22C55E}
 .cp-send:disabled{background:#9CA3AF;cursor:not-allowed}
 
 /* Alerte pas d'admin user */
@@ -271,7 +274,7 @@
             $isMine = $msg->sender_id !== $leftId; // second participant → droite
         @endphp
         <div class="msg-item {{ $isMine ? 'mine' : 'other' }}">
-            <span style="font-size:11px;color:#6B7280;font-weight:600">{{ $sName }}</span>
+            <span class="msg-sender">{{ $sName }}</span>
             <div class="msg-bubble">
                 @if($msg->body){{ $msg->body }}@endif
                 @if($msg->attachment_path)
