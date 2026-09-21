@@ -226,7 +226,8 @@ class Dashboard extends Component
                 'link'   => '/admin/users',
             ]);
 
-        $this->recentFeed = $recentTrips->merge($recentUsers)
+        $this->recentFeed = $recentTrips->toBase()
+            ->concat($recentUsers)
             ->sortByDesc('ts')
             ->values()
             ->toArray();
