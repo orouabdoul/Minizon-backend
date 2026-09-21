@@ -45,7 +45,9 @@
 .msg-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#F2F4F7}
 .msg-item{max-width:78%;display:flex;flex-direction:column;gap:3px}
 .msg-item.other{align-self:flex-start}
+.msg-item.mine{align-self:flex-end;align-items:flex-end}
 .msg-bubble{padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.5;word-break:break-word;background:#fff;color:#374151;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.msg-item.mine .msg-bubble{background:#1A5FB4;color:#fff;border-bottom-left-radius:16px;border-bottom-right-radius:4px}
 .msg-meta{font-size:10px;color:#9CA3AF;display:flex;align-items:center;gap:6px}
 .panel-footer{padding:14px 18px;border-top:1px solid #F3F4F6;background:#fff;flex-shrink:0;text-align:center;font-size:12px;color:#9CA3AF}
 
@@ -263,8 +265,11 @@
     </div>
     <div class="msg-list">
         @forelse($selectedConv->messages as $msg)
-        @php $sName = trim(($msg->sender?->profile?->first_name??'').(' '.($msg->sender?->profile?->last_name??'')))?: ($msg->sender?->phone??'Inconnu'); @endphp
-        <div class="msg-item other">
+        @php
+            $sName  = trim(($msg->sender?->profile?->first_name??'').(' '.($msg->sender?->profile?->last_name??'')))?: ($msg->sender?->phone??'Inconnu');
+            $isMine = $msg->sender_id === $adminId;
+        @endphp
+        <div class="msg-item {{ $isMine ? 'mine' : 'other' }}">
             <span style="font-size:11px;color:#6B7280;font-weight:600">{{ $sName }}</span>
             <div class="msg-bubble">
                 @if($msg->body){{ $msg->body }}@endif

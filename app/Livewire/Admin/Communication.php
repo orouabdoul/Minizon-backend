@@ -95,6 +95,7 @@ class Communication extends Component
                     ->whereNull('booking_id')
                     ->whereHas('participants', fn ($q) => $q->where('users.id', $adminId))
                     ->whereHas('participants', fn ($q) => $q->where('users.id', $target))
+                    ->has('participants', '=', 2)
                     ->first();
                 $this->chatConvId = $conv?->id;
             }
@@ -135,6 +136,7 @@ class Communication extends Component
                 ->whereNull('booking_id')
                 ->whereHas('participants', fn ($q) => $q->where('users.id', $adminId))
                 ->whereHas('participants', fn ($q) => $q->where('users.id', $target->id))
+                ->has('participants', '=', 2)
                 ->first();
 
             if (! $conv) {
@@ -235,6 +237,7 @@ class Communication extends Component
             $conv = Conversation::whereNull('trip_id')->whereNull('booking_id')
                 ->whereHas('participants', fn ($p) => $p->where('users.id', $adminId))
                 ->whereHas('participants', fn ($p) => $p->where('users.id', $user->id))
+                ->has('participants', '=', 2)
                 ->first();
 
             if (! $conv) {
