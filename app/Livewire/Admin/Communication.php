@@ -360,8 +360,10 @@ class Communication extends Component
                     ->get();
             }
 
+            \Illuminate\Support\Facades\Log::error('Communication::debug - total_convs=' . Conversation::count());
             try {
                 $conversations = $query->paginate(20);
+                \Illuminate\Support\Facades\Log::error('Communication::debug - paginate_count=' . $conversations->total());
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('Communication::paginate - ' . $e->getMessage(), [
                     'file' => $e->getFile(),
