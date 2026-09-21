@@ -288,7 +288,7 @@ class Communication extends Component
             $query = Conversation::with([
                 'participants.profile',
                 'trip',
-                'lastMessage' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
+                'lastMessage.sender.profile',
             ])
             ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
                 $s = '%' . $this->search . '%';
@@ -296,7 +296,7 @@ class Communication extends Component
                    ->orWhereHas('profile', fn ($p) => $p->where('first_name', 'like', $s)->orWhere('last_name', 'like', $s));
             }))
             ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
-            ->withCount(['messages' => fn ($q) => $q->withoutGlobalScopes()])
+            ->withCount('messages')
             ->orderByDesc('updated_at');
 
             try {
@@ -314,7 +314,7 @@ class Communication extends Component
                 ? Conversation::with([
                     'participants.profile',
                     'trip',
-                    'messages' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
+                    'messages.sender.profile',
                 ])->find($this->selectedId)
                 : null;
 
@@ -362,7 +362,11 @@ class Communication extends Component
 
             try {
                 $conversations = $query->paginate(20);
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Communication::paginate - ' . $e->getMessage(), [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
                 $conversations = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
             }
 
