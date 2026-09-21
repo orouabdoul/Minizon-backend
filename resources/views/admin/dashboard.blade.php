@@ -285,7 +285,7 @@ $statusMap = [
                 <a href="/admin/users" style="font-size:11px;color:#1A5FB4;text-decoration:none">Voir →</a>
             </div>
             <div class="mini-panel__body">
-                @foreach($miniPanels['users'] as $row)
+                @foreach(($miniPanels['users'] ?? []) as $row)
                 <div class="mini-row">
                     <span class="mini-row__label">{{ $row['label'] }}</span>
                     <span class="mini-row__value" style="color:{{ $row['color'] }}">{{ $row['value'] }}</span>
@@ -301,7 +301,7 @@ $statusMap = [
                 <a href="/admin/trips" style="font-size:11px;color:#1A5FB4;text-decoration:none">Voir →</a>
             </div>
             <div class="mini-panel__body">
-                @foreach($miniPanels['trips'] as $row)
+                @foreach(($miniPanels['trips'] ?? []) as $row)
                 <div class="mini-row">
                     <span class="mini-row__label">{{ $row['label'] }}</span>
                     <span class="mini-row__value" style="color:{{ $row['color'] }}">{{ $row['value'] }}</span>
