@@ -7,8 +7,12 @@ use Livewire\Component;
 
 class Tracking extends Component
 {
-    public string $cityFilter = '';
-    public ?int   $selectedId = null;
+    public string $cityFilter   = '';
+    public string $statusFilter = '';   // '' = tous | 'active' | 'pending' | 'completed'
+    public ?int   $selectedId   = null;
+
+    public function updatingCityFilter(): void   { $this->selectedId = null; }
+    public function updatingStatusFilter(): void { $this->selectedId = null; }
 
     public function view(int $id): void
     {
@@ -28,11 +32,14 @@ class Tracking extends Component
         $profile = $trip->user?->profile;
         $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
 
+        // Position pour la carte : GPS actuel OU point de départ OU point d'arrivée
+        [$mapLat, $mapLng] = $this->resolveMapPosition($trip);
+
         $this->dispatch('trip-focused', [
             'id'            => $trip->id,
             'uuid'          => $trip->uuid,
-            'lat'           => $trip->current_latitude,
-            'lng'           => $trip->current_longitude,
+            'lat'           => $mapLat,
+            'lng'           => $mapLng,
             'status'        => $trip->status,
             'has_incident'  => $trip->activeIncident !== null,
             'from'          => $trip->departure_city,
@@ -55,57 +62,30 @@ class Tracking extends Component
 
     public function refreshPositions(): void
     {
-        $positions = Trip::with(['user.profile', 'activeIncident'])
-            ->where('status', 'active')
-            ->get()
-            ->map(function (Trip $t) {
-                $profile = $t->user?->profile;
-                $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
+        $trips = $this->buildQuery()->get();
 
-                return [
-                    'id'            => $t->id,
-                    'uuid'          => $t->uuid,
-                    'lat'           => $t->current_latitude,
-                    'lng'           => $t->current_longitude,
-                    'speed'         => $t->current_speed,
-                    'status'        => $t->status,
-                    'has_incident'  => $t->activeIncident !== null,
-                    'is_flagged'    => (bool) $t->is_flagged,
-                    'from'          => $t->departure_city,
-                    'to'            => $t->arrival_city,
-                    'driver_name'   => $name,
-                    'driver_phone'  => $t->user?->phone,
-                    'departure_lat' => $t->departure_latitude,
-                    'departure_lng' => $t->departure_longitude,
-                    'arrival_lat'   => $t->arrival_latitude,
-                    'arrival_lng'   => $t->arrival_longitude,
-                ];
-            })->toArray();
+        $positions = $trips->map(fn(Trip $t) => $this->tripToPosition($t))->filter()->values()->toArray();
 
         $this->dispatch('map-positions-updated', positions: $positions);
     }
 
     public function render()
     {
-        $trips = Trip::with(['user.profile', 'vehicle', 'bookings', 'activeIncident'])
-            ->where('status', 'active')
-            ->when($this->cityFilter, fn($q) => $q->where(function ($q2) {
-                $q2->where('departure_city', $this->cityFilter)
-                   ->orWhere('arrival_city', $this->cityFilter);
-            }))
-            ->orderByDesc('started_at')
+        $trips = $this->buildQuery()
+            ->with(['bookings'])
             ->get();
 
         $stats = [
-            'active'      => Trip::where('status', 'active')->count(),
-            'with_gps'    => Trip::where('status', 'active')
+            'active'    => Trip::where('status', 'active')->count(),
+            'pending'   => Trip::where('status', 'pending')->count(),
+            'completed' => Trip::where('status', 'completed')->count(),
+            'with_gps'  => Trip::whereIn('status', ['active', 'pending'])
                 ->whereNotNull('current_latitude')->whereNotNull('current_longitude')->count(),
-            'without_gps' => Trip::where('status', 'active')
-                ->where(fn($q) => $q->whereNull('current_latitude')->orWhereNull('current_longitude'))->count(),
-            'avg_speed'   => (float) Trip::where('status', 'active')->whereNotNull('current_speed')->avg('current_speed'),
+            'avg_speed' => (float) Trip::where('status', 'active')
+                ->whereNotNull('current_speed')->avg('current_speed'),
         ];
 
-        $cities = Trip::where('status', 'active')
+        $cities = Trip::whereIn('status', ['active', 'pending', 'completed'])
             ->distinct()
             ->get(['departure_city', 'arrival_city'])
             ->flatMap(fn($t) => [$t->departure_city, $t->arrival_city])
@@ -115,28 +95,7 @@ class Tracking extends Component
             ? Trip::with(['user.profile', 'vehicle', 'bookings'])->find($this->selectedId)
             : null;
 
-        $positions = $trips->map(function (Trip $t) {
-            $profile = $t->user?->profile;
-            $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
-            return [
-                'id'            => $t->id,
-                'uuid'          => $t->uuid,
-                'lat'           => $t->current_latitude,
-                'lng'           => $t->current_longitude,
-                'speed'         => $t->current_speed,
-                'status'        => $t->status,
-                'has_incident'  => $t->activeIncident !== null,
-                'is_flagged'    => (bool) $t->is_flagged,
-                'from'          => $t->departure_city,
-                'to'            => $t->arrival_city,
-                'driver_name'   => $name,
-                'driver_phone'  => $t->user?->phone,
-                'departure_lat' => $t->departure_latitude,
-                'departure_lng' => $t->departure_longitude,
-                'arrival_lat'   => $t->arrival_latitude,
-                'arrival_lng'   => $t->arrival_longitude,
-            ];
-        })->toArray();
+        $positions = $trips->map(fn(Trip $t) => $this->tripToPosition($t))->filter()->values()->toArray();
 
         return view('admin.tracking', [
             'trips'        => $trips,
@@ -145,5 +104,74 @@ class Tracking extends Component
             'selectedTrip' => $selectedTrip,
             'positions'    => $positions,
         ])->layout('admin.layouts.app', ['title' => 'Suivi Temps Réel']);
+    }
+
+    // ── Helpers privés ────────────────────────────────────────────────────────
+
+    private function buildQuery()
+    {
+        $statuses = $this->statusFilter !== ''
+            ? [$this->statusFilter]
+            : ['active', 'pending', 'completed'];
+
+        return Trip::with(['user.profile', 'vehicle', 'activeIncident'])
+            ->whereIn('status', $statuses)
+            ->when($this->cityFilter, fn($q) => $q->where(function ($q2) {
+                $q2->where('departure_city', $this->cityFilter)
+                   ->orWhere('arrival_city', $this->cityFilter);
+            }))
+            ->orderByRaw("CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END")
+            ->orderByDesc('created_at');
+    }
+
+    private function tripToPosition(Trip $t): ?array
+    {
+        [$lat, $lng] = $this->resolveMapPosition($t);
+
+        if (! $lat || ! $lng) {
+            return null;
+        }
+
+        $profile = $t->user?->profile;
+        $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
+
+        return [
+            'id'            => $t->id,
+            'uuid'          => $t->uuid,
+            'lat'           => $lat,
+            'lng'           => $lng,
+            'has_gps'       => (bool) ($t->current_latitude && $t->current_longitude),
+            'speed'         => $t->current_speed,
+            'status'        => $t->status,
+            'has_incident'  => $t->activeIncident !== null,
+            'is_flagged'    => (bool) $t->is_flagged,
+            'from'          => $t->departure_city,
+            'to'            => $t->arrival_city,
+            'driver_name'   => $name,
+            'driver_phone'  => $t->user?->phone,
+            'departure_lat' => $t->departure_latitude,
+            'departure_lng' => $t->departure_longitude,
+            'arrival_lat'   => $t->arrival_latitude,
+            'arrival_lng'   => $t->arrival_longitude,
+            'departure_time'=> $t->departure_time?->format('H:i'),
+        ];
+    }
+
+    private function resolveMapPosition(Trip $t): array
+    {
+        // 1. GPS actuel (trajet en cours)
+        if ($t->current_latitude && $t->current_longitude) {
+            return [(float) $t->current_latitude, (float) $t->current_longitude];
+        }
+        // 2. Point de départ (trajet en attente ou sans signal)
+        if ($t->departure_latitude && $t->departure_longitude) {
+            return [(float) $t->departure_latitude, (float) $t->departure_longitude];
+        }
+        // 3. Point d'arrivée (trajet terminé sans GPS)
+        if ($t->arrival_latitude && $t->arrival_longitude) {
+            return [(float) $t->arrival_latitude, (float) $t->arrival_longitude];
+        }
+
+        return [null, null];
     }
 }
