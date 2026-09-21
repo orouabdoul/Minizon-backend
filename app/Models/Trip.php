@@ -173,6 +173,11 @@ class Trip extends Model
         return $this->hasOne(TripIncident::class)->whereNull('resolved_at')->latest();
     }
 
+    public function locations()
+    {
+        return $this->hasMany(TripLocation::class)->orderBy('recorded_at');
+    }
+
     // -----------------------------------------------------------------------
     // SCOPES
     // -----------------------------------------------------------------------

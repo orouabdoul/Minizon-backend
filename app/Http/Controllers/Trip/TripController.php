@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Trip;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
+use App\Models\TripLocation;
 use App\Notifications\TripCompleted;
 use App\Notifications\TripStarted;
 use App\Services\FcmService;
@@ -431,6 +432,21 @@ class TripController extends Controller
             'current_speed'       => $validated['speed'] ?? null,
             'location_updated_at' => now(),
         ]);
+
+        // Historique GPS : enregistrer toutes les 10s pour le tracé admin
+        $recentExists = TripLocation::where('trip_id', $trip->id)
+            ->where('recorded_at', '>=', now()->subSeconds(8))
+            ->exists();
+
+        if (! $recentExists) {
+            TripLocation::create([
+                'trip_id'     => $trip->id,
+                'lat'         => $validated['latitude'],
+                'lng'         => $validated['longitude'],
+                'speed'       => $validated['speed'] ?? null,
+                'recorded_at' => now(),
+            ]);
+        }
 
         // Détection de proximité → notifications FCM passagers
         $approaching = $this->checkProximityNotifications(

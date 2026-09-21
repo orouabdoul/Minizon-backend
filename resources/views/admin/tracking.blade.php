@@ -1,4 +1,10 @@
 <div>
+
+@once
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+@endonce
+
 <style>
 .track-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
 .track-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
@@ -18,19 +24,13 @@
 .filter-select{padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer}
 .filter-select:focus{border-color:#1A5FB4}
 
-/* Map placeholder */
-.map-placeholder{background:linear-gradient(135deg,#0F172A 0%,#1E293B 50%,#0F172A 100%);border-radius:16px;height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.2)}
-.map-grid{position:absolute;inset:0;opacity:.15;background-image:linear-gradient(rgba(99,102,241,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.5) 1px,transparent 1px);background-size:40px 40px}
-.map-center{text-align:center;z-index:1}
-.map-center .icon{font-size:48px;margin-bottom:12px;filter:drop-shadow(0 0 12px rgba(99,102,241,.8))}
-.map-center h3{color:#fff;font-size:16px;font-weight:700;margin:0 0 6px}
-.map-center p{color:rgba(255,255,255,.6);font-size:12px;margin:0}
-
-/* Trip dots on map (decorative) */
-.map-dots{position:absolute;inset:0;pointer-events:none}
-.map-dot{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px currentColor}
-.map-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid currentColor;opacity:.4;animation:ping 1.5s ease infinite}
-@keyframes ping{0%{transform:scale(1);opacity:.4}75%,100%{transform:scale(1.8);opacity:0}}
+/* Map container */
+.map-container{background:#e9ecef;border-radius:16px;height:480px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+#minizon-map{height:100%;width:100%}
+.map-legend{position:absolute;bottom:12px;left:12px;z-index:1000;background:rgba(255,255,255,.95);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;gap:14px;flex-wrap:wrap}
+.map-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#374151}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.map-stats-overlay{position:absolute;top:12px;right:12px;z-index:1000;background:rgba(255,255,255,.95);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px;color:#374151;font-weight:600}
 
 /* Trip list */
 .trip-grid{display:flex;flex-direction:column;gap:8px}
@@ -38,6 +38,7 @@
 .trip-item:hover{border-color:#BFDBFE;box-shadow:0 3px 10px rgba(0,0,0,.08)}
 .trip-item.selected{border-color:#1A5FB4}
 .trip-item.no-gps{opacity:.8;border-style:dashed}
+.trip-item.has-incident{border-color:#FEE2E2;background:#FFFAFA}
 
 .driver-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
 .trip-content{flex:1;min-width:0}
@@ -48,6 +49,7 @@
 .speed-badge{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
 .gps-ok{background:#D1FAE5;color:#065F46}
 .gps-missing{background:#F3F4F6;color:#9CA3AF}
+.incident-badge{background:#FEE2E2;color:#DC2626;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
 
 /* Panel */
 .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;backdrop-filter:blur(2px)}
@@ -63,15 +65,24 @@
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .info-item label{font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px}
 .info-item span{font-size:13px;font-weight:600;color:#374151}
-.gps-map{background:linear-gradient(135deg,#0F172A,#1E293B);border-radius:12px;padding:20px;text-align:center;margin-bottom:12px}
+.gps-coords-box{background:linear-gradient(135deg,#0F172A,#1E293B);border-radius:12px;padding:16px;text-align:center;margin-bottom:12px}
 .gps-coords{font-family:monospace;font-size:14px;color:#6EE7B7;font-weight:700}
 .gps-link{display:inline-block;margin-top:8px;padding:6px 14px;background:rgba(99,102,241,.2);color:#A5B4FC;border-radius:8px;font-size:12px;text-decoration:none}
 .gps-link:hover{background:rgba(99,102,241,.35)}
+.locate-btn{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:8px 16px;background:#1A5FB4;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.locate-btn:hover{background:#0F4A9E}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
 
 .empty-state{background:#fff;border-radius:12px;padding:60px;text-align:center;color:#9CA3AF;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .empty-state .icon{font-size:40px;margin-bottom:12px}
+
+/* Leaflet popup override */
+.leaflet-popup-content{margin:10px 14px;font-family:'Inter',system-ui,sans-serif}
+.leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15)}
 </style>
+
+{{-- Polling div (hidden) — triggers refreshPositions every 5s --}}
+<div wire:poll.5000ms="refreshPositions" style="display:none" aria-hidden="true"></div>
 
 <div class="track-wrap">
 
@@ -131,25 +142,18 @@
     </div>
     @endif
 
-    {{-- Map placeholder --}}
-    <div class="map-placeholder">
-        <div class="map-grid"></div>
-        {{-- Decorative GPS dots --}}
-        <div class="map-dots">
-            @foreach($trips->where('current_latitude', '!=', null)->take(8) as $i => $t)
-            @php
-                $dotColors = ['#10B981','#3B82F6','#F59E0B','#EF4444','#6366F1','#EC4899','#14B8A6','#8B5CF6'];
-                $positions = [[15,25],[35,55],[55,30],[70,65],[20,70],[80,35],[45,75],[60,20]];
-                $pos = $positions[$i % count($positions)];
-            @endphp
-            <div class="map-dot" style="left:{{ $pos[0] }}%;top:{{ $pos[1] }}%;color:{{ $dotColors[$i%count($dotColors)] }};background:{{ $dotColors[$i%count($dotColors)] }}"></div>
-            @endforeach
+    {{-- CARTE LEAFLET — wire:ignore protège le DOM Leaflet des re-renders Livewire --}}
+    <div wire:ignore class="map-container">
+        <div id="minizon-map"></div>
+        <div class="map-legend">
+            <div class="map-legend-item"><div class="legend-dot" style="background:#1A5FB4"></div>En cours</div>
+            <div class="map-legend-item"><div class="legend-dot" style="background:#F59E0B"></div>En attente</div>
+            <div class="map-legend-item"><div class="legend-dot" style="background:#EF4444"></div>Incident</div>
+            <div class="map-legend-item"><div class="legend-dot" style="background:#10B981"></div>Départ</div>
+            <div class="map-legend-item"><div class="legend-dot" style="background:#EF4444;width:8px;height:8px;border-radius:2px"></div>Arrivée</div>
         </div>
-        <div class="map-center">
-            <div class="icon">🗺️</div>
-            <h3>Carte interactive</h3>
-            <p>Intégration de carte disponible via Google Maps ou Mapbox API<br>
-            {{ $stats['with_gps'] }} véhicule(s) avec signal GPS actif</p>
+        <div class="map-stats-overlay" id="map-stats-overlay">
+            {{ $stats['with_gps'] }} véhicule(s) en direct
         </div>
     </div>
 
@@ -163,23 +167,22 @@
     <div class="trip-grid">
         @foreach($trips as $trip)
         @php
-            $driver = $trip->user;
+            $driver   = $trip->user;
             $dProfile = $driver?->profile;
-            $dName = trim(($dProfile?->first_name??'').(' '.($dProfile?->last_name??''))) ?: 'Conducteur';
-            $dInit = strtoupper(substr($dProfile?->first_name??'C',0,1).substr($dProfile?->last_name??'',0,1));
-            $colors = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-            $dBg = $colors[abs(crc32($dName))%count($colors)];
-            $hasGps = $trip->current_latitude && $trip->current_longitude;
-            $lastUpdate = $trip->location_updated_at;
-            $speed = $trip->current_speed;
-            $bookCount = $trip->bookings->count();
+            $dName    = trim(($dProfile?->first_name??'').(' '.($dProfile?->last_name??''))) ?: 'Conducteur';
+            $dInit    = strtoupper(substr($dProfile?->first_name??'C',0,1).substr($dProfile?->last_name??'',0,1));
+            $colors   = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
+            $dBg      = $colors[abs(crc32($dName))%count($colors)];
+            $hasGps   = $trip->current_latitude && $trip->current_longitude;
+            $hasIncident = $trip->activeIncident !== null;
         @endphp
-        <div class="trip-item {{ $selectedId === $trip->id ? 'selected' : '' }} {{ !$hasGps ? 'no-gps' : '' }}"
+        <div class="trip-item {{ $selectedId === $trip->id ? 'selected' : '' }} {{ !$hasGps ? 'no-gps' : '' }} {{ $hasIncident ? 'has-incident' : '' }}"
              wire:click="view({{ $trip->id }})">
             <div class="driver-av" style="background:{{ $dBg }}">{{ $dInit }}</div>
             <div class="trip-content">
                 <div class="trip-route">
                     {{ $trip->departure_city }} <span style="color:#FF7A45">→</span> {{ $trip->arrival_city }}
+                    @if($hasIncident) <span style="color:#DC2626;font-size:11px">⚠️ Incident</span> @endif
                 </div>
                 <div class="trip-driver">{{ $dName }} · {{ $driver?->phone ?? '—' }}</div>
                 <div class="trip-gps">
@@ -188,15 +191,17 @@
                     @else
                         <span>📡 Pas de signal GPS</span>
                     @endif
-                    @if($lastUpdate)
-                        <span>🕐 {{ $lastUpdate->diffForHumans() }}</span>
+                    @if($trip->location_updated_at)
+                        <span>🕐 {{ $trip->location_updated_at->diffForHumans() }}</span>
                     @endif
-                    <span>👥 {{ $bookCount }} passager(s)</span>
+                    <span>👥 {{ $trip->bookings->count() }} passager(s)</span>
                 </div>
             </div>
             <div class="trip-right">
-                @if($hasGps && $speed !== null)
-                <div class="speed-badge gps-ok">⚡ {{ number_format($speed, 0) }} km/h</div>
+                @if($hasIncident)
+                <div class="incident-badge">⚠️ Incident</div>
+                @elseif($hasGps && $trip->current_speed !== null)
+                <div class="speed-badge gps-ok">⚡ {{ number_format($trip->current_speed, 0) }} km/h</div>
                 @elseif($hasGps)
                 <div class="speed-badge gps-ok">📍 GPS OK</div>
                 @else
@@ -216,12 +221,12 @@
 {{-- Trip detail panel --}}
 @if($selectedTrip)
 @php
-    $t = $selectedTrip;
-    $drv = $t->user;
-    $dPrf = $drv?->profile;
+    $t      = $selectedTrip;
+    $drv    = $t->user;
+    $dPrf   = $drv?->profile;
     $drvName = trim(($dPrf?->first_name??'').(' '.($dPrf?->last_name??''))) ?: 'Conducteur';
     $colors3 = ['#1A5FB4','#10B981','#F59E0B','#6366F1','#EF4444','#EC4899'];
-    $drvBg = $colors3[abs(crc32($drvName))%count($colors3)];
+    $drvBg   = $colors3[abs(crc32($drvName))%count($colors3)];
     $drvInit = strtoupper(substr($dPrf?->first_name??'C',0,1).substr($dPrf?->last_name??'',0,1));
     $hasGps2 = $t->current_latitude && $t->current_longitude;
 @endphp
@@ -239,17 +244,17 @@
                 {{ $t->departure_city }} <span style="color:#FF7A45">→</span> {{ $t->arrival_city }}
             </div>
             <div style="display:flex;gap:14px;flex-wrap:wrap">
-                @if($t->distance_km)<span style="font-size:12px;opacity:.85">📏 {{ number_format($t->distance_km, 1) }} km</span>@endif
+                @if($t->distance_km)<span style="font-size:12px;opacity:.85">📏 {{ number_format($t->distance_km, 1) }} km</span> @endif
                 <span style="font-size:12px;opacity:.85">🕐 {{ $t->started_at?->diffForHumans() ?? '—' }}</span>
                 <span style="font-size:12px;opacity:.85">👥 {{ $t->bookings->count() }} passager(s)</span>
             </div>
         </div>
 
-        {{-- GPS Position --}}
+        {{-- Localiser sur la carte --}}
+        @if($hasGps2)
         <div class="panel-section">
             <div class="panel-section__title">Position GPS</div>
-            @if($hasGps2)
-            <div class="gps-map">
+            <div class="gps-coords-box">
                 <div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Coordonnées actuelles</div>
                 <div class="gps-coords">
                     {{ number_format($t->current_latitude, 6) }}, {{ number_format($t->current_longitude, 6) }}
@@ -262,20 +267,20 @@
                     Mis à jour {{ $t->location_updated_at->diffForHumans() }}
                 </div>
                 @endif
-                <a class="gps-link"
-                   href="https://www.google.com/maps?q={{ $t->current_latitude }},{{ $t->current_longitude }}"
-                   target="_blank" rel="noopener">
-                    🗺️ Ouvrir dans Google Maps
-                </a>
             </div>
-            @else
+            <button class="locate-btn" onclick="window.flyToSelected()">
+                🗺️ Localiser sur la carte principale
+            </button>
+        </div>
+        @else
+        <div class="panel-section">
+            <div class="panel-section__title">Position GPS</div>
             <div class="panel-card" style="text-align:center;color:#9CA3AF;padding:24px">
                 <div style="font-size:28px;margin-bottom:8px">📡</div>
                 <div style="font-size:13px">Signal GPS non disponible</div>
-                <div style="font-size:11px;margin-top:4px">Le conducteur n'a pas partagé sa position</div>
             </div>
-            @endif
         </div>
+        @endif
 
         {{-- Conducteur --}}
         <div class="panel-section">
@@ -317,4 +322,194 @@
     </div>
 </div>
 @endif
+
+@script
+<script>
+// ─── Constantes ────────────────────────────────────────────────────────────────
+const COTONOU = [6.3656, 2.4183];
+const BENIN   = [9.3077, 2.3158];
+
+// ─── État global ───────────────────────────────────────────────────────────────
+let leafletMap   = null;
+let markers      = {};   // uuid → L.marker
+let pathLines    = {};   // uuid → { polyline, coords[] }
+let depMarkers   = {};   // uuid → L.marker départ
+let arrMarkers   = {};   // uuid → L.marker arrivée
+let focusedUuid  = null;
+let focusedPath  = null; // polyline tracé détaillé du trip focalisé
+
+// ─── Init carte ────────────────────────────────────────────────────────────────
+function initMap() {
+    if (leafletMap) return;
+
+    leafletMap = L.map('minizon-map', { zoomControl: true }).setView(COTONOU, 8);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+    }).addTo(leafletMap);
+}
+
+// ─── Fabrique d'icônes ─────────────────────────────────────────────────────────
+function vehicleIcon(status, hasIncident) {
+    const c = hasIncident ? '#EF4444' : (status === 'pending' ? '#F59E0B' : '#1A5FB4');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">
+        <ellipse cx="17" cy="41" rx="7" ry="3" fill="rgba(0,0,0,.18)"/>
+        <path d="M17 1C10.1 1 4.5 6.6 4.5 13.5c0 9.9 12.5 29.5 12.5 29.5S29.5 23.4 29.5 13.5C29.5 6.6 23.9 1 17 1z" fill="${c}" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="17" cy="13.5" r="6.5" fill="#fff"/>
+        <text x="17" y="17.5" text-anchor="middle" font-size="9" font-family="system-ui">🚗</text>
+    </svg>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [34, 44], iconAnchor: [17, 44], popupAnchor: [0, -46] });
+}
+
+function pinIcon(color, emoji) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+        <circle cx="13" cy="13" r="11" fill="${color}" stroke="#fff" stroke-width="2"/>
+        <text x="13" y="17" text-anchor="middle" font-size="11" font-family="system-ui">${emoji}</text>
+    </svg>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [26, 26], iconAnchor: [13, 13] });
+}
+
+// ─── Mise à jour des marqueurs ─────────────────────────────────────────────────
+function updateMarkers(positions) {
+    const seen = new Set();
+
+    positions.forEach(pos => {
+        if (!pos.lat || !pos.lng) return;
+        seen.add(pos.uuid);
+
+        const latlng = [pos.lat, pos.lng];
+        const icon   = vehicleIcon(pos.status, pos.has_incident);
+        const popup  = buildPopup(pos);
+
+        if (markers[pos.uuid]) {
+            markers[pos.uuid].setLatLng(latlng).setIcon(icon);
+            if (markers[pos.uuid].getPopup()) markers[pos.uuid].getPopup().setContent(popup);
+        } else {
+            markers[pos.uuid] = L.marker(latlng, { icon })
+                .addTo(leafletMap)
+                .bindPopup(popup, { maxWidth: 240 });
+        }
+
+        // Tracé progressif (seulement si pas de tracé détaillé affiché)
+        if (pos.uuid !== focusedUuid) {
+            if (!pathLines[pos.uuid]) {
+                pathLines[pos.uuid] = {
+                    polyline: L.polyline([], { color: '#1A5FB4', weight: 3, opacity: 0.55, dashArray: '4 4' }).addTo(leafletMap),
+                    coords: [],
+                };
+            }
+            const coords = pathLines[pos.uuid].coords;
+            const last   = coords[coords.length - 1];
+            if (!last || last[0] !== pos.lat || last[1] !== pos.lng) {
+                coords.push(latlng);
+                pathLines[pos.uuid].polyline.setLatLngs(coords);
+            }
+        }
+
+        // Marqueurs départ/arrivée
+        if (pos.departure_lat && pos.departure_lng && !depMarkers[pos.uuid]) {
+            depMarkers[pos.uuid] = L.marker([pos.departure_lat, pos.departure_lng], { icon: pinIcon('#10B981', '🟢') })
+                .addTo(leafletMap)
+                .bindPopup(`<b>Départ</b><br>${pos.from}`);
+        }
+        if (pos.arrival_lat && pos.arrival_lng && !arrMarkers[pos.uuid]) {
+            arrMarkers[pos.uuid] = L.marker([pos.arrival_lat, pos.arrival_lng], { icon: pinIcon('#EF4444', '🔴') })
+                .addTo(leafletMap)
+                .bindPopup(`<b>Arrivée</b><br>${pos.to}`);
+        }
+    });
+
+    // Supprimer les marqueurs des trajets terminés/disparus
+    Object.keys(markers).forEach(uuid => {
+        if (!seen.has(uuid)) {
+            leafletMap.removeLayer(markers[uuid]); delete markers[uuid];
+            if (pathLines[uuid]) { leafletMap.removeLayer(pathLines[uuid].polyline); delete pathLines[uuid]; }
+            if (depMarkers[uuid]) { leafletMap.removeLayer(depMarkers[uuid]); delete depMarkers[uuid]; }
+            if (arrMarkers[uuid]) { leafletMap.removeLayer(arrMarkers[uuid]); delete arrMarkers[uuid]; }
+        }
+    });
+
+    // Mise à jour compteur overlay
+    const el = document.getElementById('map-stats-overlay');
+    if (el) el.textContent = `${seen.size} véhicule(s) en direct`;
+}
+
+// ─── Popup véhicule ────────────────────────────────────────────────────────────
+function buildPopup(pos) {
+    const speed    = pos.speed ? `<div style="font-size:12px;color:#1A5FB4;margin-top:3px">⚡ ${Math.round(pos.speed)} km/h</div>` : '';
+    const incident = pos.has_incident ? `<div style="font-size:12px;color:#DC2626;margin-top:3px">⚠️ Incident signalé</div>` : '';
+    const flagged  = pos.is_flagged   ? `<div style="font-size:12px;color:#D97706;margin-top:3px">🚩 Trajet signalé</div>` : '';
+    return `<div style="min-width:200px">
+        <div style="font-weight:700;font-size:13px;color:#111827">${pos.from} → ${pos.to}</div>
+        <div style="font-size:12px;color:#6B7280;margin-top:2px">${pos.driver_name}${pos.driver_phone ? ' · ' + pos.driver_phone : ''}</div>
+        ${speed}${incident}${flagged}
+        <button onclick="window.openPanel(${pos.id})"
+            style="margin-top:8px;padding:5px 12px;background:#1A5FB4;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;width:100%">
+            Voir les détails
+        </button>
+    </div>`;
+}
+
+// ─── Trajet focalisé (depuis le panneau) ───────────────────────────────────────
+function focusTrip(tripData) {
+    focusedUuid = tripData.uuid;
+
+    // Effacer ancien tracé détaillé
+    if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
+
+    // Dessiner le tracé historique complet
+    if (tripData.path && tripData.path.length > 1) {
+        const coords = tripData.path.map(p => [p.lat, p.lng]);
+        focusedPath = L.polyline(coords, { color: '#1A5FB4', weight: 4, opacity: 0.85 }).addTo(leafletMap);
+        leafletMap.fitBounds(focusedPath.getBounds(), { padding: [60, 60] });
+    } else if (tripData.lat && tripData.lng) {
+        leafletMap.flyTo([tripData.lat, tripData.lng], 14, { duration: 1 });
+    }
+}
+
+// ─── Exposé globalement pour les boutons dans les popups/panel ─────────────────
+window.openPanel      = (id) => $wire.view(id);
+window.flyToSelected  = () => {
+    if (focusedUuid && markers[focusedUuid]) {
+        leafletMap.flyTo(markers[focusedUuid].getLatLng(), 15, { duration: 1 });
+        setTimeout(() => { markers[focusedUuid]?.openPopup(); }, 1100);
+        // Fermer le panneau pour voir la carte
+        document.querySelector('.panel-overlay')?.click();
+    }
+};
+
+// ─── Événements Livewire ───────────────────────────────────────────────────────
+$wire.on('map-positions-updated', ({ positions }) => {
+    updateMarkers(positions);
+});
+
+$wire.on('trip-focused', (tripData) => {
+    focusTrip(tripData);
+});
+
+$wire.on('trip-closed', () => {
+    focusedUuid = null;
+    if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
+});
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+initMap();
+
+// Charger les positions initiales depuis PHP
+const initialPositions = @json($positions);
+if (initialPositions.length) {
+    updateMarkers(initialPositions);
+    // Zoomer sur les véhicules GPS si présents
+    const withGps = initialPositions.filter(p => p.lat && p.lng);
+    if (withGps.length === 1) {
+        leafletMap.setView([withGps[0].lat, withGps[0].lng], 13);
+    } else if (withGps.length > 1) {
+        const bounds = L.latLngBounds(withGps.map(p => [p.lat, p.lng]));
+        leafletMap.fitBounds(bounds, { padding: [50, 50] });
+    }
+}
+</script>
+@endscript
+
 </div>

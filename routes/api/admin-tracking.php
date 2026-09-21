@@ -35,7 +35,8 @@ Route::middleware('auth:sanctum')->prefix('admin/tracking')->group(function () {
     Route::get('incidents', [AdminTrackingController::class, 'incidents']);
 
     // ── Wildcard — doit rester APRÈS les routes nommées ───────────────────────
-    Route::get('{uuid}', [AdminTrackingController::class, 'show']);
+    Route::get('{uuid}',       [AdminTrackingController::class, 'show']);
+    Route::get('{uuid}/path',  [AdminTrackingController::class, 'path']);
 
     // ── Actions sur un trajet ──────────────────────────────────────────────────
     Route::post ('{uuid}/incident',          [AdminTrackingController::class, 'reportIncident']);

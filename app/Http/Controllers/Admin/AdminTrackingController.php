@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
 use App\Models\TripIncident;
+use App\Models\TripLocation;
 use App\Models\User;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
@@ -241,7 +242,7 @@ MD,
         });
 
         return $this->apiResponse(true, 'Positions GPS.', [
-            'server_time' => $now->toIso8601String(),
+            'server_time' => now()->toIso8601String(),
             'positions'   => $positions,
         ]);
     }
@@ -990,6 +991,43 @@ MD,
         usort($events, fn ($a, $b) => strcmp($a['at'], $b['at']));
 
         return $events;
+    }
+
+    // =========================================================================
+    //  GET /api/admin/tracking/{uuid}/path  — historique GPS du tracé
+    // =========================================================================
+
+    public function path(string $uuid): JsonResponse
+    {
+        $trip = Trip::where('uuid', $uuid)
+            ->select([
+                'id', 'uuid', 'status',
+                'departure_city', 'arrival_city',
+                'departure_latitude', 'departure_longitude',
+                'arrival_latitude', 'arrival_longitude',
+                'current_latitude', 'current_longitude',
+            ])
+            ->firstOrFail();
+
+        $locations = TripLocation::where('trip_id', $trip->id)
+            ->orderBy('recorded_at')
+            ->limit(1000)
+            ->get(['lat', 'lng', 'speed', 'recorded_at']);
+
+        return $this->apiResponse(true, 'Tracé du trajet.', [
+            'uuid'        => $trip->uuid,
+            'from'        => $trip->departure_city,
+            'to'          => $trip->arrival_city,
+            'departure'   => ['lat' => $trip->departure_latitude,  'lng' => $trip->departure_longitude],
+            'arrival'     => ['lat' => $trip->arrival_latitude,    'lng' => $trip->arrival_longitude],
+            'current'     => ['lat' => $trip->current_latitude,    'lng' => $trip->current_longitude],
+            'path'        => $locations->map(fn($l) => [
+                'lat'   => (float) $l->lat,
+                'lng'   => (float) $l->lng,
+                'speed' => $l->speed !== null ? (float) $l->speed : null,
+            ]),
+            'point_count' => $locations->count(),
+        ]);
     }
 }
 
