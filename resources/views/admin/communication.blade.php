@@ -249,8 +249,9 @@
 {{-- ════ SLIDE-OVER SUPERVISION ════ --}}
 @if($selectedConv)
 @php
-    $sParts = $selectedConv->participants;
-    $sNames = $sParts->map(fn($p) => trim(($p->profile?->first_name??'').(' '.($p->profile?->last_name??'')))?: $p->phone)->implode(', ');
+    $sParts  = $selectedConv->participants;
+    $sNames  = $sParts->map(fn($p) => trim(($p->profile?->first_name??'').(' '.($p->profile?->last_name??'')))?: $p->phone)->implode(', ');
+    $leftId  = $sParts->first()?->id; // premier participant → gauche
 @endphp
 <div class="panel-overlay" wire:click="closeView"></div>
 <div class="panel-drawer">
@@ -267,7 +268,7 @@
         @forelse($selectedConv->messages as $msg)
         @php
             $sName  = trim(($msg->sender?->profile?->first_name??'').(' '.($msg->sender?->profile?->last_name??'')))?: ($msg->sender?->phone??'Inconnu');
-            $isMine = $msg->sender_id === $adminId;
+            $isMine = $msg->sender_id !== $leftId; // second participant → droite
         @endphp
         <div class="msg-item {{ $isMine ? 'mine' : 'other' }}">
             <span style="font-size:11px;color:#6B7280;font-weight:600">{{ $sName }}</span>
