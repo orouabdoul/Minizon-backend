@@ -276,7 +276,7 @@ class Communication extends Component
         $query = Conversation::with([
             'participants.profile',
             'trip',
-            'lastMessage.sender.profile',
+            'lastMessage' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
         ])
         ->when($this->search, fn ($q) => $q->whereHas('participants', function ($q2) {
             $s = '%' . $this->search . '%';
@@ -299,7 +299,11 @@ class Communication extends Component
         }
 
         $selectedConv = $this->selectedId
-            ? Conversation::with(['participants.profile', 'trip', 'messages.sender.profile'])->find($this->selectedId)
+            ? Conversation::with([
+                'participants.profile',
+                'trip',
+                'messages' => fn ($q) => $q->withoutGlobalScopes()->with('sender.profile'),
+            ])->find($this->selectedId)
             : null;
 
         // Panneau chat : utilisateur ciblé
@@ -311,13 +315,15 @@ class Communication extends Component
         // Panneau chat : messages
         $chatMessages = collect();
         if ($this->chatConvId) {
-            $chatMessages = Message::where('conversation_id', $this->chatConvId)
+            $chatMessages = Message::withoutGlobalScopes()
+                ->where('conversation_id', $this->chatConvId)
                 ->orderBy('created_at')
                 ->get();
 
             // Marquer les messages du destinataire comme lus
             if ($adminId) {
-                Message::where('conversation_id', $this->chatConvId)
+                Message::withoutGlobalScopes()
+                    ->where('conversation_id', $this->chatConvId)
                     ->where('sender_id', '!=', $adminId)
                     ->whereNull('read_at')
                     ->update(['read_at' => now()]);
