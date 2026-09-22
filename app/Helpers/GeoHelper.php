@@ -104,10 +104,15 @@ class GeoHelper
             '2eme arrondissement' => [6.3900, 2.5500],
             '3eme arrondissement' => [6.4100, 2.5900],
             '4eme arrondissement' => [6.4300, 2.6100],
-            // Quartiers
+            // Arrondissements (noms propres utilisés comme clés)
             'agblangandan'        => [6.3658, 2.5128],
-            'kpoba'               => [6.3900, 2.5400],
+            'djeregbe'            => [6.3750, 2.6010],
+            'ekpe'                => [6.3380, 2.5950],
+            'aholouyeme'          => [6.4200, 2.5800],
             'tohoue'              => [6.4100, 2.5700],
+            // Quartiers
+            'kpoba'               => [6.3900, 2.5400],
+            'seme-kpodji centre'  => [6.3825, 2.5769],
         ],
         // ── Parakou ───────────────────────────────────────────────────────────
         'parakou' => [
@@ -205,7 +210,45 @@ class GeoHelper
         'azove'        => ['_center' => [6.9653, 1.5247]],
         'aplahoue'     => ['_center' => [6.9236, 1.6908]],
         'glazoue'      => ['_center' => [7.9736, 2.2483]],
-        'tanguieta'    => ['_center' => [10.6194, 1.2675]],
+        'tanguieta'       => ['_center' => [10.6194, 1.2675]],
+        'so-ava'          => ['_center' => [6.5167, 2.4000]],
+        'toffo'           => ['_center' => [6.9667, 2.0667]],
+        'tori-bossito'    => ['_center' => [6.5667, 2.1333]],
+        'ze'              => ['_center' => [6.7667, 2.2167]],
+        'kalale'          => ['_center' => [10.2833, 3.3833]],
+        'perere'          => ['_center' => [10.6333, 3.1000]],
+        'karimama'        => ['_center' => [12.0667, 3.1833]],
+        'segbana'         => ['_center' => [10.9333, 3.7000]],
+        'boukombe'        => ['_center' => [10.1833, 1.1000]],
+        'cobly'           => ['_center' => [10.6667, 1.3667]],
+        'kerou'           => ['_center' => [10.8167, 2.1167]],
+        'kouande'         => ['_center' => [10.3333, 1.6833]],
+        'materi'          => ['_center' => [10.7000, 1.0667]],
+        'pehunco'         => ['_center' => [10.2333, 1.5167]],
+        'toucountouna'    => ['_center' => [10.5667, 1.5833]],
+        'bassila'         => ['_center' => [9.0083, 1.6667]],
+        'copargo'         => ['_center' => [9.8167, 1.5500]],
+        'ouake'           => ['_center' => [9.7167, 1.3833]],
+        'ouesse'          => ['_center' => [8.4500, 2.5333]],
+        'save'            => ['_center' => [8.0333, 2.4667]],
+        'djakotome'       => ['_center' => [6.9000, 1.7000]],
+        'klouekamne'      => ['_center' => [6.9667, 1.9000]],
+        'lalo'            => ['_center' => [7.0000, 1.9333]],
+        'toviklin'        => ['_center' => [6.9333, 1.9500]],
+        'bopa'            => ['_center' => [6.5833, 1.9833]],
+        'grand-popo'      => ['_center' => [6.2833, 1.8167]],
+        'houeyogbe'       => ['_center' => [6.7500, 1.8500]],
+        'akpro-misserete' => ['_center' => [6.5833, 2.6333]],
+        'avrankou'        => ['_center' => [6.5667, 2.7000]],
+        'bonou'           => ['_center' => [6.7167, 2.6000]],
+        'dangbo'          => ['_center' => [6.6000, 2.5667]],
+        'adja-ouere'      => ['_center' => [7.1000, 2.7333]],
+        'ifangni'         => ['_center' => [6.6667, 2.6833]],
+        'agbangnizoun'    => ['_center' => [7.0833, 1.9833]],
+        'djidja'          => ['_center' => [7.3333, 1.9667]],
+        'ouinhi'          => ['_center' => [7.0000, 2.4833]],
+        'za-kpota'        => ['_center' => [7.1667, 2.1000]],
+        'zogbodomey'      => ['_center' => [7.1000, 2.1333]],
     ];
 
     // =========================================================================
@@ -223,14 +266,26 @@ class GeoHelper
         ?string $arrondissement = null,
         ?string $neighborhood   = null
     ): ?array {
+        // ── 1. Photon (OpenStreetMap) — coordonnées exactes par quartier/arrondissement ──
+        // Appelé dès qu'on a un détail (quartier ou arrondissement) pour dépasser
+        // la précision commune-level de la table statique.
+        if ($neighborhood || $arrondissement) {
+            $photon = \App\Services\GeocodingService::geocode($city, $arrondissement, $neighborhood);
+            if ($photon) {
+                return $photon;
+            }
+        }
+
+        // ── 2. Table statique (fallback rapide, sans réseau) ─────────────────
         $cityKey  = self::normalizeKey($city);
         $cityData = self::$COORDINATES[$cityKey] ?? null;
 
         if (! $cityData) {
-            return null;
+            // Commune inconnue de la table → dernier recours Photon avec juste la commune
+            return \App\Services\GeocodingService::geocode($city);
         }
 
-        // 1. Chercher le quartier d'abord (plus précis)
+        // 2a. Quartier (plus précis)
         if ($neighborhood) {
             $nKey = self::normalizeKey($neighborhood);
             if (isset($cityData[$nKey])) {
@@ -244,7 +299,7 @@ class GeoHelper
             }
         }
 
-        // 2. Chercher l'arrondissement
+        // 2b. Arrondissement
         if ($arrondissement) {
             $aKey = self::normalizeKey($arrondissement);
             if (isset($cityData[$aKey])) {
@@ -258,7 +313,7 @@ class GeoHelper
             }
         }
 
-        // 3. Centre de la commune
+        // 2c. Centre de la commune
         return $cityData['_center'] ?? null;
     }
 
@@ -328,6 +383,38 @@ class GeoHelper
     }
 
     // =========================================================================
+    //  RÉSOLUTION GPS COMBINÉE (coords stockées + fallback geocoding)
+    // =========================================================================
+
+    /**
+     * Retourne les meilleures coordonnées GPS disponibles pour un point.
+     *
+     * Priorité :
+     *   1. Coordonnées déjà stockées (si valides — non nulles et non nulles-à-zéro)
+     *   2. GeocodingService (Photon) via commune+arrondissement+quartier
+     *   3. Table statique
+     *
+     * Retourne [lat, lng] ou [null, null] si aucun moyen de résoudre.
+     */
+    public static function bestCoords(
+        ?float  $storedLat,
+        ?float  $storedLng,
+        string  $city,
+        ?string $arrondissement = null,
+        ?string $neighborhood   = null
+    ): array {
+        $lat = ($storedLat && abs($storedLat) > 0.0001) ? $storedLat : null;
+        $lng = ($storedLng && abs($storedLng) > 0.0001) ? $storedLng : null;
+
+        if ($lat && $lng) {
+            return [$lat, $lng];
+        }
+
+        $resolved = self::resolveCoordinates($city, $arrondissement, $neighborhood);
+        return $resolved ?? [null, null];
+    }
+
+    // =========================================================================
     //  CALCUL DU PRIX PASSAGER
     // =========================================================================
 
@@ -373,6 +460,8 @@ class GeoHelper
         ];
 
         $normalized = mb_strtolower(trim($value));
+        // Supprime les apostrophes droites et typographiques (ex: N'Dali → ndali)
+        $normalized = preg_replace("/['\x{2019}\x{2018}\x{0060}]/u", '', $normalized);
         return strtr($normalized, $map);
     }
 }

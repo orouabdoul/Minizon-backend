@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
@@ -471,20 +472,40 @@ MD,
             'picked_up'     => $b->picked_up_at !== null,
             'picked_up_at'  => $b->picked_up_at?->toIso8601String(),
             'payment_status'=> $b->payment_status,
-            'pickup' => [
-                'city'         => $b->pickup_city,
-                'neighborhood' => $b->pickup_neighborhood,
-                'address'      => $b->pickup_address,
-                'lat'          => $b->pickup_latitude,
-                'lng'          => $b->pickup_longitude,
-            ],
-            'dropoff' => [
-                'city'         => $b->dropoff_city,
-                'neighborhood' => $b->dropoff_neighborhood,
-                'address'      => $b->dropoff_address,
-                'lat'          => $b->dropoff_latitude,
-                'lng'          => $b->dropoff_longitude,
-            ],
+            'pickup' => (function () use ($b) {
+                [$lat, $lng] = GeoHelper::bestCoords(
+                    $b->pickup_latitude,
+                    $b->pickup_longitude,
+                    $b->pickup_city ?? '',
+                    $b->pickup_arrondissement ?? null,
+                    $b->pickup_neighborhood   ?? null,
+                );
+                return [
+                    'city'           => $b->pickup_city,
+                    'arrondissement' => $b->pickup_arrondissement,
+                    'neighborhood'   => $b->pickup_neighborhood,
+                    'address'        => $b->pickup_address,
+                    'lat'            => $lat,
+                    'lng'            => $lng,
+                ];
+            })(),
+            'dropoff' => (function () use ($b) {
+                [$lat, $lng] = GeoHelper::bestCoords(
+                    $b->dropoff_latitude,
+                    $b->dropoff_longitude,
+                    $b->dropoff_city ?? '',
+                    $b->dropoff_arrondissement ?? null,
+                    $b->dropoff_neighborhood   ?? null,
+                );
+                return [
+                    'city'           => $b->dropoff_city,
+                    'arrondissement' => $b->dropoff_arrondissement,
+                    'neighborhood'   => $b->dropoff_neighborhood,
+                    'address'        => $b->dropoff_address,
+                    'lat'            => $lat,
+                    'lng'            => $lng,
+                ];
+            })(),
         ]);
 
         // ── Historique incidents ───────────────────────────────────────────────
@@ -523,17 +544,36 @@ MD,
             'lng'     => $w['lng']     ?? null,
         ])->values();
 
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude, $trip->departure_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
+        );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+
         $detail = array_merge($this->formatTrackedTrip($trip), [
             'is_late'           => $isLate,
             'departure_point'   => [
-                'label' => $trip->departure_point ?? $trip->departure_city,
-                'lat'   => $trip->departure_latitude,
-                'lng'   => $trip->departure_longitude,
+                'label'          => $trip->departure_point ?? $trip->departure_city,
+                'city'           => $trip->departure_city,
+                'arrondissement' => $trip->departure_arrondissement,
+                'neighborhood'   => $trip->departure_neighborhood,
+                'lat'            => $depLat,
+                'lng'            => $depLng,
             ],
             'arrival_point'     => [
-                'label' => $trip->arrival_point ?? $trip->arrival_city,
-                'lat'   => $trip->arrival_latitude,
-                'lng'   => $trip->arrival_longitude,
+                'label'          => $trip->arrival_point ?? $trip->arrival_city,
+                'city'           => $trip->arrival_city,
+                'arrondissement' => $trip->arrival_arrondissement,
+                'neighborhood'   => $trip->arrival_neighborhood,
+                'lat'            => $arrLat,
+                'lng'            => $arrLng,
             ],
             'waypoints'         => $waypoints,
             'distance_km'       => $trip->distance_km,
@@ -1002,12 +1042,26 @@ MD,
         $trip = Trip::where('uuid', $uuid)
             ->select([
                 'id', 'uuid', 'status',
-                'departure_city', 'arrival_city',
+                'departure_city', 'departure_arrondissement', 'departure_neighborhood',
+                'arrival_city',   'arrival_arrondissement',   'arrival_neighborhood',
                 'departure_latitude', 'departure_longitude',
                 'arrival_latitude', 'arrival_longitude',
                 'current_latitude', 'current_longitude',
             ])
             ->firstOrFail();
+
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude, $trip->departure_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
+        );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
 
         $locations = TripLocation::where('trip_id', $trip->id)
             ->orderBy('recorded_at')
@@ -1018,9 +1072,9 @@ MD,
             'uuid'        => $trip->uuid,
             'from'        => $trip->departure_city,
             'to'          => $trip->arrival_city,
-            'departure'   => ['lat' => $trip->departure_latitude,  'lng' => $trip->departure_longitude],
-            'arrival'     => ['lat' => $trip->arrival_latitude,    'lng' => $trip->arrival_longitude],
-            'current'     => ['lat' => $trip->current_latitude,    'lng' => $trip->current_longitude],
+            'departure'   => ['lat' => $depLat, 'lng' => $depLng],
+            'arrival'     => ['lat' => $arrLat, 'lng' => $arrLng],
+            'current'     => ['lat' => $trip->current_latitude, 'lng' => $trip->current_longitude],
             'path'        => $locations->map(fn($l) => [
                 'lat'   => (float) $l->lat,
                 'lng'   => (float) $l->lng,

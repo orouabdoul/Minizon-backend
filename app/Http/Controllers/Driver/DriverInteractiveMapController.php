@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Driver;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
@@ -117,18 +118,27 @@ class DriverInteractiveMapController extends Controller
 
         [$stops, $polyline, $completedPickups, $totalPickups] = $this->buildStopsAndPolyline($trip);
 
-        $distanceKm    = $trip->distance_km ?? $this->haversineKm(
+        [$depLat, $depLng] = GeoHelper::bestCoords(
             $trip->departure_latitude, $trip->departure_longitude,
-            $trip->arrival_latitude,   $trip->arrival_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
         );
+        [$arrLatCoord, $arrLngCoord] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+        $distanceKm    = $trip->distance_km ?? $this->haversineKm($depLat, $depLng, $arrLatCoord, $arrLngCoord);
         $routeDistance = $distanceKm !== null ? number_format($distanceKm, 0, '.', '') . ' km' : '— km';
         $routeEta      = $this->formatDuration($trip->estimated_duration_minutes) ?? '—';
         $routeFuel     = $distanceKm !== null ? '~' . number_format($distanceKm * self::FUEL_L_PER_KM, 0) . 'L' : '—';
 
         return $this->apiResponse(true, 'Carte du trajet.', [
             'driver_position'   => [
-                'lat' => $trip->current_latitude  ?? $trip->departure_latitude,
-                'lng' => $trip->current_longitude ?? $trip->departure_longitude,
+                'lat' => $trip->current_latitude  ?? $depLat,
+                'lng' => $trip->current_longitude ?? $depLng,
             ],
             'stops'             => $stops,
             'route_polyline'    => $polyline,
@@ -322,10 +332,19 @@ class DriverInteractiveMapController extends Controller
 
         [$stops, $polyline, $completedPickups, $totalPickups] = $this->buildStopsAndPolyline($trip);
 
-        $distanceKm    = $trip->distance_km ?? $this->haversineKm(
+        [$depLatR, $depLngR] = GeoHelper::bestCoords(
             $trip->departure_latitude, $trip->departure_longitude,
-            $trip->arrival_latitude,   $trip->arrival_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
         );
+        [$arrLatR, $arrLngR] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+        $distanceKm    = $trip->distance_km ?? $this->haversineKm($depLatR, $depLngR, $arrLatR, $arrLngR);
         $routeDistance = $distanceKm !== null ? number_format($distanceKm, 0, '.', '') . ' km' : '— km';
         $routeEta      = $this->formatDuration($trip->estimated_duration_minutes) ?? '—';
         $routeFuel     = $distanceKm !== null ? '~' . number_format($distanceKm * self::FUEL_L_PER_KM, 0) . 'L' : '—';
@@ -393,9 +412,16 @@ class DriverInteractiveMapController extends Controller
         $polyline     = [];
         $tz           = 'Africa/Porto-Novo';
 
-        // Point de départ dans la polyline
-        if ($trip->departure_latitude && $trip->departure_longitude) {
-            $polyline[] = ['lat' => $trip->departure_latitude, 'lng' => $trip->departure_longitude];
+        // Point de départ dans la polyline — résoudre depuis géo si GPS absent
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude,
+            $trip->departure_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
+        );
+        if ($depLat && $depLng) {
+            $polyline[] = ['lat' => $depLat, 'lng' => $depLng];
         }
 
         $departsAt    = $trip->departure_time
@@ -412,9 +438,14 @@ class DriverInteractiveMapController extends Controller
             $name    = $profile?->fullName() ?: ($booking->passenger?->phone ?? '—');
             $phone   = $booking->passenger?->phone;
 
-            // ── Pickup stop ──────────────────────────────────────────────────
-            $pickupLat = $booking->pickup_latitude  ?? $trip->departure_latitude;
-            $pickupLng = $booking->pickup_longitude ?? $trip->departure_longitude;
+            // ── Pickup stop — GPS précis via commune+arrondissement+quartier ───
+            [$pickupLat, $pickupLng] = GeoHelper::bestCoords(
+                $booking->pickup_latitude,
+                $booking->pickup_longitude,
+                $booking->pickup_city ?? $trip->departure_city ?? '',
+                $booking->pickup_arrondissement ?? $trip->departure_arrondissement ?? null,
+                $booking->pickup_neighborhood   ?? $trip->departure_neighborhood   ?? null,
+            );
             $pickupAddr = $booking->pickup_address
                 ?? ($booking->pickup_neighborhood
                     ? "{$booking->pickup_neighborhood}, {$booking->pickup_city}"
@@ -439,9 +470,14 @@ class DriverInteractiveMapController extends Controller
                 $polyline[] = ['lat' => $pickupLat, 'lng' => $pickupLng];
             }
 
-            // ── Dropoff stop ─────────────────────────────────────────────────
-            $dropoffLat  = $booking->dropoff_latitude  ?? $trip->arrival_latitude;
-            $dropoffLng  = $booking->dropoff_longitude ?? $trip->arrival_longitude;
+            // ── Dropoff stop — GPS précis via commune+arrondissement+quartier ──
+            [$dropoffLat, $dropoffLng] = GeoHelper::bestCoords(
+                $booking->dropoff_latitude,
+                $booking->dropoff_longitude,
+                $booking->dropoff_city ?? $trip->arrival_city ?? '',
+                $booking->dropoff_arrondissement ?? $trip->arrival_arrondissement ?? null,
+                $booking->dropoff_neighborhood   ?? $trip->arrival_neighborhood   ?? null,
+            );
             $dropoffAddr = $booking->dropoff_address
                 ?? ($booking->dropoff_neighborhood
                     ? "{$booking->dropoff_neighborhood}, {$booking->dropoff_city}"
@@ -471,9 +507,16 @@ class DriverInteractiveMapController extends Controller
             $pickupOffset += 5;
         }
 
-        // Point d'arrivée dans la polyline
-        if ($trip->arrival_latitude && $trip->arrival_longitude) {
-            $polyline[] = ['lat' => $trip->arrival_latitude, 'lng' => $trip->arrival_longitude];
+        // Point d'arrivée dans la polyline — résoudre depuis géo si GPS absent
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude,
+            $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+        if ($arrLat && $arrLng) {
+            $polyline[] = ['lat' => $arrLat, 'lng' => $arrLng];
         }
 
         // ── Résolution des statuts pickups ────────────────────────────────────

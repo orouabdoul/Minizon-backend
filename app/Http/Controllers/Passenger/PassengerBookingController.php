@@ -197,6 +197,25 @@ class PassengerBookingController extends Controller
                     (float) $trip->arrival_latitude,   (float) $trip->arrival_longitude
                 );
             }
+            // Dernier recours : résolution depuis la hiérarchie géographique du trajet
+            if ($tripDistanceKm <= 0) {
+                $depCoords = GeoHelper::resolveCoordinates(
+                    $trip->departure_city ?? '',
+                    $trip->departure_arrondissement ?? null,
+                    $trip->departure_neighborhood   ?? null
+                );
+                $arrCoords = GeoHelper::resolveCoordinates(
+                    $trip->arrival_city ?? '',
+                    $trip->arrival_arrondissement ?? null,
+                    $trip->arrival_neighborhood   ?? null
+                );
+                if ($depCoords && $arrCoords) {
+                    $tripDistanceKm = GeoHelper::distanceKm(
+                        $depCoords[0], $depCoords[1],
+                        $arrCoords[0], $arrCoords[1]
+                    );
+                }
+            }
 
             $calculatedPrice = GeoHelper::calculatePassengerPrice(
                 $passengerDistanceKm,
