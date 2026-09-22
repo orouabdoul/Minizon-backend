@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Passenger;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Dispute;
@@ -539,6 +540,27 @@ class PassengerReservationController extends Controller
             'arrival_address'            => $booking->dropoff_address         ?: ($trip?->arrival_point ?? ''),
             'arrival_latitude'           => $booking->dropoff_latitude,
             'arrival_longitude'          => $booking->dropoff_longitude,
+
+            // ── Polyline route réelle : pickup passager → dropoff passager ────
+            'route_polyline'             => (function () use ($booking, $trip): array {
+                [$pLat, $pLng] = GeoHelper::bestCoords(
+                    $booking->pickup_latitude, $booking->pickup_longitude,
+                    $booking->pickup_city ?? $trip?->departure_city ?? '',
+                    $booking->pickup_arrondissement ?? $trip?->departure_arrondissement ?? null,
+                    $booking->pickup_neighborhood   ?? $trip?->departure_neighborhood   ?? null,
+                );
+                [$dLat, $dLng] = GeoHelper::bestCoords(
+                    $booking->dropoff_latitude, $booking->dropoff_longitude,
+                    $booking->dropoff_city ?? $trip?->arrival_city ?? '',
+                    $booking->dropoff_arrondissement ?? $trip?->arrival_arrondissement ?? null,
+                    $booking->dropoff_neighborhood   ?? $trip?->arrival_neighborhood   ?? null,
+                );
+                if (! $pLat || ! $dLat) return [];
+                return GeoHelper::buildRoutePolyline([
+                    ['lat' => $pLat, 'lng' => $pLng],
+                    ['lat' => $dLat, 'lng' => $dLng],
+                ]);
+            })(),
 
             // ── Trajet complet (infos conducteur) ─────────────────────────
             'trip_origin'           => $trip?->departure_city ?? '—',

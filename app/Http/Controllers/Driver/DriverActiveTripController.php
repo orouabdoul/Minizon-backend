@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Driver;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
@@ -152,12 +153,37 @@ class DriverActiveTripController extends Controller
 
         $allGreen = $vehicleApproved && $driverVerified && $hasPassengers && $paymentsSecured && $departureWindow;
 
-        // ── Distance & durée ─────────────────────────────────────────────────
-        $distanceKm    = $this->haversineKm(
-            $trip->departure_latitude,  $trip->departure_longitude,
-            $trip->arrival_latitude,    $trip->arrival_longitude,
+        // ── Coordonnées précises départ/arrivée ──────────────────────────────
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude, $trip->departure_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
         );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+
+        // ── Distance & durée ─────────────────────────────────────────────────
+        $distanceKm    = $trip->distance_km ?? $this->haversineKm($depLat, $depLng, $arrLat, $arrLng);
         $durationLabel = $this->formatDuration($trip->estimated_duration_minutes);
+
+        // ── Polyline route réelle ─────────────────────────────────────────────
+        $routeWaypoints = $depLat && $depLng ? [['lat' => $depLat, 'lng' => $depLng]] : [];
+        foreach ($acceptedBookings as $b) {
+            [$pLat, $pLng] = GeoHelper::bestCoords(
+                $b->pickup_latitude, $b->pickup_longitude,
+                $b->pickup_city ?? $trip->departure_city ?? '',
+                $b->pickup_arrondissement ?? $trip->departure_arrondissement ?? null,
+                $b->pickup_neighborhood   ?? $trip->departure_neighborhood   ?? null,
+            );
+            if ($pLat && $pLng) $routeWaypoints[] = ['lat' => $pLat, 'lng' => $pLng];
+        }
+        if ($arrLat && $arrLng) $routeWaypoints[] = ['lat' => $arrLat, 'lng' => $arrLng];
+        $routePolyline = GeoHelper::buildRoutePolyline($routeWaypoints);
 
         // ── Itinéraire des arrêts ────────────────────────────────────────────
         $stops = $this->buildStops($trip, $acceptedBookings);
@@ -178,8 +204,11 @@ class DriverActiveTripController extends Controller
                 'duration_label'           => $durationLabel,
                 'passengers_count'         => $passengersCount,
                 'booking_mode'             => $trip->booking_mode ?? 'instant',
-                'arrival_latitude'         => $trip->arrival_latitude,
-                'arrival_longitude'        => $trip->arrival_longitude,
+                'departure_latitude'        => $depLat,
+                'departure_longitude'       => $depLng,
+                'arrival_latitude'          => $arrLat,
+                'arrival_longitude'         => $arrLng,
+                'route_polyline'            => $routePolyline,
             ],
             'all_green'        => $allGreen,
             'checklist'        => $checklist,

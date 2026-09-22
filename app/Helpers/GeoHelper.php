@@ -415,6 +415,113 @@ class GeoHelper
     }
 
     // =========================================================================
+    //  POLYLINE DE ROUTE RÉELLE (ORS → OSRM → lignes droites)
+    // =========================================================================
+
+    /**
+     * Génère la polyline suivant les vraies routes entre plusieurs waypoints.
+     *
+     * Priorité :
+     *   1. ORS API (si clé configurée dans services.ors.key) — réseau routier précis
+     *   2. OSRM demo server (gratuit, pas de clé) — OpenStreetMap Bénin
+     *   3. Fallback : points directs (lignes droites entre waypoints)
+     *
+     * @param  array $waypoints  [['lat' => float, 'lng' => float], ...]
+     * @return array             [['lat' => float, 'lng' => float], ...]
+     */
+    public static function buildRoutePolyline(array $waypoints): array
+    {
+        // Filtrer les waypoints invalides (null ou zéro)
+        $valid = array_values(array_filter($waypoints, fn($w) =>
+            isset($w['lat'], $w['lng'])
+            && abs((float) $w['lat']) > 0.0001
+            && abs((float) $w['lng']) > 0.0001
+        ));
+
+        if (count($valid) < 2) {
+            return $valid;
+        }
+
+        // 1. ORS (si clé disponible)
+        $ors = self::orsPolyline($valid);
+        if ($ors) return $ors;
+
+        // 2. OSRM demo (gratuit, OpenStreetMap)
+        $osrm = self::osrmPolyline($valid);
+        if ($osrm) return $osrm;
+
+        // 3. Fallback lignes droites
+        return $valid;
+    }
+
+    /**
+     * Route réelle via OpenRouteService (POST GeoJSON directions).
+     * Retourne null si clé absente, timeout ou erreur API.
+     */
+    private static function orsPolyline(array $waypoints): ?array
+    {
+        $key = config('services.ors.key');
+        if (! $key) return null;
+
+        try {
+            $coords = array_map(
+                fn($w) => [(float) $w['lng'], (float) $w['lat']],
+                $waypoints
+            );
+
+            $resp = Http::timeout(8)->withHeaders([
+                'Authorization' => $key,
+                'Content-Type'  => 'application/json',
+            ])->post('https://api.openrouteservice.org/v2/directions/driving-car/geojson', [
+                'coordinates' => $coords,
+            ]);
+
+            if (! $resp->successful()) return null;
+
+            $coordinates = $resp->json('features.0.geometry.coordinates') ?? [];
+            if (empty($coordinates)) return null;
+
+            return array_map(
+                fn($c) => ['lat' => (float) $c[1], 'lng' => (float) $c[0]],
+                $coordinates
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Route réelle via OSRM (demo server gratuit — OpenStreetMap).
+     * Utilisé en fallback si ORS est indisponible ou sans clé.
+     */
+    private static function osrmPolyline(array $waypoints): ?array
+    {
+        try {
+            $coords = implode(';', array_map(
+                fn($w) => round((float) $w['lng'], 6) . ',' . round((float) $w['lat'], 6),
+                $waypoints
+            ));
+
+            $resp = Http::timeout(8)->get(
+                "https://router.project-osrm.org/route/v1/driving/{$coords}",
+                ['overview' => 'full', 'geometries' => 'geojson']
+            );
+
+            if (! $resp->successful()) return null;
+
+            $coordinates = $resp->json('routes.0.geometry.coordinates') ?? [];
+            if (empty($coordinates)) return null;
+
+            return array_map(
+                fn($c) => ['lat' => (float) $c[1], 'lng' => (float) $c[0]],
+                $coordinates
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    // =========================================================================
     //  CALCUL DU PRIX PASSAGER
     // =========================================================================
 

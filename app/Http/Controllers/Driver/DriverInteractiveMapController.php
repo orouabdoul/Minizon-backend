@@ -412,7 +412,7 @@ class DriverInteractiveMapController extends Controller
         $polyline     = [];
         $tz           = 'Africa/Porto-Novo';
 
-        // Point de départ dans la polyline — résoudre depuis géo si GPS absent
+        // Point de départ — résoudre depuis géo si GPS absent
         [$depLat, $depLng] = GeoHelper::bestCoords(
             $trip->departure_latitude,
             $trip->departure_longitude,
@@ -423,6 +423,7 @@ class DriverInteractiveMapController extends Controller
         if ($depLat && $depLng) {
             $polyline[] = ['lat' => $depLat, 'lng' => $depLng];
         }
+        $waypointsForRoute = $depLat && $depLng ? [['lat' => $depLat, 'lng' => $depLng]] : [];
 
         $departsAt    = $trip->departure_time
             ? $trip->departure_time->setTimezone($tz)
@@ -467,7 +468,8 @@ class DriverInteractiveMapController extends Controller
             ];
 
             if ($pickupLat && $pickupLng) {
-                $polyline[] = ['lat' => $pickupLat, 'lng' => $pickupLng];
+                $polyline[]          = ['lat' => $pickupLat, 'lng' => $pickupLng];
+                $waypointsForRoute[] = ['lat' => $pickupLat, 'lng' => $pickupLng];
             }
 
             // ── Dropoff stop — GPS précis via commune+arrondissement+quartier ──
@@ -507,7 +509,7 @@ class DriverInteractiveMapController extends Controller
             $pickupOffset += 5;
         }
 
-        // Point d'arrivée dans la polyline — résoudre depuis géo si GPS absent
+        // Point d'arrivée — résoudre depuis géo si GPS absent
         [$arrLat, $arrLng] = GeoHelper::bestCoords(
             $trip->arrival_latitude,
             $trip->arrival_longitude,
@@ -516,7 +518,15 @@ class DriverInteractiveMapController extends Controller
             $trip->arrival_neighborhood   ?? null,
         );
         if ($arrLat && $arrLng) {
-            $polyline[] = ['lat' => $arrLat, 'lng' => $arrLng];
+            $polyline[]          = ['lat' => $arrLat, 'lng' => $arrLng];
+            $waypointsForRoute[] = ['lat' => $arrLat, 'lng' => $arrLng];
+        }
+
+        // Remplacer la polyline lignes-droites par la vraie route routière
+        $routePolyline = GeoHelper::buildRoutePolyline($waypointsForRoute);
+        // Si la route réelle est disponible, l'utiliser ; sinon garder les points directs
+        if (count($routePolyline) > count($waypointsForRoute)) {
+            $polyline = $routePolyline;
         }
 
         // ── Résolution des statuts pickups ────────────────────────────────────

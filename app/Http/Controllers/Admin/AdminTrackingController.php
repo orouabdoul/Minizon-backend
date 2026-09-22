@@ -576,6 +576,20 @@ MD,
                 'lng'            => $arrLng,
             ],
             'waypoints'         => $waypoints,
+            'route_polyline'    => (function () use ($trip, $depLat, $depLng, $arrLat, $arrLng): array {
+                $wpts = $depLat && $depLng ? [['lat' => $depLat, 'lng' => $depLng]] : [];
+                foreach ($trip->bookings as $b) {
+                    [$pLat, $pLng] = GeoHelper::bestCoords(
+                        $b->pickup_latitude, $b->pickup_longitude,
+                        $b->pickup_city ?? $trip->departure_city ?? '',
+                        $b->pickup_arrondissement ?? $trip->departure_arrondissement ?? null,
+                        $b->pickup_neighborhood   ?? $trip->departure_neighborhood   ?? null,
+                    );
+                    if ($pLat && $pLng) $wpts[] = ['lat' => $pLat, 'lng' => $pLng];
+                }
+                if ($arrLat && $arrLng) $wpts[] = ['lat' => $arrLat, 'lng' => $arrLng];
+                return GeoHelper::buildRoutePolyline($wpts);
+            })(),
             'distance_km'       => $trip->distance_km,
             'price_per_seat'    => $trip->price_per_seat,
             'total_seats'       => $trip->total_seats,
