@@ -252,6 +252,19 @@ class GeoHelper
     ];
 
     // =========================================================================
+    //  ALIAS — noms courts vers clés canoniques
+    // =========================================================================
+
+    private static array $CITY_ALIASES = [
+        'seme'          => 'seme-kpodji',
+        'seme kpodji'   => 'seme-kpodji',
+        'abomey calavi' => 'abomey-calavi',
+        'porto novo'    => 'porto-novo',
+        'dassa'         => 'dassa-zoume',
+        'dassa zoume'   => 'dassa-zoume',
+    ];
+
+    // =========================================================================
     //  RÉSOLUTION DE COORDONNÉES GPS
     //  commune → arrondissement → quartier (lookup progressif)
     // =========================================================================
@@ -267,12 +280,24 @@ class GeoHelper
         ?string $neighborhood   = null
     ): ?array {
         // ── 1. Photon (OpenStreetMap) — coordonnées exactes par quartier/arrondissement ──
-        // Appelé dès qu'on a un détail (quartier ou arrondissement) pour dépasser
-        // la précision commune-level de la table statique.
         if ($neighborhood || $arrondissement) {
             $photon = \App\Services\GeocodingService::geocode($city, $arrondissement, $neighborhood);
-            if ($photon) {
+            // Accepté seulement si le point est à ≤ 60 km du centre de la commune connue
+            // (évite ex. Photon qui confond "Abomey-Calavi" avec "Abomey" 150 km plus loin)
+            if ($photon && self::photonIsReasonable($photon, $city, $arrondissement, $neighborhood)) {
                 return $photon;
+            }
+            // Photon absent ou hors-zone : si arrondissement/quartier est lui-même une
+            // commune connue (ex : "Abomey-Calavi" sélectionné comme arrondissement),
+            // utiliser son centre directement.
+            foreach (array_filter([$neighborhood, $arrondissement]) as $candidate) {
+                $cKey = self::normalizeKey($candidate);
+                $ref  = self::$COORDINATES[$cKey] ?? null;
+                if (! $ref) {
+                    $a   = self::$CITY_ALIASES[$cKey] ?? null;
+                    $ref = $a ? (self::$COORDINATES[$a] ?? null) : null;
+                }
+                if ($ref) return $ref['_center'];
             }
         }
 
@@ -281,7 +306,13 @@ class GeoHelper
         $cityData = self::$COORDINATES[$cityKey] ?? null;
 
         if (! $cityData) {
-            // Commune inconnue de la table → dernier recours Photon avec juste la commune
+            // Alias (ex : "sème" → "sème-kpodji")
+            $alias    = self::$CITY_ALIASES[$cityKey] ?? null;
+            $cityData = $alias ? (self::$COORDINATES[$alias] ?? null) : null;
+        }
+
+        if (! $cityData) {
+            // Commune inconnue → dernier recours Photon avec juste la commune
             return \App\Services\GeocodingService::geocode($city);
         }
 
@@ -558,6 +589,31 @@ class GeoHelper
     // =========================================================================
     //  HELPERS INTERNES
     // =========================================================================
+
+    /**
+     * Vérifie que le résultat Photon est géographiquement cohérent avec la commune.
+     * On cherche le centre de la première commune connue parmi neighborhood/arr/city
+     * et on rejette le point Photon s'il est à plus de 60 km de ce centre.
+     * → Évite la confusion Abomey (7.18°N) ↔ Abomey-Calavi (6.45°N).
+     */
+    private static function photonIsReasonable(
+        array $result, string $city, ?string $arr, ?string $nhd
+    ): bool {
+        foreach (array_filter([$nhd, $arr, $city]) as $name) {
+            $key  = self::normalizeKey($name);
+            $data = self::$COORDINATES[$key] ?? null;
+            if (! $data) {
+                $alias = self::$CITY_ALIASES[$key] ?? null;
+                $data  = $alias ? (self::$COORDINATES[$alias] ?? null) : null;
+            }
+            if ($data) {
+                $ref = $data['_center'];
+                return self::haversineKm($result[0], $result[1], $ref[0], $ref[1]) <= 60.0;
+            }
+        }
+        // Pas de commune de référence → résultat déjà filtré par bbox Bénin, on fait confiance
+        return true;
+    }
 
     /**
      * Normalise une chaîne pour la recherche dans la table :
