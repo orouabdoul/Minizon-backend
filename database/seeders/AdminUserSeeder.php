@@ -40,6 +40,7 @@ class AdminUserSeeder extends Seeder
             [
                 'first_name' => 'Admin',
                 'last_name'  => 'Minizon',
+                'gender'     => 'male',
             ]
         );
 
