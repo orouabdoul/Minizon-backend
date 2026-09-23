@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Driver;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
@@ -397,6 +398,20 @@ class DriverTripController extends Controller
             default     => ['label' => 'Annulé',   'enabled' => false,         'action' => 'none'],
         };
 
+        // Coordonnées précises (Photon → table statique → stocké en DB)
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude, $trip->departure_longitude,
+            $trip->departure_city ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
+        );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+
         return [
             'uuid'                 => $trip->uuid,
             'status'               => $trip->status,
@@ -411,6 +426,14 @@ class DriverTripController extends Controller
             'destination_arrondissement'  => $trip->arrival_arrondissement,
             'destination_neighborhood'    => $trip->arrival_neighborhood,
             'destination_point'           => $trip->arrival_point,
+
+            // Coordonnées GPS précises (Photon → table statique → stocké)
+            'departure_city'       => $trip->departure_city,
+            'arrival_city'         => $trip->arrival_city,
+            'departure_latitude'   => $depLat,
+            'departure_longitude'  => $depLng,
+            'arrival_latitude'     => $arrLat,
+            'arrival_longitude'    => $arrLng,
 
             // Timing
             'departure_at'               => $departureTime->toIso8601String(),

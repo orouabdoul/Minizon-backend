@@ -364,12 +364,41 @@ class DriverTripDetailController extends Controller
         $updates = [];
 
         // ── Champs route ──────────────────────────────────────────────────────
-        foreach ([
-            'departure_city', 'departure_arrondissement', 'departure_neighborhood', 'departure_point',
-            'arrival_city',   'arrival_arrondissement',   'arrival_neighborhood',   'arrival_point',
-        ] as $field) {
+        $geoFields = ['departure_city', 'departure_arrondissement', 'departure_neighborhood', 'departure_point',
+                      'arrival_city',   'arrival_arrondissement',   'arrival_neighborhood',   'arrival_point'];
+        $geoChanged = false;
+        foreach ($geoFields as $field) {
             if (array_key_exists($field, $validated)) {
                 $updates[$field] = $validated[$field];
+                $geoChanged = true;
+            }
+        }
+
+        // Recalculate GPS and distance when any geographic field changed
+        if ($geoChanged) {
+            $depCity  = $updates['departure_city']           ?? $trip->departure_city;
+            $depArr   = array_key_exists('departure_arrondissement', $updates) ? $updates['departure_arrondissement'] : $trip->departure_arrondissement;
+            $depNhd   = array_key_exists('departure_neighborhood',  $updates) ? $updates['departure_neighborhood']  : $trip->departure_neighborhood;
+            $arrCity  = $updates['arrival_city']             ?? $trip->arrival_city;
+            $arrArr   = array_key_exists('arrival_arrondissement',  $updates) ? $updates['arrival_arrondissement']  : $trip->arrival_arrondissement;
+            $arrNhd   = array_key_exists('arrival_neighborhood',    $updates) ? $updates['arrival_neighborhood']    : $trip->arrival_neighborhood;
+
+            $depCoords = GeoHelper::resolveCoordinates($depCity, $depArr, $depNhd);
+            $arrCoords = GeoHelper::resolveCoordinates($arrCity, $arrArr, $arrNhd);
+
+            if ($depCoords) {
+                $updates['departure_latitude']  = $depCoords[0];
+                $updates['departure_longitude'] = $depCoords[1];
+            }
+            if ($arrCoords) {
+                $updates['arrival_latitude']  = $arrCoords[0];
+                $updates['arrival_longitude'] = $arrCoords[1];
+            }
+            if ($depCoords && $arrCoords) {
+                $updates['distance_km'] = GeoHelper::distanceKm(
+                    $depCoords[0], $depCoords[1],
+                    $arrCoords[0], $arrCoords[1]
+                );
             }
         }
 

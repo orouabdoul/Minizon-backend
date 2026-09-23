@@ -403,14 +403,20 @@ class GeoHelper
         ?string $arrondissement = null,
         ?string $neighborhood   = null
     ): array {
-        $lat = ($storedLat && abs($storedLat) > 0.0001) ? $storedLat : null;
-        $lng = ($storedLng && abs($storedLng) > 0.0001) ? $storedLng : null;
-
-        if ($lat && $lng) {
-            return [$lat, $lng];
+        // When we have sub-commune detail, always geocode first for quartier-level precision.
+        // Stored GPS is often commune-center and would give imprecise routes/distances.
+        if ($neighborhood || $arrondissement) {
+            $resolved = self::resolveCoordinates($city, $arrondissement, $neighborhood);
+            if ($resolved) return $resolved;
         }
 
-        $resolved = self::resolveCoordinates($city, $arrondissement, $neighborhood);
+        // Fall back to stored GPS (may be precise if set by actual device GPS)
+        $lat = ($storedLat && abs($storedLat) > 0.0001) ? $storedLat : null;
+        $lng = ($storedLng && abs($storedLng) > 0.0001) ? $storedLng : null;
+        if ($lat && $lng) return [$lat, $lng];
+
+        // Last resort: resolve from city name only
+        $resolved = self::resolveCoordinates($city);
         return $resolved ?? [null, null];
     }
 
@@ -491,7 +497,7 @@ class GeoHelper
     }
 
     /**
-     * Route réelle via OSRM (demo server gratuit — OpenStreetMap).
+     * Route réelle via OSRM (routing.openstreetmap.de — gratuit, OpenStreetMap).
      * Utilisé en fallback si ORS est indisponible ou sans clé.
      */
     private static function osrmPolyline(array $waypoints): ?array
@@ -502,10 +508,12 @@ class GeoHelper
                 $waypoints
             ));
 
-            $resp = Http::timeout(8)->get(
-                "https://router.project-osrm.org/route/v1/driving/{$coords}",
-                ['overview' => 'full', 'geometries' => 'geojson']
-            );
+            $resp = Http::timeout(8)
+                ->withHeaders(['User-Agent' => 'MinizonApp/1.0 (contact@minizon.bj)'])
+                ->get(
+                    "https://routing.openstreetmap.de/routed-car/route/v1/driving/{$coords}",
+                    ['overview' => 'full', 'geometries' => 'geojson']
+                );
 
             if (! $resp->successful()) return null;
 
