@@ -38,9 +38,11 @@ class AdminUserSeeder extends Seeder
         Profile::firstOrCreate(
             ['user_id' => $user->id],
             [
-                'first_name' => 'Admin',
-                'last_name'  => 'Minizon',
-                'gender'     => 'male',
+                'first_name'   => 'Admin',
+                'last_name'    => 'Minizon',
+                'gender'       => 'M',
+                'city'         => 'Cotonou',
+                'neighborhood' => 'Plateau',
             ]
         );
 
