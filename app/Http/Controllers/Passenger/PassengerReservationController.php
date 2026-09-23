@@ -140,9 +140,12 @@ class PassengerReservationController extends Controller
 
         // Filtre serveur optionnel (le Flutter peut aussi filtrer côté client)
         $statusFilter = $request->query('status');
-        $items = ($statusFilter && $statusFilter !== 'all')
-            ? $allFormatted->filter(fn ($i) => $i['status'] === $statusFilter)->values()
-            : $allFormatted->values();
+        if ($statusFilter && $statusFilter !== 'all') {
+            $allowed = array_map('trim', explode(',', $statusFilter));
+            $items   = $allFormatted->filter(fn ($i) => in_array($i['status'], $allowed))->values();
+        } else {
+            $items = $allFormatted->values();
+        }
 
         // Comptes par onglet
         $counts = $allFormatted->groupBy('status')->map->count();
@@ -163,6 +166,7 @@ class PassengerReservationController extends Controller
             'active_trip' => $activeTrip,
             'status_tabs' => $statusTabs,
             'items'       => $items,
+            'data'        => $items,
         ]);
     }
 
@@ -475,6 +479,20 @@ class PassengerReservationController extends Controller
             };
         }
 
+        // Pre-compute Photon-resolved pickup/dropoff coords (réutilisés dans return)
+        [$pLat, $pLng] = GeoHelper::bestCoords(
+            $booking->pickup_latitude,  $booking->pickup_longitude,
+            $booking->pickup_city  ?? $trip?->departure_city ?? '',
+            $booking->pickup_arrondissement ?? $trip?->departure_arrondissement ?? null,
+            $booking->pickup_neighborhood   ?? $trip?->departure_neighborhood   ?? null,
+        );
+        [$dLat, $dLng] = GeoHelper::bestCoords(
+            $booking->dropoff_latitude, $booking->dropoff_longitude,
+            $booking->dropoff_city ?? $trip?->arrival_city ?? '',
+            $booking->dropoff_arrondissement ?? $trip?->arrival_arrondissement ?? null,
+            $booking->dropoff_neighborhood   ?? $trip?->arrival_neighborhood   ?? null,
+        );
+
         return [
             // ── Identifiants ──────────────────────────────────────────────
             'uuid'              => $booking->uuid,
@@ -528,8 +546,8 @@ class PassengerReservationController extends Controller
             // Note courte (quartier en priorité, sinon point précis)
             'departure_note'             => $booking->pickup_neighborhood     ?: ($trip?->departure_neighborhood ?? ''),
             'departure_address'          => $booking->pickup_address          ?: ($trip?->departure_point ?? ''),
-            'departure_latitude'         => $booking->pickup_latitude,
-            'departure_longitude'        => $booking->pickup_longitude,
+            'departure_latitude'         => $pLat,
+            'departure_longitude'        => $pLng,
 
             // ── Points dépose passager — commune → arrondissement → quartier → point précis ──
             'arrival_city'               => $booking->dropoff_city            ?: ($trip?->arrival_city ?? '—'),
@@ -538,29 +556,48 @@ class PassengerReservationController extends Controller
             'arrival_point'              => $booking->dropoff_address         ?: ($trip?->arrival_point ?? null),
             'arrival_note'               => $booking->dropoff_neighborhood    ?: ($trip?->arrival_neighborhood ?? ''),
             'arrival_address'            => $booking->dropoff_address         ?: ($trip?->arrival_point ?? ''),
-            'arrival_latitude'           => $booking->dropoff_latitude,
-            'arrival_longitude'          => $booking->dropoff_longitude,
+            'arrival_latitude'           => $dLat,
+            'arrival_longitude'          => $dLng,
 
             // ── Polyline route réelle : pickup passager → dropoff passager ────
-            'route_polyline'             => (function () use ($booking, $trip): array {
-                [$pLat, $pLng] = GeoHelper::bestCoords(
-                    $booking->pickup_latitude, $booking->pickup_longitude,
-                    $booking->pickup_city ?? $trip?->departure_city ?? '',
-                    $booking->pickup_arrondissement ?? $trip?->departure_arrondissement ?? null,
-                    $booking->pickup_neighborhood   ?? $trip?->departure_neighborhood   ?? null,
-                );
-                [$dLat, $dLng] = GeoHelper::bestCoords(
-                    $booking->dropoff_latitude, $booking->dropoff_longitude,
-                    $booking->dropoff_city ?? $trip?->arrival_city ?? '',
-                    $booking->dropoff_arrondissement ?? $trip?->arrival_arrondissement ?? null,
-                    $booking->dropoff_neighborhood   ?? $trip?->arrival_neighborhood   ?? null,
-                );
-                if (! $pLat || ! $dLat) return [];
-                return GeoHelper::buildRoutePolyline([
-                    ['lat' => $pLat, 'lng' => $pLng],
-                    ['lat' => $dLat, 'lng' => $dLng],
-                ]);
-            })(),
+            'route_polyline'             => ($pLat && $dLat) ? GeoHelper::buildRoutePolyline([
+                ['lat' => $pLat, 'lng' => $pLng],
+                ['lat' => $dLat, 'lng' => $dLng],
+            ]) : [],
+
+            // ── Coords Photon (clés directes pour ActiveBookingModel Flutter) ──
+            'pickup_latitude'            => $pLat,
+            'pickup_longitude'           => $pLng,
+            'dropoff_latitude'           => $dLat,
+            'dropoff_longitude'          => $dLng,
+
+            // ── Sous-objet trip (format attendu par ActiveBookingModel.fromJson) ──
+            'trip' => [
+                'uuid'                => $trip?->uuid,
+                'status'              => $trip?->status,
+                'departure_city'      => $trip?->departure_city,
+                'arrival_city'        => $trip?->arrival_city,
+                'departure_time'      => $trip?->departure_time?->toIso8601String(),
+                'departure_latitude'  => $trip?->departure_latitude,
+                'departure_longitude' => $trip?->departure_longitude,
+                'arrival_latitude'    => $trip?->arrival_latitude,
+                'arrival_longitude'   => $trip?->arrival_longitude,
+                'price'               => $trip?->price_per_seat,
+                'driver' => [
+                    'phone'   => $driver?->phone,
+                    'name'    => $driverName,
+                    'profile' => [
+                        'first_name' => $firstName,
+                        'last_name'  => $lastName,
+                        'avatar'     => $profile?->avatar,
+                    ],
+                    'vehicle' => [
+                        'brand' => $vehicle?->brand,
+                        'model' => $vehicle?->model,
+                        'plate' => $vehicle?->license_plate,
+                    ],
+                ],
+            ],
 
             // ── Trajet complet (infos conducteur) ─────────────────────────
             'trip_origin'           => $trip?->departure_city ?? '—',

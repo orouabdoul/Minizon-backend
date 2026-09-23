@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Helpers\GeoHelper;
 use App\Models\Trip;
 use Livewire\Component;
 
@@ -135,6 +136,19 @@ class Tracking extends Component
         $profile = $t->user?->profile;
         $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
 
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $t->departure_latitude, $t->departure_longitude,
+            $t->departure_city ?? '',
+            $t->departure_arrondissement ?? null,
+            $t->departure_neighborhood   ?? null,
+        );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $t->arrival_latitude, $t->arrival_longitude,
+            $t->arrival_city ?? '',
+            $t->arrival_arrondissement ?? null,
+            $t->arrival_neighborhood   ?? null,
+        );
+
         return [
             'id'            => $t->id,
             'uuid'          => $t->uuid,
@@ -149,10 +163,10 @@ class Tracking extends Component
             'to'            => $t->arrival_city,
             'driver_name'   => $name,
             'driver_phone'  => $t->user?->phone,
-            'departure_lat' => $t->departure_latitude,
-            'departure_lng' => $t->departure_longitude,
-            'arrival_lat'   => $t->arrival_latitude,
-            'arrival_lng'   => $t->arrival_longitude,
+            'departure_lat' => $depLat,
+            'departure_lng' => $depLng,
+            'arrival_lat'   => $arrLat,
+            'arrival_lng'   => $arrLng,
             'departure_time'=> $t->departure_time?->format('H:i'),
         ];
     }

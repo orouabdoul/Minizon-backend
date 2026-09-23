@@ -366,13 +366,21 @@ class DriverTripController extends Controller
         $pendingBookings  = $trip->bookings->where('status', 'pending');
         $seatsBooked      = $acceptedBookings->sum('seats_booked');
 
-        // Passagers (initiales) pour les avatars
+        // Passagers (initiales + coords pickup pour la carte conducteur)
         $passengers = $acceptedBookings->map(function (Booking $b) {
             $profile  = $b->passenger?->profile;
             $fullName = $profile?->fullName() ?: ($b->passenger?->phone ?? '?');
+            [$pLat, $pLng] = GeoHelper::bestCoords(
+                $b->pickup_latitude, $b->pickup_longitude,
+                $b->pickup_city   ?? '',
+                $b->pickup_arrondissement ?? null,
+                $b->pickup_neighborhood   ?? null,
+            );
             return [
-                'initials' => $this->initials($fullName),
-                'name'     => $fullName,
+                'initials'         => $this->initials($fullName),
+                'name'             => $fullName,
+                'pickup_latitude'  => $pLat,
+                'pickup_longitude' => $pLng,
             ];
         })->values()->all();
 
