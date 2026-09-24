@@ -36,6 +36,19 @@ class Tracking extends Component
         // Position pour la carte : GPS actuel OU point de départ OU point d'arrivée
         [$mapLat, $mapLng] = $this->resolveMapPosition($trip);
 
+        [$depLat, $depLng] = GeoHelper::bestCoords(
+            $trip->departure_latitude, $trip->departure_longitude,
+            $trip->departure_city           ?? '',
+            $trip->departure_arrondissement ?? null,
+            $trip->departure_neighborhood   ?? null,
+        );
+        [$arrLat, $arrLng] = GeoHelper::bestCoords(
+            $trip->arrival_latitude, $trip->arrival_longitude,
+            $trip->arrival_city           ?? '',
+            $trip->arrival_arrondissement ?? null,
+            $trip->arrival_neighborhood   ?? null,
+        );
+
         $this->dispatch('trip-focused', [
             'id'            => $trip->id,
             'uuid'          => $trip->uuid,
@@ -47,10 +60,10 @@ class Tracking extends Component
             'to'            => $trip->arrival_city,
             'driver_name'   => $name,
             'driver_phone'  => $trip->user?->phone,
-            'departure_lat' => $trip->departure_latitude,
-            'departure_lng' => $trip->departure_longitude,
-            'arrival_lat'   => $trip->arrival_latitude,
-            'arrival_lng'   => $trip->arrival_longitude,
+            'departure_lat' => $depLat,
+            'departure_lng' => $depLng,
+            'arrival_lat'   => $arrLat,
+            'arrival_lng'   => $arrLng,
             'path'          => $path,
         ]);
     }

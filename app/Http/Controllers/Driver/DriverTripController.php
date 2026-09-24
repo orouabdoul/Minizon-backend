@@ -106,8 +106,12 @@ class DriverTripController extends Controller
             ])
             ->where('user_id', $user->id);
 
-        if ($filter !== 'all' && in_array($filter, $statuses)) {
-            $query->where('status', $filter);
+        $requestedStatuses = array_values(array_intersect(
+            array_filter(array_map('trim', explode(',', $filter))),
+            $statuses
+        ));
+        if ($filter !== 'all' && ! empty($requestedStatuses)) {
+            $query->whereIn('status', $requestedStatuses);
         }
 
         $paginated = $query->orderByDesc('departure_time')->paginate(15);
@@ -117,6 +121,7 @@ class DriverTripController extends Controller
         return $this->apiResponse(true, 'Mes trajets.', [
             'filter_counts' => $filterCounts,
             'trips'         => $trips,
+            'data'          => $trips,
             'pagination'    => [
                 'current_page' => $paginated->currentPage(),
                 'last_page'    => $paginated->lastPage(),
@@ -366,23 +371,51 @@ class DriverTripController extends Controller
         $pendingBookings  = $trip->bookings->where('status', 'pending');
         $seatsBooked      = $acceptedBookings->sum('seats_booked');
 
-        // Passagers (initiales + coords pickup pour la carte conducteur)
-        $passengers = $acceptedBookings->map(function (Booking $b) {
+        // Passagers — une seule passe pour la carte conducteur (UI) et le modèle de suivi (tracking)
+        $passengersData = $acceptedBookings->map(function (Booking $b) {
             $profile  = $b->passenger?->profile;
             $fullName = $profile?->fullName() ?: ($b->passenger?->phone ?? '?');
             [$pLat, $pLng] = GeoHelper::bestCoords(
                 $b->pickup_latitude, $b->pickup_longitude,
-                $b->pickup_city   ?? '',
+                $b->pickup_city           ?? '',
                 $b->pickup_arrondissement ?? null,
                 $b->pickup_neighborhood   ?? null,
             );
             return [
-                'initials'         => $this->initials($fullName),
-                'name'             => $fullName,
-                'pickup_latitude'  => $pLat,
-                'pickup_longitude' => $pLng,
+                'name'   => $fullName,
+                'lat'    => $pLat,
+                'lng'    => $pLng,
+                'seats'  => $b->seats_booked,
+                'phone'  => $b->passenger?->phone ?? '',
+                'fname'  => $profile?->first_name ?? '',
+                'lname'  => $profile?->last_name ?? '',
+                'avatar' => $profile?->avatar,
             ];
-        })->values()->all();
+        })->values();
+
+        // Format carte conducteur (liste des trajets)
+        $passengers = $passengersData->map(fn ($d) => [
+            'initials'         => $this->initials($d['name']),
+            'name'             => $d['name'],
+            'pickup_latitude'  => $d['lat'],
+            'pickup_longitude' => $d['lng'],
+        ])->all();
+
+        // Format modèle de suivi (ActiveDriverTripModel / ActivePassengerModel)
+        $bookings = $passengersData->map(fn ($d) => [
+            'status'           => 'confirmed',
+            'seats'            => $d['seats'],
+            'pickup_latitude'  => $d['lat'],
+            'pickup_longitude' => $d['lng'],
+            'passenger'        => [
+                'phone'   => $d['phone'],
+                'profile' => [
+                    'first_name' => $d['fname'],
+                    'last_name'  => $d['lname'],
+                    'avatar'     => $d['avatar'],
+                ],
+            ],
+        ])->all();
 
         // Note contextuelle
         $note = null;
@@ -483,6 +516,7 @@ class DriverTripController extends Controller
             // Passagers & note
             'note'                 => $note,
             'passengers'           => $passengers,
+            'bookings'             => $bookings,
 
             // Actions
             'primary_action'       => $primaryAction,

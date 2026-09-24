@@ -493,6 +493,20 @@ class PassengerReservationController extends Controller
             $booking->dropoff_neighborhood   ?? $trip?->arrival_neighborhood   ?? null,
         );
 
+        // Coords Photon-résolues du trajet (départ/arrivée) — fallback si pickup/dropoff absents
+        [$tripDepLat, $tripDepLng] = GeoHelper::bestCoords(
+            $trip?->departure_latitude, $trip?->departure_longitude,
+            $trip?->departure_city           ?? '',
+            $trip?->departure_arrondissement ?? null,
+            $trip?->departure_neighborhood   ?? null,
+        );
+        [$tripArrLat, $tripArrLng] = GeoHelper::bestCoords(
+            $trip?->arrival_latitude, $trip?->arrival_longitude,
+            $trip?->arrival_city           ?? '',
+            $trip?->arrival_arrondissement ?? null,
+            $trip?->arrival_neighborhood   ?? null,
+        );
+
         return [
             // ── Identifiants ──────────────────────────────────────────────
             'uuid'              => $booking->uuid,
@@ -578,10 +592,10 @@ class PassengerReservationController extends Controller
                 'departure_city'      => $trip?->departure_city,
                 'arrival_city'        => $trip?->arrival_city,
                 'departure_time'      => $trip?->departure_time?->toIso8601String(),
-                'departure_latitude'  => $trip?->departure_latitude,
-                'departure_longitude' => $trip?->departure_longitude,
-                'arrival_latitude'    => $trip?->arrival_latitude,
-                'arrival_longitude'   => $trip?->arrival_longitude,
+                'departure_latitude'  => $tripDepLat,
+                'departure_longitude' => $tripDepLng,
+                'arrival_latitude'    => $tripArrLat,
+                'arrival_longitude'   => $tripArrLng,
                 'price'               => $trip?->price_per_seat,
                 'driver' => [
                     'phone'   => $driver?->phone,

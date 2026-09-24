@@ -15,6 +15,10 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     Route::get('reservations', [PassengerReservationController::class, 'index'])
         ->name('passenger.reservations.index');
 
+    // Alias utilisé par Flutter fetchPassengerActiveBooking()
+    Route::get('bookings', [PassengerReservationController::class, 'index'])
+        ->name('passenger.bookings.index');
+
     // Données de facture PDF pour une réservation terminée
     Route::get('reservations/{uuid}/invoice', [PassengerReservationController::class, 'invoice'])
         ->name('passenger.reservations.invoice');

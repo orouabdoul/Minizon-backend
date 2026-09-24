@@ -482,9 +482,9 @@ class TripController extends Controller
     )]
     public function getTracking(string $uuid): JsonResponse
     {
-        $trip = Trip::where('uuid', $uuid)->firstOrFail();
+        $trip = Trip::with(['user.profile'])->where('uuid', $uuid)->firstOrFail();
 
-        if (! $trip->isActive()) {
+        if (! in_array($trip->status, ['pending', 'active'])) {
             return $this->apiResponse(false, 'Ce trajet n\'est pas en cours.', [], 422);
         }
 
@@ -492,13 +492,27 @@ class TripController extends Controller
         $isStale = $trip->location_updated_at === null
             || $trip->location_updated_at->lt($staleThreshold);
 
+        $profile     = $trip->user?->profile;
+        $driverName  = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Conducteur';
+
         return $this->apiResponse(true, 'Position du conducteur.', [
-            'lat'                 => $trip->current_latitude,
-            'lng'                 => $trip->current_longitude,
-            'speed_kmh'           => $trip->current_speed,
+            'uuid'                => $trip->uuid,
+            'status'              => $trip->status,
+            'current_latitude'    => $trip->current_latitude  ? (float) $trip->current_latitude  : null,
+            'current_longitude'   => $trip->current_longitude ? (float) $trip->current_longitude : null,
+            'current_speed'       => $trip->current_speed     ? (float) $trip->current_speed     : null,
             'location_updated_at' => $trip->location_updated_at?->toIso8601String(),
             'is_stale'            => $isStale,
-            'status'              => $trip->status,
+            'departure_city'      => $trip->departure_city,
+            'arrival_city'        => $trip->arrival_city,
+            'departure_latitude'  => $trip->departure_latitude  ? (float) $trip->departure_latitude  : null,
+            'departure_longitude' => $trip->departure_longitude ? (float) $trip->departure_longitude : null,
+            'arrival_latitude'    => $trip->arrival_latitude    ? (float) $trip->arrival_latitude    : null,
+            'arrival_longitude'   => $trip->arrival_longitude   ? (float) $trip->arrival_longitude   : null,
+            'driver' => [
+                'name'  => $driverName,
+                'phone' => $trip->user?->phone ?? '',
+            ],
         ]);
     }
 
