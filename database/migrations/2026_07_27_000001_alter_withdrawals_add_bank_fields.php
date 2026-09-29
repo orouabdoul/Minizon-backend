@@ -9,15 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // PostgreSQL stocke les enum Laravel comme varchar + CHECK constraint.
-        // ->change() génère du SQL invalide pour PostgreSQL → raw SQL requis.
-        DB::statement('ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_provider_check');
-        DB::statement("ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_provider_check CHECK (provider IN ('mtn', 'moov', 'celtiis', 'bank'))");
+        $driver = DB::getDriverName();
 
-        // Rendre phone_number nullable (requis seulement pour MoMo)
-        DB::statement('ALTER TABLE withdrawals ALTER COLUMN phone_number DROP NOT NULL');
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_provider_check');
+            DB::statement("ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_provider_check CHECK (provider IN ('mtn', 'moov', 'celtiis', 'bank'))");
+            DB::statement('ALTER TABLE withdrawals ALTER COLUMN phone_number DROP NOT NULL');
+        } else {
+            // MySQL / MariaDB
+            DB::statement('ALTER TABLE withdrawals MODIFY COLUMN phone_number VARCHAR(20) NULL');
+        }
 
-        // Colonnes bancaires
+        // Colonnes bancaires (compatible PostgreSQL + MySQL)
         Schema::table('withdrawals', function (Blueprint $table) {
             $table->string('bank_name', 100)->nullable()->after('phone_number');
             $table->string('account_number', 100)->nullable()->after('bank_name');
@@ -31,11 +34,16 @@ return new class extends Migration
             $table->dropColumn(['bank_name', 'account_number', 'account_holder_name']);
         });
 
-        DB::statement('ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_provider_check');
-        DB::statement("ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_provider_check CHECK (provider IN ('mtn', 'moov', 'celtiis'))");
+        $driver = DB::getDriverName();
 
-        // Remettre phone_number NOT NULL (vider les NULL d'abord pour éviter l'erreur)
-        DB::statement("UPDATE withdrawals SET phone_number = '' WHERE phone_number IS NULL");
-        DB::statement('ALTER TABLE withdrawals ALTER COLUMN phone_number SET NOT NULL');
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_provider_check');
+            DB::statement("ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_provider_check CHECK (provider IN ('mtn', 'moov', 'celtiis'))");
+            DB::statement("UPDATE withdrawals SET phone_number = '' WHERE phone_number IS NULL");
+            DB::statement('ALTER TABLE withdrawals ALTER COLUMN phone_number SET NOT NULL');
+        } else {
+            DB::statement("UPDATE withdrawals SET phone_number = '' WHERE phone_number IS NULL");
+            DB::statement('ALTER TABLE withdrawals MODIFY COLUMN phone_number VARCHAR(20) NOT NULL');
+        }
     }
 };

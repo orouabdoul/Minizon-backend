@@ -11,13 +11,17 @@ class Drivers extends Component
 {
     use WithPagination;
 
-    public string $search       = '';
-    public string $kycFilter    = '';
+    public string $search        = '';
+    public string $kycFilter     = '';
     public string $vehicleFilter = '';
+    public ?int   $selectedId    = null;
 
     public function updatingSearch(): void        { $this->resetPage(); }
     public function updatingKycFilter(): void     { $this->resetPage(); }
     public function updatingVehicleFilter(): void { $this->resetPage(); }
+
+    public function view(int $id): void    { $this->selectedId = $id; }
+    public function closeView(): void      { $this->selectedId = null; }
 
     public function approveKyc(int $userId): void
     {
@@ -76,9 +80,15 @@ class Drivers extends Component
             'rejected' => User::where('role_id', $driverRoleId)->whereHas('profile', fn($p) => $p->where('kyc_status', 'rejected'))->count(),
         ];
 
+        $selected = null;
+        if ($this->selectedId) {
+            $selected = User::with(['profile', 'vehicle'])->find($this->selectedId);
+        }
+
         return view('admin.drivers', [
-            'drivers' => $query->paginate(15),
-            'stats'   => $stats,
+            'drivers'  => $query->paginate(15),
+            'stats'    => $stats,
+            'selected' => $selected,
         ])->layout('admin.layouts.app', ['title' => 'Conducteurs']);
     }
 }

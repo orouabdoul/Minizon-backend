@@ -408,8 +408,9 @@
 @script
 <script>
 // ─── Constantes ────────────────────────────────────────────────────────────────
-const COTONOU    = [6.3656, 2.4183];
-const OSRM_BASE  = 'https://routing.openstreetmap.de/routed-car/route/v1/driving';
+const COTONOU         = [6.3656, 2.4183];
+const OSRM_BASE       = 'https://routing.openstreetmap.de/routed-car/route/v1/driving';
+const VALHALLA_BASE   = 'https://valhalla1.openstreetmap.de';
 
 // ─── État ──────────────────────────────────────────────────────────────────────
 let leafletMap    = null;
@@ -434,18 +435,44 @@ function initMap() {
     }).addTo(leafletMap);
 }
 
-// ─── OSRM : récupérer l'itinéraire par les routes réelles ─────────────────────
-async function fetchOsrmRoute(depLat, depLng, arrLat, arrLng) {
-    // OSRM attend lng,lat (inverse de Leaflet)
-    const url = `${OSRM_BASE}/${depLng},${depLat};${arrLng},${arrLat}?overview=full&geometries=geojson`;
+// ─── Routing : Valhalla (primaire) puis OSRM (fallback) ───────────────────────
+async function fetchRouteCoords(depLat, depLng, arrLat, arrLng) {
+    // Essai 1 : Valhalla (meilleure couverture Afrique de l'Ouest)
     try {
-        const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        const data = await res.json();
-        if (data.code === 'Ok' && data.routes?.[0]) {
-            // Retourner en [lat,lng] pour Leaflet
-            return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        const res = await fetch(`${VALHALLA_BASE}/route`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                locations: [
+                    { lon: depLng, lat: depLat, type: 'break' },
+                    { lon: arrLng, lat: arrLat, type: 'break' },
+                ],
+                costing: 'auto',
+                shape_format: 'geojson',
+            }),
+            signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.trip?.status === 0) {
+                const coords = data.trip.legs?.[0]?.shape?.coordinates;
+                if (coords?.length >= 2) return coords.map(c => [c[1], c[0]]);
+            }
         }
-    } catch (_) {}
+    } catch (e) { console.warn('Valhalla routing:', e.message); }
+
+    // Essai 2 : OSRM (lng,lat — inverse de Leaflet)
+    try {
+        const url = `${OSRM_BASE}/${depLng},${depLat};${arrLng},${arrLat}?overview=full&geometries=geojson`;
+        const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes?.[0]) {
+                return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }
+        }
+    } catch (e) { console.warn('OSRM routing:', e.message); }
+
     return null;
 }
 
@@ -470,7 +497,7 @@ async function showPlannedRoute(pos) {
 
     if (!coords) {
         fetchQueue.add(uuid);
-        coords = await fetchOsrmRoute(dLat, dLng, aLat, aLng);
+        coords = await fetchRouteCoords(dLat, dLng, aLat, aLng);
         fetchQueue.delete(uuid);
         if (!coords) return;
         routeCache[uuid] = coords;
@@ -642,7 +669,7 @@ async function focusTrip(tripData) {
     } else {
         let coords = routeCache[tripData.uuid];
         if (!coords && tripData.departure_lat && tripData.arrival_lat) {
-            coords = await fetchOsrmRoute(
+            coords = await fetchRouteCoords(
                 tripData.departure_lat, tripData.departure_lng,
                 tripData.arrival_lat,   tripData.arrival_lng
             );

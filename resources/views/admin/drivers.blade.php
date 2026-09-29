@@ -162,6 +162,7 @@
                 <th>Statut véhicule</th>
                 <th>Documents</th>
                 <th>Inscription</th>
+                <th></th>
                 <th>Actions KYC</th>
             </tr>
         </thead>
@@ -172,6 +173,11 @@
                 $initials = $name ? strtoupper(substr($driver->profile->first_name ?? '?', 0, 1) . substr($driver->profile->last_name ?? '', 0, 1)) : '??';
                 $kyc      = $driver->profile?->kyc_status;
                 $veh      = $driver->vehicle;
+                $drRowPhoto = null;
+                if ($driver->profile?->selfie_front) {
+                    $rp2 = $driver->profile->selfie_front;
+                    $drRowPhoto = str_starts_with($rp2,'http') ? $rp2 : \Illuminate\Support\Facades\Storage::disk('public')->url($rp2);
+                }
                 $vStatus  = $veh?->verification_status ?? null;
                 $kycMap   = [
                     'approved' => ['label'=>'Approuvé',   'class'=>'badge-approved'],
@@ -189,7 +195,12 @@
                 {{-- Conducteur --}}
                 <td>
                     <div class="user-info">
-                        <div class="user-avatar">{{ $initials }}</div>
+                        @if($drRowPhoto)
+                            <img src="{{ $drRowPhoto }}" class="user-avatar" alt="{{ $initials }}"
+                                 style="object-fit:cover;border:2px solid #DBEAFE;padding:0"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')">
+                        @endif
+                        <div class="user-avatar" style="{{ $drRowPhoto ? 'display:none' : '' }}">{{ $initials }}</div>
                         <div>
                             <div class="user-info__name">{{ $name ?: '— Sans profil —' }}</div>
                             <div class="user-info__phone">{{ $driver->phone }}</div>
@@ -245,6 +256,15 @@
                 {{-- Date --}}
                 <td style="color:#6B7684;font-size:12px;white-space:nowrap">
                     {{ $driver->created_at?->format('d/m/Y') }}
+                </td>
+
+                {{-- Voir profil --}}
+                <td>
+                    <button wire:click="view({{ $driver->id }})"
+                            style="padding:6px 12px;border-radius:7px;border:1.5px solid #DBEAFE;background:#EFF6FF;color:#1A5FB4;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit"
+                            title="Voir le profil complet">
+                        👁 Voir
+                    </button>
                 </td>
 
                 {{-- Actions KYC --}}
@@ -317,5 +337,212 @@
     </div>
     @endif
 </div>
+
+{{-- ─── Panneau de détail conducteur ──────────────────────────────── --}}
+@if($selected)
+@php
+    $sd   = $selected;
+    $prd  = $sd->profile;
+    $vhd  = $sd->vehicle;
+    $nmD  = $prd ? trim(($prd->first_name??'').(' '.($prd->last_name??''))) : '';
+    $inD  = $nmD ? strtoupper(substr($prd->first_name??'?',0,1).substr($prd->last_name??'',0,1)) : '??';
+    $kycD = $prd?->kyc_status;
+    $kycMapD = ['approved'=>['label'=>'Approuvé','color'=>'#16A34A','bg'=>'#D1FAE5'],'pending'=>['label'=>'En attente','color'=>'#D97706','bg'=>'#FEF3C7'],'rejected'=>['label'=>'Rejeté','color'=>'#DC2626','bg'=>'#FEE2E2']];
+
+    $drPhotoUrl = null;
+    if ($prd?->selfie_front) {
+        $pp3 = $prd->selfie_front;
+        $drPhotoUrl = str_starts_with($pp3,'http') ? $pp3 : \Illuminate\Support\Facades\Storage::disk('public')->url($pp3);
+    }
+@endphp
+<div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;backdrop-filter:blur(2px)" wire:click="closeView"></div>
+<div style="position:fixed;top:0;right:0;bottom:0;width:520px;max-width:95vw;background:#fff;z-index:1001;display:flex;flex-direction:column;box-shadow:-4px 0 30px rgba(0,0,0,.15)">
+
+    {{-- En-tête --}}
+    <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <span style="font-size:16px;font-weight:700;color:#111827">Profil conducteur</span>
+        <button wire:click="closeView" style="width:32px;height:32px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#6B7280">✕</button>
+    </div>
+
+    {{-- Corps --}}
+    <div style="flex:1;overflow-y:auto;padding:24px">
+
+        {{-- Hero --}}
+        <div style="background:linear-gradient(135deg,#1A5FB4,#2563EB);border-radius:12px;padding:20px;margin-bottom:20px;color:#fff;display:flex;align-items:center;gap:16px">
+            <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                @if($drPhotoUrl)
+                    <img src="{{ $drPhotoUrl }}" alt="{{ $inD }}" style="width:100%;height:100%;object-fit:cover"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+                    <span style="color:#fff;font-size:22px;font-weight:700;display:none">{{ $inD }}</span>
+                @else
+                    <span style="color:#fff;font-size:22px;font-weight:700">{{ $inD }}</span>
+                @endif
+            </div>
+            <div>
+                <div style="font-size:18px;font-weight:700;margin-bottom:4px">{{ $nmD ?: '— Sans profil —' }}</div>
+                <div style="font-size:13px;opacity:.85">{{ $sd->phone }}</div>
+                @if($kycD && isset($kycMapD[$kycD]))
+                <span style="display:inline-block;margin-top:6px;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:12px;font-size:11px">
+                    {{ $kycMapD[$kycD]['label'] }}
+                </span>
+                @endif
+            </div>
+        </div>
+
+        {{-- Infos personnelles --}}
+        @if($prd)
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Informations</div>
+            <div style="background:#F9FAFB;border-radius:10px;padding:12px 16px">
+                @foreach([['Prénom',$prd->first_name],['Nom',$prd->last_name],['Genre',$prd->gender],['Email',$prd->email],['Ville',$prd->city],['Quartier',$prd->neighborhood],['N° Permis',$prd->driving_license_number]] as [$lbl,$val])
+                @if($val)
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F3F4F6">
+                    <span style="font-size:12px;color:#6B7280">{{ $lbl }}</span>
+                    <span style="font-size:13px;font-weight:500;color:#374151">{{ $val }}</span>
+                </div>
+                @endif
+                @endforeach
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">
+                    <span style="font-size:12px;color:#6B7280">Inscrit le</span>
+                    <span style="font-size:13px;font-weight:500;color:#374151">{{ $sd->created_at?->format('d/m/Y H:i') }}</span>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Véhicule --}}
+        @if($vhd)
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Véhicule</div>
+            <div style="background:#F9FAFB;border-radius:10px;padding:12px 16px">
+                @foreach([['Marque / Modèle',$vhd->brand.' '.$vhd->model],['Couleur',$vhd->color],['Plaque',$vhd->license_plate],['Places',$vhd->available_seats]] as [$lbl,$val])
+                @if($val)
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F3F4F6">
+                    <span style="font-size:12px;color:#6B7280">{{ $lbl }}</span>
+                    <span style="font-size:13px;font-weight:500;color:#374151;font-family:{{ $lbl==='Plaque' ? 'monospace' : 'inherit' }}">{{ $val }}</span>
+                </div>
+                @endif
+                @endforeach
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">
+                    <span style="font-size:12px;color:#6B7280">Vérification véhicule</span>
+                    @php $vs=$vhd->verification_status??'pending'; $vc=['approved'=>'#16A34A','rejected'=>'#DC2626','pending'=>'#D97706'][$vs]??'#9CA3AF'; $vl=['approved'=>'Approuvé','rejected'=>'Rejeté','pending'=>'En attente'][$vs]??$vs; @endphp
+                    <span style="font-size:12px;font-weight:600;color:{{ $vc }}">{{ $vl }}</span>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Photos selfies --}}
+        @if($prd && ($prd->selfie_front || $prd->selfie_left || $prd->selfie_right))
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Photos selfies</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                @foreach(['selfie_front'=>'Face','selfie_left'=>'Gauche','selfie_right'=>'Droite'] as $field => $label)
+                    @if($prd->$field)
+                    @php $sUrl2 = str_starts_with($prd->$field,'http') ? $prd->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($prd->$field); @endphp
+                    <div>
+                        <div style="border-radius:8px;overflow:hidden;aspect-ratio:3/4;background:#F3F4F6;display:flex;align-items:center;justify-content:center">
+                            <img src="{{ $sUrl2 }}" alt="{{ $label }}" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+                        </div>
+                        <div style="font-size:10px;color:#9CA3AF;text-align:center;margin-top:3px">{{ $label }}</div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Pièce d'identité --}}
+        @if($prd && ($prd->id_card_front || $prd->id_card_back))
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Pièce d'identité</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                @foreach(['id_card_front'=>'Recto','id_card_back'=>'Verso'] as $field => $label)
+                    @if($prd->$field)
+                    @php $dUrl2 = str_starts_with($prd->$field,'http') ? $prd->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($prd->$field); @endphp
+                    <div>
+                        <div style="border-radius:8px;overflow:hidden;aspect-ratio:16/10;background:#F3F4F6;display:flex;align-items:center;justify-content:center">
+                            <img src="{{ $dUrl2 }}" alt="{{ $label }}" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+                        </div>
+                        <div style="font-size:10px;color:#9CA3AF;text-align:center;margin-top:3px">{{ $label }}</div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Permis de conduire --}}
+        @if($prd?->driving_license_photo)
+        @php $licUrl = str_starts_with($prd->driving_license_photo,'http') ? $prd->driving_license_photo : \Illuminate\Support\Facades\Storage::disk('public')->url($prd->driving_license_photo); @endphp
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Permis de conduire</div>
+            <div style="border-radius:8px;overflow:hidden;aspect-ratio:16/9;background:#F3F4F6;max-width:280px;display:flex;align-items:center;justify-content:center">
+                <img src="{{ $licUrl }}" alt="Permis" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                     onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+            </div>
+        </div>
+        @endif
+
+        {{-- Documents véhicule --}}
+        @if($vhd && ($vhd->vehicle_photo || $vhd->registration_doc || $vhd->insurance_doc || $vhd->tvm_doc || $vhd->technical_control_doc))
+        <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Documents véhicule</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                @foreach(['vehicle_photo'=>'Photo véhicule','registration_doc'=>'Carte grise','insurance_doc'=>'Assurance','tvm_doc'=>'TVM','technical_control_doc'=>'Contrôle technique'] as $field => $label)
+                    @if($vhd->$field)
+                    @php $vdUrl = str_starts_with($vhd->$field,'http') ? $vhd->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($vhd->$field); @endphp
+                    <div>
+                        <div style="border-radius:8px;overflow:hidden;aspect-ratio:4/3;background:#F3F4F6;display:flex;align-items:center;justify-content:center">
+                            <img src="{{ $vdUrl }}" alt="{{ $label }}" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+                        </div>
+                        <div style="font-size:10px;color:#9CA3AF;text-align:center;margin-top:3px">{{ $label }}</div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+    </div>
+
+    {{-- Pied du panneau --}}
+    <div style="padding:16px 24px;border-top:1px solid #F3F4F6;flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap">
+        @if($kycD === 'pending' || !$kycD)
+        <button wire:click="approveKyc({{ $sd->id }})" wire:confirm="Approuver le KYC de {{ $nmD ?: $sd->phone }} ?"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BBF7D0;color:#16A34A;background:#F0FDF4">
+            ✔ Approuver KYC
+        </button>
+        <button wire:click="rejectKyc({{ $sd->id }})" wire:confirm="Rejeter le KYC de {{ $nmD ?: $sd->phone }} ?"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2">
+            ✕ Rejeter KYC
+        </button>
+        @elseif($kycD === 'approved')
+        <button wire:click="rejectKyc({{ $sd->id }})" wire:confirm="Révoquer l'approbation KYC ?"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2">
+            ✕ Révoquer KYC
+        </button>
+        @elseif($kycD === 'rejected')
+        <button wire:click="approveKyc({{ $sd->id }})" wire:confirm="Ré-approuver le KYC ?"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BBF7D0;color:#16A34A;background:#F0FDF4">
+            ✔ Ré-approuver KYC
+        </button>
+        @endif
+        @if($vhd && ($vhd->verification_status === 'pending' || !$vhd->verification_status))
+        <button wire:click="approveVehicle({{ $sd->id }})" wire:confirm="Approuver le véhicule ?"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BFDBFE;color:#1A5FB4;background:#EFF6FF">
+            ✔ Approuver véhicule
+        </button>
+        @endif
+        <button wire:click="closeView"
+                style="flex:1;padding:10px;background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;color:#6B7280;cursor:pointer;font-family:inherit">
+            Fermer
+        </button>
+    </div>
+</div>
+@endif
 
 </div>

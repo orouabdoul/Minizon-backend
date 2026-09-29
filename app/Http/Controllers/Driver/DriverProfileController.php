@@ -329,6 +329,9 @@ class DriverProfileController extends Controller
                 'rating'        => $avgRating,
                 'trips_count'   => $tripsCompleted,
                 'tenure_months' => $tenureMonths,
+                'avatar_url'    => $profile?->selfie_front
+                    ? \Illuminate\Support\Facades\Storage::disk('public')->url($profile->selfie_front)
+                    : null,
             ],
             'verification_items' => $verificationItems,
             'stats'              => $stats,

@@ -91,7 +91,7 @@ services:
     env: docker
     plan: free
     branch: main
-    schedule: "* * * * *"
+    schedule: "*/5 * * * *"
     startCommand: php artisan schedule:run
     envVars:
       - key: APP_NAME

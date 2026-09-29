@@ -198,11 +198,21 @@ $kycLabels = [
                     $kyc    = $kycLabels[$pr?->kyc_status??'none'] ?? $kycLabels['none'];
                     $bkCnt  = $pax->bookings_count ?? $pax->bookings->count();
                     $rating = $pax->averageRating();
+                    $rowPhoto = null;
+                    if ($pr?->selfie_front) {
+                        $rp = $pr->selfie_front;
+                        $rowPhoto = str_starts_with($rp,'http') ? $rp : \Illuminate\Support\Facades\Storage::disk('public')->url($rp);
+                    }
                 @endphp
                 <tr class="{{ $pax->is_blocked ? 'blocked-row' : '' }}">
                     <td>
                         <div class="user-cell">
-                            <div class="avatar" style="background:{{ $bg }};color:#fff">{{ $init }}</div>
+                            @if($rowPhoto)
+                                <img src="{{ $rowPhoto }}" class="avatar" alt="{{ $init }}"
+                                     style="border:2px solid {{ $bg }};object-fit:cover;padding:0"
+                                     onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')">
+                            @endif
+                            <div class="avatar" style="background:{{ $bg }};color:#fff;{{ $rowPhoto ? 'display:none' : '' }}">{{ $init }}</div>
                             <div>
                                 <div style="font-weight:600;font-size:13px;color:#111827">{{ $name }}</div>
                                 @if($pr?->email)<div style="font-size:11px;color:#9CA3AF">{{ $pr->email }}</div>@endif
@@ -282,9 +292,22 @@ $kycLabels = [
     <div class="panel-body">
 
         {{-- Hero --}}
+        @php
+            $pax2Photo = null;
+            if ($pr2?->selfie_front) {
+                $pp2 = $pr2->selfie_front;
+                $pax2Photo = str_starts_with($pp2, 'http') ? $pp2 : \Illuminate\Support\Facades\Storage::disk('public')->url($pp2);
+            }
+        @endphp
         <div class="hero-card">
-            <div class="hero-avatar" style="background:{{ $bg2 }}20;border:2px solid rgba(255,255,255,.4)">
-                <span style="color:#fff;font-size:22px;font-weight:700">{{ $in2 }}</span>
+            <div class="hero-avatar" style="background:{{ $bg2 }}20;border:2px solid rgba(255,255,255,.4);overflow:hidden;padding:0">
+                @if($pax2Photo)
+                    <img src="{{ $pax2Photo }}" alt="{{ $in2 }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+                    <span style="color:#fff;font-size:22px;font-weight:700;display:none">{{ $in2 }}</span>
+                @else
+                    <span style="color:#fff;font-size:22px;font-weight:700">{{ $in2 }}</span>
+                @endif
             </div>
             <div>
                 <div class="hero-name">{{ $nm2 }}</div>
@@ -365,6 +388,48 @@ $kycLabels = [
                     <label>{{ $ec->name }} ({{ $ec->relationship??'—' }})</label>
                     <span>{{ $ec->phone }}</span>
                 </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Photos selfies --}}
+        @if($pr2 && ($pr2->selfie_front || $pr2->selfie_left || $pr2->selfie_right))
+        <div class="panel-section">
+            <div class="panel-section__title">Photos selfies</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                @foreach(['selfie_front'=>'Face','selfie_left'=>'Gauche','selfie_right'=>'Droite'] as $field => $label)
+                    @if($pr2->$field)
+                    @php $sUrl = str_starts_with($pr2->$field,'http') ? $pr2->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($pr2->$field); @endphp
+                    <div>
+                        <div style="border-radius:8px;overflow:hidden;aspect-ratio:3/4;background:#F3F4F6;display:flex;align-items:center;justify-content:center">
+                            <img src="{{ $sUrl }}" alt="{{ $label }}" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+                        </div>
+                        <div style="font-size:10px;color:#9CA3AF;text-align:center;margin-top:3px">{{ $label }}</div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Pièce d'identité --}}
+        @if($pr2 && ($pr2->id_card_front || $pr2->id_card_back))
+        <div class="panel-section">
+            <div class="panel-section__title">Pièce d'identité</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                @foreach(['id_card_front'=>'Recto','id_card_back'=>'Verso'] as $field => $label)
+                    @if($pr2->$field)
+                    @php $dUrl = str_starts_with($pr2->$field,'http') ? $pr2->$field : \Illuminate\Support\Facades\Storage::disk('public')->url($pr2->$field); @endphp
+                    <div>
+                        <div style="border-radius:8px;overflow:hidden;aspect-ratio:16/10;background:#F3F4F6;display:flex;align-items:center;justify-content:center">
+                            <img src="{{ $dUrl }}" alt="{{ $label }}" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<span style=\'font-size:10px;color:#9CA3AF\'>—</span>'">
+                        </div>
+                        <div style="font-size:10px;color:#9CA3AF;text-align:center;margin-top:3px">{{ $label }}</div>
+                    </div>
+                    @endif
                 @endforeach
             </div>
         </div>
