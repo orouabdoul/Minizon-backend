@@ -409,7 +409,7 @@
 <script>
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const COTONOU    = [6.3656, 2.4183];
-const OSRM_BASE  = 'https://router.project-osrm.org/route/v1/driving';
+const OSRM_BASE  = 'https://routing.openstreetmap.de/routed-car/route/v1/driving';
 
 // ─── État ──────────────────────────────────────────────────────────────────────
 let leafletMap    = null;
@@ -420,6 +420,7 @@ let routeLines    = {};   // uuid → L.polyline itinéraire OSRM planifié
 let gpsLines      = {};   // uuid → { polyline, coords[] } chemin GPS réel
 let focusedUuid   = null;
 let focusedPath   = null; // L.polyline surbrillance au focus
+let paxMarkers    = [];   // marqueurs prise/dépôt passagers du trajet focalisé
 let routeCache    = {};   // uuid → [[lat,lng], ...] itinéraire OSRM mis en cache
 let fetchQueue    = new Set(); // uuids en cours de fetch pour éviter les doublons
 
@@ -607,6 +608,29 @@ async function focusTrip(tripData) {
     focusedUuid = tripData.uuid;
     if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
 
+    // Effacer les marqueurs passagers du focus précédent
+    paxMarkers.forEach(m => leafletMap.removeLayer(m));
+    paxMarkers = [];
+
+    // Afficher les marqueurs prise/dépôt de chaque passager
+    if (tripData.passengers && tripData.passengers.length) {
+        tripData.passengers.forEach((pax, i) => {
+            const label = pax.name || `Passager ${i + 1}`;
+            if (pax.pickup_lat && pax.pickup_lng) {
+                const m = L.marker([pax.pickup_lat, pax.pickup_lng], {
+                    icon: pinIcon('#7C3AED', `${i + 1}`)
+                }).addTo(leafletMap).bindPopup(`<b>Prise ${i + 1}</b><br>${label}`);
+                paxMarkers.push(m);
+            }
+            if (pax.dropoff_lat && pax.dropoff_lng) {
+                const m = L.marker([pax.dropoff_lat, pax.dropoff_lng], {
+                    icon: pinIcon('#F59E0B', `${i + 1}`)
+                }).addTo(leafletMap).bindPopup(`<b>Dépôt ${i + 1}</b><br>${label}`);
+                paxMarkers.push(m);
+            }
+        });
+    }
+
     // 1. Priorité : chemin GPS réel (trajet démarré)
     if (tripData.path && tripData.path.length > 1) {
         const coords = tripData.path.map(p => [p.lat, p.lng]);
@@ -654,6 +678,8 @@ $wire.on('trip-focused',  (tripData) => focusTrip(tripData));
 $wire.on('trip-closed',   () => {
     focusedUuid = null;
     if (focusedPath) { leafletMap.removeLayer(focusedPath); focusedPath = null; }
+    paxMarkers.forEach(m => leafletMap.removeLayer(m));
+    paxMarkers = [];
 });
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────

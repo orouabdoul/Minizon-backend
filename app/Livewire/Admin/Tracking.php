@@ -22,6 +22,7 @@ class Tracking extends Component
         $trip = Trip::with([
             'user.profile',
             'activeIncident',
+            'bookings.passenger.profile',
             'locations' => fn($q) => $q->orderBy('recorded_at')->limit(500),
         ])->find($id);
 
@@ -49,6 +50,32 @@ class Tracking extends Component
             $trip->arrival_neighborhood   ?? null,
         );
 
+        $passengers = $trip->bookings
+            ->where('status', 'accepted')
+            ->map(function ($b) use ($trip) {
+                $profile = $b->passenger?->profile;
+                $name    = ($profile?->fullName() ?: $b->passenger?->phone) ?? '?';
+                [$pLat, $pLng] = GeoHelper::bestCoords(
+                    $b->pickup_latitude, $b->pickup_longitude,
+                    $b->pickup_city           ?? '',
+                    $b->pickup_arrondissement ?? null,
+                    $b->pickup_neighborhood   ?? null,
+                );
+                [$dLat, $dLng] = GeoHelper::bestCoords(
+                    $b->dropoff_latitude, $b->dropoff_longitude,
+                    $b->dropoff_city           ?? $trip->arrival_city           ?? '',
+                    $b->dropoff_arrondissement ?? $trip->arrival_arrondissement ?? null,
+                    $b->dropoff_neighborhood   ?? $trip->arrival_neighborhood   ?? null,
+                );
+                return [
+                    'name'        => $name,
+                    'pickup_lat'  => $pLat,
+                    'pickup_lng'  => $pLng,
+                    'dropoff_lat' => $dLat,
+                    'dropoff_lng' => $dLng,
+                ];
+            })->values()->toArray();
+
         $this->dispatch('trip-focused', [
             'id'            => $trip->id,
             'uuid'          => $trip->uuid,
@@ -65,6 +92,7 @@ class Tracking extends Component
             'arrival_lat'   => $arrLat,
             'arrival_lng'   => $arrLng,
             'path'          => $path,
+            'passengers'    => $passengers,
         ]);
     }
 

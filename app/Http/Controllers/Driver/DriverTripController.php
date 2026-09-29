@@ -372,7 +372,7 @@ class DriverTripController extends Controller
         $seatsBooked      = $acceptedBookings->sum('seats_booked');
 
         // Passagers — une seule passe pour la carte conducteur (UI) et le modèle de suivi (tracking)
-        $passengersData = $acceptedBookings->map(function (Booking $b) {
+        $passengersData = $acceptedBookings->map(function (Booking $b) use ($trip) {
             $profile  = $b->passenger?->profile;
             $fullName = $profile?->fullName() ?: ($b->passenger?->phone ?? '?');
             [$pLat, $pLng] = GeoHelper::bestCoords(
@@ -381,10 +381,18 @@ class DriverTripController extends Controller
                 $b->pickup_arrondissement ?? null,
                 $b->pickup_neighborhood   ?? null,
             );
+            [$dLat, $dLng] = GeoHelper::bestCoords(
+                $b->dropoff_latitude, $b->dropoff_longitude,
+                $b->dropoff_city           ?? $trip->arrival_city           ?? '',
+                $b->dropoff_arrondissement ?? $trip->arrival_arrondissement ?? null,
+                $b->dropoff_neighborhood   ?? $trip->arrival_neighborhood   ?? null,
+            );
             return [
                 'name'   => $fullName,
                 'lat'    => $pLat,
                 'lng'    => $pLng,
+                'dlat'   => $dLat,
+                'dlng'   => $dLng,
                 'seats'  => $b->seats_booked,
                 'phone'  => $b->passenger?->phone ?? '',
                 'fname'  => $profile?->first_name ?? '',
@@ -395,19 +403,23 @@ class DriverTripController extends Controller
 
         // Format carte conducteur (liste des trajets)
         $passengers = $passengersData->map(fn ($d) => [
-            'initials'         => $this->initials($d['name']),
-            'name'             => $d['name'],
-            'pickup_latitude'  => $d['lat'],
-            'pickup_longitude' => $d['lng'],
+            'initials'          => $this->initials($d['name']),
+            'name'              => $d['name'],
+            'pickup_latitude'   => $d['lat'],
+            'pickup_longitude'  => $d['lng'],
+            'dropoff_latitude'  => $d['dlat'],
+            'dropoff_longitude' => $d['dlng'],
         ])->all();
 
         // Format modèle de suivi (ActiveDriverTripModel / ActivePassengerModel)
         $bookings = $passengersData->map(fn ($d) => [
-            'status'           => 'confirmed',
-            'seats'            => $d['seats'],
-            'pickup_latitude'  => $d['lat'],
-            'pickup_longitude' => $d['lng'],
-            'passenger'        => [
+            'status'            => 'confirmed',
+            'seats'             => $d['seats'],
+            'pickup_latitude'   => $d['lat'],
+            'pickup_longitude'  => $d['lng'],
+            'dropoff_latitude'  => $d['dlat'],
+            'dropoff_longitude' => $d['dlng'],
+            'passenger'         => [
                 'phone'   => $d['phone'],
                 'profile' => [
                     'first_name' => $d['fname'],
