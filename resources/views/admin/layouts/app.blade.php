@@ -794,14 +794,18 @@
     .usr-wrap .data-table th:nth-child(3),.usr-wrap .data-table td:nth-child(3) { display:none; }
 }
 
-/* ── Drivers (1.Conducteur 2.KYC 3.Véhicule 4.Statut véhicule 5.Documents 6.Inscription 7.Actions KYC) ── */
+/* ── Drivers (1.Conducteur 2.KYC 3.Véhicule 4.Statut veh 5.Documents 6.Inscription 7.Voir 8.Actions KYC) ── */
 @media (max-width: 768px) {
     .drv-wrap .data-table th:nth-child(3),.drv-wrap .data-table td:nth-child(3),
-    .drv-wrap .data-table th:nth-child(5),.drv-wrap .data-table td:nth-child(5) { display:none; }
+    .drv-wrap .data-table th:nth-child(5),.drv-wrap .data-table td:nth-child(5),
+    .drv-wrap .data-table th:nth-child(6),.drv-wrap .data-table td:nth-child(6) { display:none; }
 }
 @media (max-width: 480px) {
-    .drv-wrap .data-table th:nth-child(2),.drv-wrap .data-table td:nth-child(2),
-    .drv-wrap .data-table th:nth-child(6),.drv-wrap .data-table td:nth-child(6) { display:none; }
+    .drv-wrap .data-table th:nth-child(4),.drv-wrap .data-table td:nth-child(4),
+    .drv-wrap .data-table th:nth-child(7),.drv-wrap .data-table td:nth-child(7) { display:none; }
+    .drv-wrap .action-btn { height:26px; padding:0 8px; font-size:10px; }
+    .drv-wrap .data-table thead th,
+    .drv-wrap .data-table tbody td { padding:8px 10px; }
 }
 
 /* ── Passengers (1.Passager 2.Téléphone 3.Ville 4.KYC 5.Réservations 6.Note 7.Pénalités 8.Inscrit le) ── */
