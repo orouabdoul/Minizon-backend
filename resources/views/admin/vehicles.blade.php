@@ -97,6 +97,29 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
 .btn-suspend:hover{background:#6B7280;color:#fff}
 .btn-close{padding:10px;background:#F3F4F6;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
 .panel-btn-row{display:flex;gap:8px}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grid */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+
+    /* Table: horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 580px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 <div class="veh-wrap">

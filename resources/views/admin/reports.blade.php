@@ -57,6 +57,18 @@
 .top-count{margin-left:auto;font-size:14px;font-weight:700;color:#1A5FB4}
 
 .alert-kpi{background:#FEE2E2;border:1.5px solid #FECACA;border-radius:10px;padding:12px 16px;margin-bottom:4px;font-size:12px;color:#991B1B;display:flex;align-items:center;gap:8px}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .rpt-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .ov-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .row-2col, .row-3col { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .ov-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: 1fr; }
+}
 </style>
 
 <div class="rpt-wrap">

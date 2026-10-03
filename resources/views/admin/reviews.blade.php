@@ -84,6 +84,29 @@
 .info-row:last-child{border-bottom:none}
 .info-label{font-size:11px;color:#9CA3AF;min-width:110px;flex-shrink:0;padding-top:1px}
 .info-value{font-size:13px;color:#374151;font-weight:500}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grids */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+
+    /* Table: horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 @php

@@ -138,6 +138,29 @@
 .btn-panel-danger:hover{background:#EF4444;color:#fff}
 .btn-panel-warn{background:#FEF3C7;color:#D97706;border:1.5px solid #FCD34D}
 .btn-panel-warn:hover{background:#D97706;color:#fff}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grids */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select, .filter-date { width: 100%; }
+
+    /* Table: horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 <div class="trips-wrap">

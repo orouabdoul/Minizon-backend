@@ -37,6 +37,18 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 .btn-save{padding:11px 28px;background:#1A5FB4;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
 .btn-save:hover{background:#1550A0}
 .btn-save:active{transform:scale(.98)}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .set-wrap { padding: 16px; }
+    .set-grid { grid-template-columns: 1fr; }
+    .set-field.full { grid-column: span 1; }
+    .save-bar { padding: 12px 16px; margin: 0 -16px 0; }
+}
+@media (max-width: 480px) {
+    .save-bar { flex-direction: column; align-items: stretch; }
+    .btn-save { width: 100%; text-align: center; }
+}
 </style>
 
 <div class="set-wrap">

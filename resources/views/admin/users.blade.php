@@ -126,6 +126,38 @@
 .empty-state__sub   { font-size:13px; color:#9CA3AF; }
 .table-footer { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-top:1px solid #F3F4F6; background:#FAFAFA; flex-wrap:wrap; gap:8px; }
 .table-footer__info { font-size:12px; color:#9CA3AF; }
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Page header */
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+    /* stat-bar already has @media(max-width:900px){repeat(2,1fr)} — keep 2col at 768px */
+    .stat-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-search { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+
+    /* Tab bar */
+    .tab-bar { overflow-x: auto; width: 100%; }
+
+    /* Table: horizontal scroll */
+    .data-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 580px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+
+    /* Pagination */
+    .table-footer { flex-wrap: wrap; gap: 6px; }
+}
+
+@media (max-width: 480px) {
+    .stat-bar { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 {{-- Header --}}

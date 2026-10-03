@@ -54,6 +54,21 @@
 .info-label{font-size:11px;color:#9CA3AF;min-width:110px;flex-shrink:0;padding-top:1px}
 .info-value{font-size:13px;color:#374151;font-weight:500;word-break:break-all}
 .payload-box{background:#1F2937;color:#D1FAE5;border-radius:8px;padding:14px;font-family:monospace;font-size:11px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-select, .filter-date { width: 100%; }
+    .filter-input { min-width: unset; width: 100%; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 580px; }
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 <div class="audit-wrap">

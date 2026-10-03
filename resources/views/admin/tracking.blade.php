@@ -95,6 +95,26 @@
 /* Leaflet popup */
 .leaflet-popup-content{margin:10px 14px;font-family:'Inter',system-ui,sans-serif}
 .leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15)}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grids — refine the existing breakpoints for tablets */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-select { width: 100%; }
+
+    /* Map height on mobile */
+    .map-container { height: 300px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
 </style>
 
 {{-- Polling silencieux toutes les 5s --}}

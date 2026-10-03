@@ -144,6 +144,27 @@
 .bar-chart__label { font-size:10px; color:#9CA3AF; }
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* KPI grid — already collapses to 2col at 1100px; keep 2col at 768px */
+    .kpi-grid-new { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Main grid — already collapses to 1col at 1100px */
+    .dash-main-grid { grid-template-columns: 1fr; }
+
+    /* Financial row */
+    .fin-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Pagination */
+    .card-pag { flex-wrap: wrap; gap: 6px; }
+}
+
+@media (max-width: 480px) {
+    .kpi-grid-new { grid-template-columns: 1fr; }
+    .kpi-new__value { font-size: 22px; }
+    .fin-row { grid-template-columns: 1fr; }
+}
 </style>
 
 {{-- ① ALERTES URGENTES ──────────────────────────────────── --}}

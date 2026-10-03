@@ -28,7 +28,6 @@ class ReleaseFunds extends Command
         }
 
         $released = 0;
-        $disputed = 0;
         $blocked  = 0;
 
         foreach ($validations as $validation) {
@@ -41,26 +40,21 @@ class ReleaseFunds extends Command
                 continue;
             }
 
-            // ── Condition 2 : avis critique (≤ 2 étoiles) du passager ─────────
+            // ── Condition 2 : avis critique (≤ 2 étoiles) — notifier l'admin, libérer quand même
+            // Un avis négatif seul ne bloque pas : le passager doit soumettre une demande
+            // de remboursement explicite (→ Condition 1 via dispute) pour bloquer les fonds.
             $criticalReview = Review::where('trip_id', $booking?->trip_id)
                 ->where('reviewer_id', $booking?->passenger_id)
                 ->where('rating', '<=', 2)
                 ->first();
 
             if ($criticalReview) {
-                // Passer en "disputed" pour que l'admin décide manuellement
-                $validation->update(['status' => 'disputed']);
-
-                // Créer une notification admin
                 $this->notifyAdmin($validation, $criticalReview);
-
-                $this->line("  🔴 Avis critique ({$criticalReview->rating}★) — Booking #{$validation->booking_id} → en attente décision admin");
-                Log::info('ReleaseFunds: avis critique signalé à l\'admin', [
+                $this->line("  ⚠️  Avis critique ({$criticalReview->rating}★) — admin notifié, fonds libérés quand même — Booking #{$validation->booking_id}");
+                Log::info('ReleaseFunds: avis critique signalé à l\'admin (libération maintenue)', [
                     'booking_id' => $validation->booking_id,
                     'rating'     => $criticalReview->rating,
                 ]);
-                $disputed++;
-                continue;
             }
 
             // ── Libération automatique ────────────────────────────────────────
@@ -76,7 +70,7 @@ class ReleaseFunds extends Command
             $released++;
         }
 
-        $this->info("{$released} libéré(s). {$disputed} en attente décision admin. {$blocked} bloqué(s) par litige.");
+        $this->info("{$released} libéré(s). {$blocked} bloqué(s) par litige actif.");
     }
 
     private function notifyAdmin(TripValidation $validation, Review $review): void
@@ -95,7 +89,7 @@ class ReleaseFunds extends Command
                 'notifiable_id'   => 1, // admin principal (ID 1)
                 'data'            => json_encode([
                     'title'        => 'Avis critique — Décision requise',
-                    'body'         => "Un passager a donné {$review->rating}★ pour le trajet {$from} → {$to}. Les fonds sont bloqués en attente de votre décision.",
+                    'body'         => "Un passager a donné {$review->rating}★ pour le trajet {$from} → {$to}. Les fonds ont été libérés au conducteur. Vérifiez si une action est nécessaire.",
                     'booking_uuid' => $booking?->uuid,
                     'payment_uuid' => $booking?->payment?->uuid,
                     'rating'       => $review->rating,

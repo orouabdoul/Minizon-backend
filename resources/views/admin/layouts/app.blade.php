@@ -268,6 +268,24 @@
         .badge-warning { background: rgba(245,166,35,0.12); color: #D97706; }
         .badge-error   { background: rgba(229,72,77,0.12); color: #E5484D; }
         .badge-blue    { background: rgba(26,95,180,0.12); color: #1A5FB4; }
+
+        /* ── Responsive global ───────────────────────────────── */
+        @media (max-width: 768px) {
+            .dash-content { padding: 12px; }
+            .dash-search { display: none; }
+            .dash-header__title { font-size: 15px; }
+            .dash-header { padding: 0 12px; gap: 8px; }
+            .dash-admin-name, .dash-admin-role { display: none; }
+            .dash-admin-avatar { width: 32px; height: 32px; font-size: 12px; }
+        }
+        @media (max-width: 480px) {
+            .dash-content { padding: 8px; }
+            .dash-header { padding: 0 8px; }
+            .dash-kpi-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 360px) {
+            .dash-kpi-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>

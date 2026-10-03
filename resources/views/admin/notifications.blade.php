@@ -43,6 +43,20 @@
 .empty-state p{font-size:14px;margin:0}
 
 .pagination-wrap{padding:12px 0;display:flex;justify-content:flex-end}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .notif-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-select { width: 100%; }
+    .notif-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .notif-actions { width: 100%; flex-wrap: wrap; }
+    .pagination-wrap { justify-content: center; }
+}
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
 </style>
 
 <div class="notif-wrap">

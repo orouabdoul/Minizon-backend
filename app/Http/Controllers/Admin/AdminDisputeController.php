@@ -10,6 +10,8 @@ use App\Notifications\DisputeStatusChanged;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
@@ -653,6 +655,33 @@ class AdminDisputeController extends Controller
                 'resolved_at'          => now(),
             ]);
         });
+
+        // ── Appel FedaPay pour le vrai remboursement Mobile Money ─────────────
+        $payment = $dispute->fresh('booking.payment')->booking?->payment;
+        if ($payment?->provider_reference) {
+            try {
+                $apiKey  = config('fedapay.secret_key');
+                $env     = config('fedapay.environment');
+                $baseUrl = $env === 'live'
+                    ? 'https://api.fedapay.com/v1'
+                    : 'https://sandbox-api.fedapay.com/v1';
+
+                $response = Http::withToken($apiKey)
+                    ->post("{$baseUrl}/transactions/{$payment->provider_reference}/refund");
+
+                Log::info('AdminDispute: FedaPay refund appelé', [
+                    'dispute_id'   => $id,
+                    'fedapay_id'   => $payment->provider_reference,
+                    'http_status'  => $response->status(),
+                    'response'     => $response->json(),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('AdminDispute: FedaPay refund API échouée — remboursement manuel requis', [
+                    'dispute_id' => $id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+        }
 
         $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);
 

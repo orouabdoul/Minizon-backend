@@ -106,6 +106,30 @@ $kycLabels = [
 .btn-kyc-approve:hover{background:#16A34A;color:#fff;border-color:#16A34A}
 .btn-kyc-reject{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2;transition:.15s}
 .btn-kyc-reject:hover{background:#DC2626;color:#fff;border-color:#DC2626}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grid */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+    .filter-date { width: 100%; }
+
+    /* Table: horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 580px; }
+
+    /* Panel drawer */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+}
 </style>
 
 <div class="pax-wrap">

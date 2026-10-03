@@ -85,6 +85,23 @@
 .amount-hero{text-align:center;padding:24px;background:linear-gradient(135deg,#1A5FB4,#1A5FB4cc);border-radius:12px;margin-bottom:20px;color:#fff}
 .amount-hero-val{font-size:36px;font-weight:800;margin-bottom:4px}
 .amount-hero-label{font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.8px}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select, .filter-date { width: 100%; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+    .panel-drawer { height: 100dvh; }
+}
 </style>
 
 <div class="rf-wrap">

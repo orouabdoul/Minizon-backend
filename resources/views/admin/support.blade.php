@@ -101,6 +101,23 @@ $channelLabels = [
 .info-row label{font-size:12px;color:#6B7280}
 .info-row span{font-size:13px;font-weight:500;color:#374151}
 .btn-panel{flex:1;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+    .panel-drawer { height: 100dvh; }
+}
 </style>
 
 <div class="sup-wrap">

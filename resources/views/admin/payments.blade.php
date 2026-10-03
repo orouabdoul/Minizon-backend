@@ -97,6 +97,23 @@ $providerLabels = [
 .info-row:last-child{border-bottom:none}
 .info-row label{font-size:12px;color:#6B7280}
 .info-row span{font-size:13px;font-weight:600;color:#374151}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select, .filter-date { width: 100%; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .data-table { min-width: 480px; }
+    .panel-drawer { height: 100dvh; }
+}
 </style>
 
 <div class="pay-wrap">

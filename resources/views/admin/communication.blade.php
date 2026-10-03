@@ -147,6 +147,31 @@
 .flash-ok{background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7}
 .flash-err{background:#FEE2E2;color:#991B1B;border:1.5px solid #FCA5A5}
 .flash-bar button{background:none;border:none;cursor:pointer;font-size:14px;color:inherit;margin-left:auto;padding:0;line-height:1}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Stat grids */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* Filter bar */
+    .filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filter-input { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+
+    /* Panel drawer (supervision slide-over) */
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+
+    /* Admin chat panel */
+    .cp { width: 100vw; max-width: 100vw; border-radius: 16px 16px 0 0; }
+
+    /* Conversation list */
+    .conv-grid { gap: 6px; }
+    .conv-item { padding: 12px 14px; }
+}
+
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
 </style>
 
 {{-- ════ ANCIENNE SUPERVISION ════ --}}
