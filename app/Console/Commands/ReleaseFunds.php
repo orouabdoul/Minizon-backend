@@ -19,6 +19,7 @@ class ReleaseFunds extends Command
         $validations = TripValidation::with(['booking.payment', 'booking.dispute', 'booking.trip'])
             ->where('status', 'waiting')
             ->where('auto_release_at', '<=', now())
+            ->whereHas('booking.trip', fn ($q) => $q->where('status', 'completed'))
             ->get();
 
         if ($validations->isEmpty()) {

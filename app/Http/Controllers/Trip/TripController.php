@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Trip;
 use App\Models\TripLocation;
+use App\Models\TripValidation;
 use App\Notifications\TripCompleted;
 use App\Notifications\TripStarted;
 use App\Services\FcmService;
@@ -321,6 +322,11 @@ class TripController extends Controller
             'status'       => 'completed',
             'completed_at' => now(),
         ]);
+
+        // Démarrer le compte de 24h depuis la fin du trajet (pas depuis le paiement)
+        TripValidation::whereHas('booking', fn ($q) => $q->where('trip_id', $trip->id))
+            ->where('status', 'waiting')
+            ->update(['auto_release_at' => now()->addHours(24)]);
 
         // Notifier les passagers et le conducteur
         try {
