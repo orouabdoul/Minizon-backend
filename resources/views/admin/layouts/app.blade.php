@@ -439,5 +439,175 @@
 </div>
 
 @livewireScripts
+
+{{-- ═══════════════════════════════════════════════════════════
+     MINIZON Admin — Responsive global overrides
+     Placé en FIN de <body> : même spécificité que les styles
+     de page, mais position plus tardive → cascade prioritaire.
+     Corrige : padding wrappers, grilles stat, filtres, tables,
+     panels, tab-bars sur tous les écrans mobiles/tablettes.
+     ═══════════════════════════════════════════════════════════ --}}
+<style>
+
+/* ── 1. Réduire le padding des wrappers de page sur mobile ── */
+/* Toutes les pages ont padding:28px 32px sur leur wrapper     */
+/* → on annule le padding horizontal et laisse dash-content   */
+/* gérer les marges. Le padding vertical reste réduit.        */
+@media (max-width: 1024px) {
+    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
+    .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
+        padding: 20px 16px;
+    }
+}
+@media (max-width: 768px) {
+    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
+    .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
+        padding: 12px 0;
+    }
+}
+@media (max-width: 480px) {
+    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
+    .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
+        padding: 8px 0;
+    }
+}
+
+/* ── 2. Grilles de statistiques ─────────────────────────── */
+@media (max-width: 900px) {
+    .stat-grid { grid-template-columns: repeat(3,1fr); }
+}
+@media (max-width: 768px) {
+    .stat-grid,.stat-bar,.kpi-grid-new,.kpi-grid,.stats-grid {
+        grid-template-columns: repeat(2,1fr);
+        gap: 10px;
+    }
+}
+@media (max-width: 480px) {
+    .stat-grid,.stat-bar,.kpi-grid-new,.kpi-grid,.stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── 3. En-têtes de page ────────────────────────────────── */
+@media (max-width: 768px) {
+    .page-header,.pay-header,.rpt-header,.notif-header,
+    .audit-header,.comm-header,.disp-header,.pax-header,
+    .res-header,.rf-header,.rv-header,.set-header,
+    .sup-header,.track-header,.trips-header,.veh-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+/* ── 4. Barre de filtres ────────────────────────────────── */
+@media (max-width: 768px) {
+    .filter-bar,.filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .filter-search {
+        min-width: unset;
+        width: 100%;
+    }
+    .filter-input  { min-width: unset; width: 100%; }
+    .filter-select { width: 100%; }
+    .filter-date   { width: 100%; }
+    .btn-reset     { width: 100%; text-align: center; }
+}
+
+/* ── 5. Tab-bar : scroll horizontal ────────────────────── */
+@media (max-width: 768px) {
+    .tab-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+        flex-wrap: nowrap;
+    }
+    .tab-btn { flex-shrink: 0; }
+}
+
+/* ── 6. Tables : scroll horizontal ─────────────────────── */
+@media (max-width: 768px) {
+    .data-table-wrap,.table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+    .data-table { min-width: 580px; }
+}
+@media (max-width: 480px) {
+    .data-table { min-width: 460px; }
+}
+
+/* ── 7. Panel drawer : plein écran mobile ───────────────── */
+@media (max-width: 768px) {
+    .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+@media (max-width: 480px) {
+    .panel-drawer { height: 100dvh; }
+}
+
+/* ── 8. Pagination ──────────────────────────────────────── */
+@media (max-width: 768px) {
+    .pag-row,.pagination-row,.table-footer {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+}
+
+/* ── 9. Dashboard (pas de wrapper) ─────────────────────── */
+@media (max-width: 768px) {
+    .kpi-grid-new   { grid-template-columns: repeat(2,1fr); }
+    .dash-main-grid { grid-template-columns: 1fr; }
+    .fin-row        { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 480px) {
+    .kpi-grid-new { grid-template-columns: 1fr; }
+    .fin-row      { grid-template-columns: 1fr; }
+}
+
+/* ── 10. Rapports : grilles de graphiques ───────────────── */
+@media (max-width: 768px) {
+    .row-2col,.row-3col,.charts-grid { grid-template-columns: 1fr; }
+    .ov-grid  { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 480px) {
+    .ov-grid  { grid-template-columns: 1fr; }
+}
+
+/* ── 11. Paramètres : formulaire ────────────────────────── */
+@media (max-width: 768px) {
+    .set-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 12. Communication : layout chat ────────────────────── */
+@media (max-width: 768px) {
+    .cp { width: 100%; }
+}
+
+/* ── 13. Suivi/Tracking : carte ─────────────────────────── */
+@media (max-width: 768px) {
+    .map-container { height: 300px; }
+}
+
+/* ── 14. Notifications : items ──────────────────────────── */
+@media (max-width: 640px) {
+    .notif-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .notif-actions { flex-wrap: wrap; }
+}
+
+/* ── 15. Sécurité : empêcher tout débordement global ─────── */
+@media (max-width: 1024px) {
+    .dash-content { max-width: 100%; overflow-x: hidden; }
+    img { max-width: 100%; height: auto; }
+}
+
+</style>
 </body>
 </html>
