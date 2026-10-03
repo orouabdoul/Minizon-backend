@@ -819,15 +819,20 @@
     .pax-wrap .data-table th:nth-child(8),.pax-wrap .data-table td:nth-child(8) { display:none; }
 }
 
-/* ── Vehicles (1.Véhicule 2.Type 3.Immatriculation 4.Conducteur 5.Places 6.Documents 7.Statut 8.Ajouté le) ── */
+/* ── Vehicles (1.Véhicule 2.Type 3.Immatriculation 4.Conducteur 5.Places 6.Documents 7.Statut 8.Ajouté le 9.Action) ── */
 @media (max-width: 768px) {
     .veh-wrap .data-table th:nth-child(2),.veh-wrap .data-table td:nth-child(2),
+    .veh-wrap .data-table th:nth-child(5),.veh-wrap .data-table td:nth-child(5),
     .veh-wrap .data-table th:nth-child(6),.veh-wrap .data-table td:nth-child(6),
     .veh-wrap .data-table th:nth-child(8),.veh-wrap .data-table td:nth-child(8) { display:none; }
 }
 @media (max-width: 480px) {
+    /* 3 cols : Véhicule, Statut, Action */
     .veh-wrap .data-table th:nth-child(3),.veh-wrap .data-table td:nth-child(3),
-    .veh-wrap .data-table th:nth-child(5),.veh-wrap .data-table td:nth-child(5) { display:none; }
+    .veh-wrap .data-table th:nth-child(4),.veh-wrap .data-table td:nth-child(4) { display:none; }
+    .veh-wrap .data-table thead th,
+    .veh-wrap .data-table tbody td { padding: 8px 10px; }
+    .veh-wrap .veh-icon { width: 30px; height: 30px; font-size: 14px; }
 }
 
 /* ── Refunds (1.Référence 2.Utilisateur 3.Montant 4.Opérateur 5.Statut 6.Date 7.Actions) ── */
