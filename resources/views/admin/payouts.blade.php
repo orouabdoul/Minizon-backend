@@ -16,7 +16,7 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
 
 <div>
 <style>
-.pay-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
+.pyo-wrap{padding:28px 32px;background:#F2F4F7;min-height:100vh}
 .pay-header h1{font-size:22px;font-weight:700;color:#111827;margin:0 0 4px}
 .pay-header p{font-size:13px;color:#6B7280;margin:0 0 24px}
 
@@ -98,7 +98,7 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
 }
 </style>
 
-<div class="pay-wrap">
+<div class="pyo-wrap">
 
     <div class="pay-header">
         <h1>Virements conducteurs</h1>

@@ -454,21 +454,24 @@
 /* → on annule le padding horizontal et laisse dash-content   */
 /* gérer les marges. Le padding vertical reste réduit.        */
 @media (max-width: 1024px) {
-    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .pay-wrap,.pyo-wrap,.usr-wrap,.drv-wrap,
+    .pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
     .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
     .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
         padding: 20px 16px;
     }
 }
 @media (max-width: 768px) {
-    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .pay-wrap,.pyo-wrap,.usr-wrap,.drv-wrap,
+    .pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
     .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
     .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
         padding: 12px 0;
     }
 }
 @media (max-width: 480px) {
-    .pay-wrap,.pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
+    .pay-wrap,.pyo-wrap,.usr-wrap,.drv-wrap,
+    .pax-wrap,.res-wrap,.rf-wrap,.rpt-wrap,
     .rv-wrap,.set-wrap,.sup-wrap,.track-wrap,.trips-wrap,
     .veh-wrap,.disp-wrap,.comm-wrap,.notif-wrap,.audit-wrap {
         padding: 8px 0;
@@ -537,17 +540,17 @@
     .tab-btn { flex-shrink: 0; }
 }
 
-/* ── 6. Tables : scroll horizontal ─────────────────────── */
+/* ── 6. Tables : scroll horizontal (min-width géré page par page) ── */
 @media (max-width: 768px) {
     .data-table-wrap,.table-wrap {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         width: 100%;
     }
-    .data-table { min-width: 580px; }
+    .data-table { min-width: 0; }
 }
 @media (max-width: 480px) {
-    .data-table { min-width: 460px; }
+    .data-table { min-width: 0; }
 }
 
 /* ── 7. Panel drawer : plein écran mobile ───────────────── */
@@ -731,6 +734,142 @@
 }
 @media (max-width: 480px) {
     .fab-wrap { bottom: 14px; right: 14px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   24. TABLES RESPONSIVES — masquage de colonnes par page
+   Colonnes numérotées par position DOM (nth-child stable)
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Payments (1.Payeur 2.Trajet 3.Opérateur 4.Référence 5.Montants 6.Statut 7.Date 8.Action) ── */
+@media (max-width: 768px) {
+    .pay-wrap .data-table th:nth-child(2),.pay-wrap .data-table td:nth-child(2),
+    .pay-wrap .data-table th:nth-child(4),.pay-wrap .data-table td:nth-child(4) { display:none; }
+}
+@media (max-width: 480px) {
+    .pay-wrap .data-table th:nth-child(3),.pay-wrap .data-table td:nth-child(3),
+    .pay-wrap .data-table th:nth-child(7),.pay-wrap .data-table td:nth-child(7) { display:none; }
+}
+
+/* ── Payouts (1.Conducteur 2.Référence 3.Opérateur 4.Brut 5.Commission 6.Net 7.Trajets 8.Statut 9.Date) ── */
+@media (max-width: 768px) {
+    .pyo-wrap .data-table th:nth-child(2),.pyo-wrap .data-table td:nth-child(2),
+    .pyo-wrap .data-table th:nth-child(3),.pyo-wrap .data-table td:nth-child(3),
+    .pyo-wrap .data-table th:nth-child(7),.pyo-wrap .data-table td:nth-child(7) { display:none; }
+}
+@media (max-width: 480px) {
+    .pyo-wrap .data-table th:nth-child(4),.pyo-wrap .data-table td:nth-child(4),
+    .pyo-wrap .data-table th:nth-child(5),.pyo-wrap .data-table td:nth-child(5) { display:none; }
+}
+
+/* ── Trips (1.Route 2.Conducteur 3.Départ 4.Statut 5.Places 6.Prix/place 7.Réservations 8.Actions) ── */
+@media (max-width: 768px) {
+    .trips-wrap .data-table th:nth-child(3),.trips-wrap .data-table td:nth-child(3),
+    .trips-wrap .data-table th:nth-child(6),.trips-wrap .data-table td:nth-child(6),
+    .trips-wrap .data-table th:nth-child(7),.trips-wrap .data-table td:nth-child(7) { display:none; }
+}
+@media (max-width: 480px) {
+    .trips-wrap .data-table th:nth-child(2),.trips-wrap .data-table td:nth-child(2),
+    .trips-wrap .data-table th:nth-child(5),.trips-wrap .data-table td:nth-child(5) { display:none; }
+}
+
+/* ── Reservations (1.Passager 2.Trajet 3.Départ 4.Places 5.Montant 6.Statut 7.Paiement 8.Date) ── */
+@media (max-width: 768px) {
+    .res-wrap .data-table th:nth-child(3),.res-wrap .data-table td:nth-child(3),
+    .res-wrap .data-table th:nth-child(4),.res-wrap .data-table td:nth-child(4),
+    .res-wrap .data-table th:nth-child(7),.res-wrap .data-table td:nth-child(7) { display:none; }
+}
+@media (max-width: 480px) {
+    .res-wrap .data-table th:nth-child(2),.res-wrap .data-table td:nth-child(2),
+    .res-wrap .data-table th:nth-child(8),.res-wrap .data-table td:nth-child(8) { display:none; }
+}
+
+/* ── Users (1.Utilisateur 2.Rôle 3.KYC 4.Statut 5.Points 6.Inscription 7.Actions) ── */
+@media (max-width: 768px) {
+    .usr-wrap .data-table th:nth-child(5),.usr-wrap .data-table td:nth-child(5),
+    .usr-wrap .data-table th:nth-child(6),.usr-wrap .data-table td:nth-child(6) { display:none; }
+}
+@media (max-width: 480px) {
+    .usr-wrap .data-table th:nth-child(2),.usr-wrap .data-table td:nth-child(2),
+    .usr-wrap .data-table th:nth-child(3),.usr-wrap .data-table td:nth-child(3) { display:none; }
+}
+
+/* ── Drivers (1.Conducteur 2.KYC 3.Véhicule 4.Statut véhicule 5.Documents 6.Inscription 7.Actions KYC) ── */
+@media (max-width: 768px) {
+    .drv-wrap .data-table th:nth-child(3),.drv-wrap .data-table td:nth-child(3),
+    .drv-wrap .data-table th:nth-child(5),.drv-wrap .data-table td:nth-child(5) { display:none; }
+}
+@media (max-width: 480px) {
+    .drv-wrap .data-table th:nth-child(2),.drv-wrap .data-table td:nth-child(2),
+    .drv-wrap .data-table th:nth-child(6),.drv-wrap .data-table td:nth-child(6) { display:none; }
+}
+
+/* ── Passengers (1.Passager 2.Téléphone 3.Ville 4.KYC 5.Réservations 6.Note 7.Pénalités 8.Inscrit le) ── */
+@media (max-width: 768px) {
+    .pax-wrap .data-table th:nth-child(3),.pax-wrap .data-table td:nth-child(3),
+    .pax-wrap .data-table th:nth-child(6),.pax-wrap .data-table td:nth-child(6),
+    .pax-wrap .data-table th:nth-child(7),.pax-wrap .data-table td:nth-child(7) { display:none; }
+}
+@media (max-width: 480px) {
+    .pax-wrap .data-table th:nth-child(2),.pax-wrap .data-table td:nth-child(2),
+    .pax-wrap .data-table th:nth-child(8),.pax-wrap .data-table td:nth-child(8) { display:none; }
+}
+
+/* ── Vehicles (1.Véhicule 2.Type 3.Immatriculation 4.Conducteur 5.Places 6.Documents 7.Statut 8.Ajouté le) ── */
+@media (max-width: 768px) {
+    .veh-wrap .data-table th:nth-child(2),.veh-wrap .data-table td:nth-child(2),
+    .veh-wrap .data-table th:nth-child(6),.veh-wrap .data-table td:nth-child(6),
+    .veh-wrap .data-table th:nth-child(8),.veh-wrap .data-table td:nth-child(8) { display:none; }
+}
+@media (max-width: 480px) {
+    .veh-wrap .data-table th:nth-child(3),.veh-wrap .data-table td:nth-child(3),
+    .veh-wrap .data-table th:nth-child(5),.veh-wrap .data-table td:nth-child(5) { display:none; }
+}
+
+/* ── Refunds (1.Référence 2.Utilisateur 3.Montant 4.Opérateur 5.Statut 6.Date 7.Actions) ── */
+@media (max-width: 768px) {
+    .rf-wrap .data-table th:nth-child(1),.rf-wrap .data-table td:nth-child(1),
+    .rf-wrap .data-table th:nth-child(4),.rf-wrap .data-table td:nth-child(4) { display:none; }
+}
+@media (max-width: 480px) {
+    .rf-wrap .data-table th:nth-child(6),.rf-wrap .data-table td:nth-child(6) { display:none; }
+}
+
+/* ── Disputes (1.# 2.Requérant 3.Trajet 4.Motif 5.Statut 6.Date 7.Actions) ── */
+@media (max-width: 768px) {
+    .disp-wrap .data-table th:nth-child(3),.disp-wrap .data-table td:nth-child(3),
+    .disp-wrap .data-table th:nth-child(6),.disp-wrap .data-table td:nth-child(6) { display:none; }
+}
+@media (max-width: 480px) {
+    .disp-wrap .data-table th:nth-child(1),.disp-wrap .data-table td:nth-child(1),
+    .disp-wrap .data-table th:nth-child(4),.disp-wrap .data-table td:nth-child(4) { display:none; }
+}
+
+/* ── Support (1.# 2.Utilisateur 3.Sujet 4.Priorité 5.Canal 6.Statut 7.Date 8.Actions) ── */
+@media (max-width: 768px) {
+    .sup-wrap .data-table th:nth-child(1),.sup-wrap .data-table td:nth-child(1),
+    .sup-wrap .data-table th:nth-child(5),.sup-wrap .data-table td:nth-child(5),
+    .sup-wrap .data-table th:nth-child(7),.sup-wrap .data-table td:nth-child(7) { display:none; }
+}
+@media (max-width: 480px) {
+    .sup-wrap .data-table th:nth-child(4),.sup-wrap .data-table td:nth-child(4) { display:none; }
+}
+
+/* ── Reviews (1.Note 2.Auteur 3.Évalué 4.Commentaire 5.Statut 6.Date 7.Actions) ── */
+@media (max-width: 768px) {
+    .rv-wrap .data-table th:nth-child(3),.rv-wrap .data-table td:nth-child(3),
+    .rv-wrap .data-table th:nth-child(6),.rv-wrap .data-table td:nth-child(6) { display:none; }
+}
+@media (max-width: 480px) {
+    .rv-wrap .data-table th:nth-child(4),.rv-wrap .data-table td:nth-child(4) { display:none; }
+}
+
+/* ── Audit (1.Date/Heure 2.Sévérité 3.Action 4.Description 5.Acteur 6.IP) ── */
+@media (max-width: 768px) {
+    .audit-wrap .data-table th:nth-child(6),.audit-wrap .data-table td:nth-child(6) { display:none; }
+}
+@media (max-width: 480px) {
+    .audit-wrap .data-table th:nth-child(5),.audit-wrap .data-table td:nth-child(5) { display:none; }
 }
 
 </style>
