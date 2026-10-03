@@ -476,8 +476,13 @@
 }
 
 /* ── 2. Grilles de statistiques ─────────────────────────── */
-@media (max-width: 900px) {
-    .stat-grid { grid-template-columns: repeat(3,1fr); }
+@media (max-width: 1024px) {
+    /* Tablette (sidebar cachée) : max 3 colonnes */
+    .stat-grid,.stat-bar,.kpi-grid,.stats-grid {
+        grid-template-columns: repeat(3,1fr);
+    }
+    /* Permettre aux cards de rétrécir (CSS grid gotcha) */
+    .stat-card,.stat-mini,.ov-card { min-width: 0; }
 }
 @media (max-width: 768px) {
     .stat-grid,.stat-bar,.kpi-grid-new,.kpi-grid,.stats-grid {
@@ -606,6 +611,103 @@
 @media (max-width: 1024px) {
     .dash-content { max-width: 100%; overflow-x: hidden; }
     img { max-width: 100%; height: auto; }
+}
+
+/* ── 16. Stat cards : min-width:0 + taille réduite ──────── */
+/* Sans min-width:0 les grid items refusent de rétrécir      */
+/* en-dessous de leur contenu → débordement horizontal.      */
+@media (max-width: 768px) {
+    /* Autoriser les cards à rétrécir dans la grille */
+    .stat-card, .stat-mini, .ov-card,
+    .kpi-new, .fin-card, .kpi-card, .qa-btn { min-width: 0; }
+
+    /* Réduire padding des cartes (2 colonnes → moins d'espace) */
+    .stat-card  { padding: 12px 14px; gap: 8px; }
+    .stat-mini  { padding: 10px 12px; gap: 8px; }
+    .kpi-new    { padding: 14px; }
+    .fin-card   { padding: 14px 16px; }
+
+    /* Réduire font-size des valeurs pour éviter overflow */
+    .stat-value      { font-size: 16px; }
+    .stat-mini__val  { font-size: 16px; }
+    .kpi-new__value  { font-size: 22px; }
+    .fin-card__value { font-size: 18px; }
+    .ov-value        { font-size: 18px; }
+    .kpi-value       { font-size: 18px; }
+
+    /* Réduire les icônes */
+    .stat-icon       { width: 36px; height: 36px; font-size: 15px; }
+    .stat-mini__icon { width: 32px; height: 32px; }
+    .ov-icon         { width: 34px; height: 34px; font-size: 14px; }
+    .kpi-new__icon   { width: 38px; height: 38px; }
+
+    /* Réduire padding filtres et table-head */
+    .filter-bar  { padding: 10px 12px; }
+    .table-head  { padding: 10px 12px; }
+
+    /* Period tabs (rapports) : scroll horizontal */
+    .period-tabs { overflow-x: auto; flex-wrap: nowrap; flex-shrink: 0; }
+    .period-tab  { flex-shrink: 0; }
+
+    /* KPI new top */
+    .kpi-new__top { margin-bottom: 8px; }
+}
+@media (max-width: 480px) {
+    /* En 1 colonne il y a de la place → restaurer taille normale */
+    .stat-value      { font-size: 20px; }
+    .stat-mini__val  { font-size: 20px; }
+    .kpi-new__value  { font-size: 26px; }
+    .fin-card__value { font-size: 20px; }
+    .ov-value        { font-size: 20px; }
+    .kpi-value       { font-size: 20px; }
+    .stat-card  { padding: 14px 16px; gap: 10px; }
+    .stat-mini  { padding: 12px 14px; gap: 10px; }
+    .stat-icon  { width: 40px; height: 40px; font-size: 18px; }
+    .kpi-new    { padding: 16px; }
+}
+
+/* ── 17. Panel info-rows : empiler sur mobile ────────────── */
+/* Les UUID/références longs débordent dans un flex row      */
+@media (max-width: 640px) {
+    .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .info-row label { font-size: 11px; color: #9CA3AF; }
+    .info-row span  { word-break: break-all; max-width: 100%; font-size: 12px; }
+
+    .panel-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .panel-row__value { text-align: left; word-break: break-all; }
+
+    /* Hero montant dans panels remboursement/litige */
+    .amount-hero-val { font-size: 24px; }
+    .amount-hero     { padding: 14px; }
+}
+
+/* ── 18. Dashboard alert items ───────────────────────────── */
+@media (max-width: 640px) {
+    .alert-item { flex-wrap: wrap; gap: 8px; }
+    .alert-item__link { text-align: center; flex: 1 0 100%; padding: 8px 14px; }
+}
+
+/* ── 19. Quick actions dashboard ─────────────────────────── */
+@media (max-width: 480px) {
+    .quick-actions { gap: 8px; }
+    .qa-btn { padding: 12px 8px; gap: 6px; }
+    .qa-btn__label { font-size: 10px; }
+    .qa-btn__icon  { width: 34px; height: 34px; }
+}
+
+/* ── 20. Reports bar items & rev chart ───────────────────── */
+@media (max-width: 480px) {
+    .bar-label { min-width: 70px; font-size: 11px; }
+    .rev-val   { min-width: 55px; font-size: 10px; }
+    .rev-day   { min-width: 38px; font-size: 10px; }
 }
 
 </style>
