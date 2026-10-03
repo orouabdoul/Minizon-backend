@@ -710,6 +710,29 @@
     .rev-day   { min-width: 38px; font-size: 10px; }
 }
 
+/* ── 21. Panel interne : grilles doc-grid / mini-stats / info-grid ── */
+@media (max-width: 640px) {
+    .doc-grid   { grid-template-columns: 1fr; }
+    .mini-stats { grid-template-columns: repeat(2, 1fr); }
+    .info-grid  { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .mini-stats { grid-template-columns: 1fr; }
+}
+
+/* ── 22. info-label dans info-row : ne pas bloquer le retour à la ligne ── */
+@media (max-width: 640px) {
+    .info-label { min-width: 0; width: 100%; font-size: 11px; }
+}
+
+/* ── 23. Communication : panel-drawer + fab-wrap ─────────── */
+@media (max-width: 768px) {
+    .comm-wrap .panel-drawer { width: 100vw; max-width: 100vw; }
+}
+@media (max-width: 480px) {
+    .fab-wrap { bottom: 14px; right: 14px; }
+}
+
 </style>
 </body>
 </html>
