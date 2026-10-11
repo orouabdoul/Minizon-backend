@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Trip;
 use App\Notifications\BookingStatusChanged;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class DriverBookingsController extends Controller
@@ -29,7 +30,7 @@ class DriverBookingsController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'success', type: 'boolean', example: true),
-                        new OA\Property(property: 'message', type: 'string',  example: 'Réservations.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Réservations.'),
                         new OA\Property(
                             property: 'body',
                             type: 'object',
@@ -39,33 +40,33 @@ class DriverBookingsController extends Controller
                                     type: 'array',
                                     items: new OA\Items(
                                         properties: [
-                                                                new OA\Property(property: 'uuid',              type: 'string',  format: 'uuid'),
-                                            new OA\Property(property: 'status',            type: 'string',  enum: ['pending', 'accepted', 'rejected', 'cancelled']),
-                                            new OA\Property(property: 'seats_booked',      type: 'integer'),
-                                            new OA\Property(property: 'passenger_name',    type: 'string'),
-                                            new OA\Property(property: 'passenger_phone',   type: 'string',  nullable: true),
-                                            new OA\Property(property: 'trip_uuid',         type: 'string',  format: 'uuid'),
-                                            new OA\Property(property: 'origin',            type: 'string'),
-                                            new OA\Property(property: 'destination',       type: 'string'),
-                                            new OA\Property(property: 'departure_time',    type: 'string',  format: 'date-time'),
+                                            new OA\Property(property: 'uuid', type: 'string', format: 'uuid'),
+                                            new OA\Property(property: 'status', type: 'string', enum: ['pending', 'accepted', 'rejected', 'cancelled']),
+                                            new OA\Property(property: 'seats_booked', type: 'integer'),
+                                            new OA\Property(property: 'passenger_name', type: 'string'),
+                                            new OA\Property(property: 'passenger_phone', type: 'string', nullable: true),
+                                            new OA\Property(property: 'trip_uuid', type: 'string', format: 'uuid'),
+                                            new OA\Property(property: 'origin', type: 'string'),
+                                            new OA\Property(property: 'destination', type: 'string'),
+                                            new OA\Property(property: 'departure_time', type: 'string', format: 'date-time'),
                                             // ── Prise en charge — commune → arrondissement → quartier → point précis ──
-                                            new OA\Property(property: 'pickup_city',               type: 'string',  example: 'Cotonou'),
-                                            new OA\Property(property: 'pickup_arrondissement',     type: 'string',  example: '6ème Arrondissement', nullable: true),
-                                            new OA\Property(property: 'pickup_neighborhood',       type: 'string',  example: 'Akpakpa',             nullable: true),
-                                            new OA\Property(property: 'pickup_address',            type: 'string',  example: 'Face pharmacie du centre'),
-                                            new OA\Property(property: 'pickup_latitude',           type: 'number',  format: 'float', example: 6.3654),
-                                            new OA\Property(property: 'pickup_longitude',          type: 'number',  format: 'float', example: 2.4183),
+                                            new OA\Property(property: 'pickup_city', type: 'string', example: 'Cotonou'),
+                                            new OA\Property(property: 'pickup_arrondissement', type: 'string', example: '6ème Arrondissement', nullable: true),
+                                            new OA\Property(property: 'pickup_neighborhood', type: 'string', example: 'Akpakpa', nullable: true),
+                                            new OA\Property(property: 'pickup_address', type: 'string', example: 'Face pharmacie du centre'),
+                                            new OA\Property(property: 'pickup_latitude', type: 'number', format: 'float', example: 6.3654),
+                                            new OA\Property(property: 'pickup_longitude', type: 'number', format: 'float', example: 2.4183),
                                             // ── Dépôt — commune → arrondissement → quartier → point précis ──
-                                            new OA\Property(property: 'dropoff_city',              type: 'string',  example: 'Parakou'),
-                                            new OA\Property(property: 'dropoff_arrondissement',    type: 'string',  example: '1er Arrondissement',  nullable: true),
-                                            new OA\Property(property: 'dropoff_neighborhood',      type: 'string',  example: 'Zongo',               nullable: true),
-                                            new OA\Property(property: 'dropoff_address',           type: 'string',  example: 'Carrefour étoile rouge'),
-                                            new OA\Property(property: 'dropoff_latitude',          type: 'number',  format: 'float', example: 9.3370),
-                                            new OA\Property(property: 'dropoff_longitude',         type: 'number',  format: 'float', example: 2.6280),
-                                            new OA\Property(property: 'passenger_distance_km',  type: 'number',  format: 'float', example: 127.4),
-                                            new OA\Property(property: 'calculated_price',        type: 'integer', example: 950),
-                                            new OA\Property(property: 'payment_status',          type: 'string',  enum: ['unpaid', 'escrow_locked', 'released_to_driver', 'refunded'], example: 'escrow_locked'),
-                                            new OA\Property(property: 'is_paid',                 type: 'boolean', example: true),
+                                            new OA\Property(property: 'dropoff_city', type: 'string', example: 'Parakou'),
+                                            new OA\Property(property: 'dropoff_arrondissement', type: 'string', example: '1er Arrondissement', nullable: true),
+                                            new OA\Property(property: 'dropoff_neighborhood', type: 'string', example: 'Zongo', nullable: true),
+                                            new OA\Property(property: 'dropoff_address', type: 'string', example: 'Carrefour étoile rouge'),
+                                            new OA\Property(property: 'dropoff_latitude', type: 'number', format: 'float', example: 9.3370),
+                                            new OA\Property(property: 'dropoff_longitude', type: 'number', format: 'float', example: 2.6280),
+                                            new OA\Property(property: 'passenger_distance_km', type: 'number', format: 'float', example: 127.4),
+                                            new OA\Property(property: 'calculated_price', type: 'integer', example: 950),
+                                            new OA\Property(property: 'payment_status', type: 'string', enum: ['unpaid', 'escrow_locked', 'released_to_driver', 'refunded'], example: 'escrow_locked'),
+                                            new OA\Property(property: 'is_paid', type: 'boolean', example: true),
                                         ],
                                         type: 'object'
                                     )
@@ -91,36 +92,36 @@ class DriverBookingsController extends Controller
             ->get()
             ->map(function (Booking $b) {
                 $profile = $b->passenger?->profile;
-                $name    = trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? '')) ?: 'Passager';
+                $name = trim(($profile?->first_name ?? '').' '.($profile?->last_name ?? '')) ?: 'Passager';
 
                 return [
-                    'uuid'             => $b->uuid,
-                    'status'           => $b->status,
-                    'seats_booked'     => $b->seats_booked,
-                    'passenger_name'   => $name,
-                    'passenger_phone'  => $b->passenger?->phone ?? null,
-                    'trip_uuid'        => $b->trip?->uuid,
-                    'origin'           => $b->trip?->departure_city,
-                    'destination'      => $b->trip?->arrival_city,
-                    'departure_time'   => $b->trip?->departure_time,
+                    'uuid' => $b->uuid,
+                    'status' => $b->status,
+                    'seats_booked' => $b->seats_booked,
+                    'passenger_name' => $name,
+                    'passenger_phone' => $b->passenger?->phone ?? null,
+                    'trip_uuid' => $b->trip?->uuid,
+                    'origin' => $b->trip?->departure_city,
+                    'destination' => $b->trip?->arrival_city,
+                    'departure_time' => $b->trip?->departure_time,
                     // ── Prise en charge ──
-                    'pickup_city'            => $b->pickup_city,
-                    'pickup_arrondissement'  => $b->pickup_arrondissement,
-                    'pickup_neighborhood'    => $b->pickup_neighborhood,
-                    'pickup_address'         => $b->pickup_address,
-                    'pickup_latitude'        => $b->pickup_latitude,
-                    'pickup_longitude'       => $b->pickup_longitude,
+                    'pickup_city' => $b->pickup_city,
+                    'pickup_arrondissement' => $b->pickup_arrondissement,
+                    'pickup_neighborhood' => $b->pickup_neighborhood,
+                    'pickup_address' => $b->pickup_address,
+                    'pickup_latitude' => $b->pickup_latitude,
+                    'pickup_longitude' => $b->pickup_longitude,
                     // ── Dépôt ──
-                    'dropoff_city'           => $b->dropoff_city,
+                    'dropoff_city' => $b->dropoff_city,
                     'dropoff_arrondissement' => $b->dropoff_arrondissement,
-                    'dropoff_neighborhood'   => $b->dropoff_neighborhood,
-                    'dropoff_address'        => $b->dropoff_address,
-                    'dropoff_latitude'       => $b->dropoff_latitude,
-                    'dropoff_longitude'      => $b->dropoff_longitude,
+                    'dropoff_neighborhood' => $b->dropoff_neighborhood,
+                    'dropoff_address' => $b->dropoff_address,
+                    'dropoff_latitude' => $b->dropoff_latitude,
+                    'dropoff_longitude' => $b->dropoff_longitude,
                     'passenger_distance_km' => $b->passenger_distance_km,
-                    'calculated_price'      => $b->calculated_price,
-                    'payment_status'        => $b->payment_status,
-                    'is_paid'               => $b->payment_status === 'escrow_locked',
+                    'calculated_price' => $b->calculated_price,
+                    'payment_status' => $b->payment_status,
+                    'is_paid' => $b->payment_status === 'escrow_locked',
                 ];
             });
 
@@ -160,7 +161,18 @@ class DriverBookingsController extends Controller
             return $this->apiResponse(false, 'Cette réservation ne peut plus être acceptée.', [], 422);
         }
 
-        $booking->update(['status' => 'accepted']);
+        try {
+            DB::transaction(function () use ($booking) {
+                $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+                if (! $lockedBooking->isPending()) {
+                    throw new \LogicException('Cette réservation ne peut plus être acceptée.');
+                }
+
+                $lockedBooking->update(['status' => 'accepted']);
+            });
+        } catch (\LogicException $e) {
+            return $this->apiResponse(false, $e->getMessage(), [], 422);
+        }
 
         $this->notifyPassenger($booking, 'accepted');
 
@@ -200,7 +212,20 @@ class DriverBookingsController extends Controller
             return $this->apiResponse(false, 'Cette réservation ne peut plus être refusée.', [], 422);
         }
 
-        $booking->update(['status' => 'rejected']);
+        try {
+            DB::transaction(function () use ($booking) {
+                $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+                if (! $lockedBooking->isPending()) {
+                    throw new \LogicException('Cette réservation ne peut plus être refusée.');
+                }
+
+                $lockedTrip = Trip::whereKey($lockedBooking->trip_id)->lockForUpdate()->firstOrFail();
+                $lockedTrip->increment('available_seats', $lockedBooking->seats_booked);
+                $lockedBooking->update(['status' => 'rejected']);
+            });
+        } catch (\LogicException $e) {
+            return $this->apiResponse(false, $e->getMessage(), [], 422);
+        }
 
         $this->notifyPassenger($booking, 'rejected');
 
@@ -211,7 +236,9 @@ class DriverBookingsController extends Controller
 
     private function notifyPassenger(Booking $booking, string $action): void
     {
-        if (! $booking->passenger) return;
+        if (! $booking->passenger) {
+            return;
+        }
 
         try {
             // BookingStatusChanged gère DB + FCM push
