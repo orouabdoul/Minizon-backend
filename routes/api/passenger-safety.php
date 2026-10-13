@@ -22,8 +22,9 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     Route::delete('safety/trip-share', [PassengerSafetyController::class, 'stopShare'])->name('passenger.safety.share.stop');
 
     // Contacts d'urgence
-    Route::get('safety/emergency-contacts',          [PassengerSafetyController::class, 'emergencyContacts'])->name('passenger.safety.emergency-contacts.index');
-    Route::post('safety/emergency-contacts',         [PassengerSafetyController::class, 'addEmergencyContact'])->name('passenger.safety.emergency-contacts.store');
-    Route::delete('safety/emergency-contacts/{id}',  [PassengerSafetyController::class, 'removeEmergencyContact'])->name('passenger.safety.emergency-contacts.destroy');
+    Route::get('safety/emergency-contacts',           [PassengerSafetyController::class, 'emergencyContacts'])->name('passenger.safety.emergency-contacts.index');
+    Route::post('safety/emergency-contacts',          [PassengerSafetyController::class, 'addEmergencyContact'])->name('passenger.safety.emergency-contacts.store');
+    Route::put('safety/emergency-contacts/{id}',      [PassengerSafetyController::class, 'updateEmergencyContact'])->name('passenger.safety.emergency-contacts.update');
+    Route::delete('safety/emergency-contacts/{id}',   [PassengerSafetyController::class, 'removeEmergencyContact'])->name('passenger.safety.emergency-contacts.destroy');
 
 });

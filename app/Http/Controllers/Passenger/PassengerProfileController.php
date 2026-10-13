@@ -225,10 +225,13 @@ class PassengerProfileController extends Controller
             : '';
 
         return [
-            'avatar_url'  => $avatarUrl,
-            'name'        => $name ?: $user->phone,
-            'phone'       => $user->phone ?? '',
-            'is_verified' => (bool) $user->is_verified,
+            'avatar_url'   => $avatarUrl,
+            'name'         => $name ?: $user->phone,
+            'phone'        => $user->phone ?? '',
+            'is_verified'  => (bool) $user->is_verified,
+            'email'        => $profile?->email ?? '',
+            'city'         => $profile?->city ?? '',
+            'neighborhood' => $profile?->neighborhood ?? '',
         ];
     }
 

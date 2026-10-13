@@ -3,7 +3,7 @@
 use App\Http\Controllers\Booking\BookingController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'approved'])->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
 
     // 🔒 Passager — réserver
     Route::post('trips/{uuid}/bookings',  [BookingController::class, 'store'])->name('bookings.store');

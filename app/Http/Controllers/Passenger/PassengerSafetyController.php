@@ -7,7 +7,6 @@ use App\Models\EmergencyContact;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 /**
@@ -81,31 +80,8 @@ class PassengerSafetyController extends Controller
     )]
     public function context(Request $request): JsonResponse
     {
-        $user    = $request->user();
-        $profile = $user->profile;
-        $meta    = $this->getMeta($profile);
-
-        // Contacts enregistrés lors de l'inscription (table emergency_contacts)
-        $dbContacts = EmergencyContact::where('user_id', $user->id)
-            ->get()
-            ->map(fn ($c) => [
-                'id'       => (string) $c->id,
-                'name'     => $c->name,
-                'phone'    => $c->phone,
-                'relation' => $c->relationship,
-            ])
-            ->toArray();
-
-        // Contacts ajoutés depuis la page Sécurité (JSON sur le profil)
-        $profileContacts = (array) ($profile?->emergency_contacts ?? []);
-
-        // Fusionner les deux sources en dédupliquant par numéro de téléphone
-        $knownPhones = array_column($dbContacts, 'phone');
-        foreach ($profileContacts as $pc) {
-            if (! in_array($pc['phone'] ?? '', $knownPhones, true)) {
-                $dbContacts[] = $pc;
-            }
-        }
+        $user = $request->user();
+        $meta = $this->getMeta($user->profile);
 
         return $this->apiResponse(true, 'Données de sécurité.', [
             'sos_active'         => (bool) ($meta['sos_active'] ?? false),
@@ -113,7 +89,7 @@ class PassengerSafetyController extends Controller
                 'active' => (bool) ($meta['trip_share_active'] ?? false),
                 'code'   => $meta['trip_share_code'] ?? null,
             ],
-            'emergency_contacts' => $this->formatContacts($dbContacts),
+            'emergency_contacts' => $this->formatContacts($this->mergedContacts($user)),
         ]);
     }
 
@@ -282,11 +258,8 @@ class PassengerSafetyController extends Controller
     )]
     public function emergencyContacts(Request $request): JsonResponse
     {
-        $profile  = $request->user()->profile;
-        $contacts = $profile?->emergency_contacts ?? [];
-
         return $this->apiResponse(true, 'Contacts d\'urgence.', [
-            'contacts' => $this->formatContacts((array) $contacts),
+            'contacts' => $this->formatContacts($this->mergedContacts($request->user())),
         ]);
     }
 
@@ -318,28 +291,21 @@ class PassengerSafetyController extends Controller
     )]
     public function addEmergencyContact(Request $request): JsonResponse
     {
-        $profile = $request->user()->profile;
-
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:100'],
             'phone'    => ['required', 'string', 'max:20'],
             'relation' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $contacts   = (array) ($profile?->emergency_contacts ?? []);
-        $contacts[] = [
-            'id'       => (string) Str::uuid(),
-            'name'     => $validated['name'],
-            'phone'    => $validated['phone'],
-            'relation' => $validated['relation'] ?? 'Proche',
-        ];
-
-        if ($profile) {
-            $profile->update(['emergency_contacts' => $contacts]);
-        }
+        EmergencyContact::create([
+            'user_id'      => $request->user()->id,
+            'name'         => $validated['name'],
+            'phone'        => $validated['phone'],
+            'relationship' => $validated['relation'] ?? 'Proche',
+        ]);
 
         return $this->apiResponse(true, 'Contact d\'urgence ajouté.', [
-            'contacts' => $this->formatContacts($contacts),
+            'contacts' => $this->formatContacts($this->mergedContacts($request->user())),
         ]);
     }
 
@@ -362,18 +328,68 @@ class PassengerSafetyController extends Controller
     )]
     public function removeEmergencyContact(Request $request, string $id): JsonResponse
     {
-        $profile  = $request->user()->profile;
-        $contacts = collect($profile?->emergency_contacts ?? [])
-            ->filter(fn ($c) => ($c['id'] ?? '') !== $id)
-            ->values()
-            ->all();
+        $user = $request->user();
 
-        if ($profile) {
-            $profile->update(['emergency_contacts' => $contacts]);
+        if (ctype_digit($id)) {
+            EmergencyContact::where('id', $id)->where('user_id', $user->id)->delete();
+        } else {
+            // Ancien contact au format UUID stocké dans le JSON du profil
+            $profile  = $user->profile;
+            $contacts = collect($profile?->emergency_contacts ?? [])
+                ->filter(fn ($c) => ($c['id'] ?? '') !== $id)
+                ->values()
+                ->all();
+            if ($profile) {
+                $profile->update(['emergency_contacts' => $contacts]);
+            }
         }
 
         return $this->apiResponse(true, 'Contact supprimé.', [
-            'contacts' => $this->formatContacts($contacts),
+            'contacts' => $this->formatContacts($this->mergedContacts($user)),
+        ]);
+    }
+
+    // =========================================================================
+    //  PUT /api/passenger/safety/emergency-contacts/{id}
+    // =========================================================================
+
+    public function updateEmergencyContact(Request $request, string $id): JsonResponse
+    {
+        $user      = $request->user();
+        $validated = $request->validate([
+            'name'     => ['required', 'string', 'max:100'],
+            'phone'    => ['required', 'string', 'max:20'],
+            'relation' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        if (ctype_digit($id)) {
+            EmergencyContact::where('id', $id)->where('user_id', $user->id)->update([
+                'name'         => $validated['name'],
+                'phone'        => $validated['phone'],
+                'relationship' => $validated['relation'] ?? 'Proche',
+            ]);
+        } else {
+            $profile  = $user->profile;
+            $contacts = collect($profile?->emergency_contacts ?? [])
+                ->map(function ($c) use ($id, $validated) {
+                    if (($c['id'] ?? '') === $id) {
+                        return array_merge($c, [
+                            'name'     => $validated['name'],
+                            'phone'    => $validated['phone'],
+                            'relation' => $validated['relation'] ?? ($c['relation'] ?? 'Proche'),
+                        ]);
+                    }
+                    return $c;
+                })
+                ->values()
+                ->all();
+            if ($profile) {
+                $profile->update(['emergency_contacts' => $contacts]);
+            }
+        }
+
+        return $this->apiResponse(true, 'Contact mis à jour.', [
+            'contacts' => $this->formatContacts($this->mergedContacts($user)),
         ]);
     }
 
@@ -396,6 +412,32 @@ class PassengerSafetyController extends Controller
 
         $current = $this->getMeta($profile);
         $profile->update(['safety_meta' => array_merge($current, $patch)]);
+    }
+
+    private function mergedContacts(\App\Models\User $user): array
+    {
+        $profile = $user->profile;
+
+        $dbContacts = EmergencyContact::where('user_id', $user->id)
+            ->get()
+            ->map(fn ($c) => [
+                'id'       => (string) $c->id,
+                'name'     => $c->name,
+                'phone'    => $c->phone,
+                'relation' => $c->relationship,
+            ])
+            ->toArray();
+
+        // Contacts legacy stockés en JSON (inscription ou ancienne version)
+        $profileContacts = (array) ($profile?->emergency_contacts ?? []);
+        $knownPhones     = array_column($dbContacts, 'phone');
+        foreach ($profileContacts as $pc) {
+            if (! in_array($pc['phone'] ?? '', $knownPhones, true)) {
+                $dbContacts[] = $pc;
+            }
+        }
+
+        return $dbContacts;
     }
 
     private function formatContacts(array $contacts): array

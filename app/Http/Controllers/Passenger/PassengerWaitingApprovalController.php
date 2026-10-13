@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
  * Page "En attente de confirmation" — polling du statut conducteur.
  *
  * Affiché immédiatement après la création d'une réservation.
- * Le Flutter controller appelle cet endpoint en boucle (~3 s) jusqu'à ce que
+ * Le Flutter controller appelle cet endpoint en boucle (~10 s) jusqu'à ce que
  * le statut change.
  *
  * Statuts retournés → enum Dart WaitingStatus :
@@ -21,23 +21,23 @@ use OpenApi\Attributes as OA;
  *   accepted  ← booking.status == 'accepted'
  *   rejected  ← booking.status == 'rejected'
  *
- * Timeout : APPROVAL_TIMEOUT_SECONDS (défaut 300 s = 5 min).
+ * Timeout : APPROVAL_TIMEOUT_SECONDS (défaut 900 s = 15 min).
  * L'annulation utilise l'endpoint existant : POST /api/bookings/{uuid}/cancel.
  */
 class PassengerWaitingApprovalController extends Controller
 {
-    public const APPROVAL_TIMEOUT_SECONDS = 300;
+    public const APPROVAL_TIMEOUT_SECONDS = 900;
 
     // =========================================================================
     //  GET /api/passenger/bookings/{uuid}/approval-status
-    //  Endpoint de polling — appelé toutes les ~3 s par le Flutter
+    //  Endpoint de polling — appelé toutes les ~10 s par le Flutter
     // =========================================================================
 
     #[OA\Get(
         path: '/api/passenger/bookings/{uuid}/approval-status',
         operationId: 'passengerApprovalStatus',
         summary: 'Statut d\'approbation d\'une réservation (polling)',
-        description: "Endpoint léger pour la page `WaitingApprovalView`. Appelé en boucle par le Flutter (toutes les ~3 s) pour détecter la réponse du conducteur.\n\nRetourne le statut dérivé (`pending`, `accepted`, `rejected`, `timeout`), les infos du trajet pour la carte et les métadonnées du countdown (`timeout_at`, `total_timeout_seconds`).\n\n**Timeout** : `" . self::APPROVAL_TIMEOUT_SECONDS . " s` — si le conducteur ne répond pas dans ce délai, le statut devient `timeout`.",
+        description: "Endpoint léger pour la page `WaitingApprovalView`. Appelé en boucle par le Flutter (toutes les ~10 s) pour détecter la réponse du conducteur.\n\nRetourne le statut dérivé (`pending`, `accepted`, `rejected`, `timeout`), les infos du trajet pour la carte et les métadonnées du countdown (`timeout_at`, `total_timeout_seconds`).\n\n**Timeout** : `" . self::APPROVAL_TIMEOUT_SECONDS . " s` — si le conducteur ne répond pas dans ce délai, le statut devient `timeout`.",
         tags: ['👤 Passenger — Réservations'],
         security: [['bearerAuth' => []]],
         parameters: [

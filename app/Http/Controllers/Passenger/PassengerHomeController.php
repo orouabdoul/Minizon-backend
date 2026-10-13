@@ -186,7 +186,7 @@ class PassengerHomeController extends Controller
         $salut = match (true) {
             $hour < 12 => 'Bonjour',
             $hour < 18 => 'Bon après-midi',
-            default    => 'Bon retour',
+            default    => 'Bonsoir',
         };
 
         $firstName = $user->profile?->first_name ?? '';
@@ -195,7 +195,7 @@ class PassengerHomeController extends Controller
 
     private function upcomingTrip(User $user): ?array
     {
-        $booking = Booking::with(['trip.user.profile', 'trip.vehicle'])
+        $booking = Booking::with(['trip.user.profile', 'trip.vehicle', 'payment'])
             ->where('passenger_id', $user->id)
             ->whereIn('status', ['accepted', 'pending'])
             ->whereHas('trip', fn ($q) => $q->whereIn('status', ['pending', 'active']))
@@ -271,10 +271,18 @@ class PassengerHomeController extends Controller
             'trip_progress'             => $tripProgress,
             'departure_time'            => $depTime?->toIso8601String(),
             'departure_time_formatted'  => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
+            'vehicle_plate'             => $vehicle?->license_plate ?? '',
+            'seats_booked'              => (int) ($booking->seats_booked ?? 1),
+            'calculated_price'          => $booking->payment
+                ? (int) $booking->payment->gross_amount
+                : ((int) ($trip->price_per_seat ?? 0)) * ((int) ($booking->seats_booked ?? 1)),
+            'completed_stops'           => 0,
+            'total_stops'               => 0,
             'driver_name'               => $driverName,
             'driver_initials'           => $driverInitials,
             'driver_rating'             => round((float) $driverRating, 1),
             'driver_vehicle'            => $driverVehicle,
+            'driver_phone'              => $driver->phone ?? '',
             'driver_level'              => $level['current_level'],
             'driver_trips'              => $driverTrips,
             'driver_level_progress'     => $level['progress'],
@@ -450,6 +458,7 @@ class PassengerHomeController extends Controller
             // Labels courts (rétrocompatibilité)
             'from'                      => $trip->departure_city,
             'to'                        => $trip->arrival_city,
+            'status'                    => $trip->status ?? 'pending',
             'departure_time'            => $depTime?->toIso8601String(),
             'schedule'                  => $depTime?->translatedFormat('D. d/m \à H\hi') ?? '—',
             'price'                     => number_format($trip->price_per_seat, 0, ',', ' ') . ' FCFA',
@@ -457,6 +466,8 @@ class PassengerHomeController extends Controller
             'seats_left'                => $trip->available_seats . ' place' . ($trip->available_seats > 1 ? 's' : ''),
             'driver_name'               => $this->fullName($profile),
             'driver_vehicle'            => $driverVehicle,
+            'distance_km'               => (float) ($trip->distance_km ?? 0),
+            'duration_label'            => $this->formatDuration($trip->estimated_duration_minutes),
         ];
     }
 
@@ -497,6 +508,14 @@ class PassengerHomeController extends Controller
     {
         if (! $profile) return '?';
         return strtoupper(substr($profile->first_name ?? '?', 0, 1) . substr($profile->last_name ?? '', 0, 1)) ?: '?';
+    }
+
+    private function formatDuration(?int $minutes): string
+    {
+        if (! $minutes) return '';
+        $h = intdiv($minutes, 60);
+        $m = $minutes % 60;
+        return $h > 0 ? "{$h}h" . ($m > 0 ? "{$m}" : '') : "{$m}min";
     }
 
     private function formatLocation(string $city, ?string $neighborhood): string

@@ -120,6 +120,9 @@ class DriverBookingsController extends Controller
                     'dropoff_longitude' => $b->dropoff_longitude,
                     'passenger_distance_km' => $b->passenger_distance_km,
                     'calculated_price' => $b->calculated_price,
+                    'price_subtotal' => $b->calculated_price * $b->seats_booked,
+                    'service_fee' => $b->service_fee,
+                    'total_price' => $b->total_price,
                     'payment_status' => $b->payment_status,
                     'is_paid' => $b->payment_status === 'escrow_locked',
                 ];

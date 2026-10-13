@@ -156,7 +156,9 @@ class BookingController extends Controller
                     'calculated_price' => $calculatedPrice,
                     'service_fee' => $serviceFee,
                     'total_price' => $priceTotal,
-                    'status' => $lockedTrip->booking_mode === 'instant' ? 'accepted' : 'pending',
+                    // The seat is held until payment is confirmed. Instant
+                    // bookings are accepted by the payment finalization step.
+                    'status' => 'pending',
                     'payment_status' => 'unpaid',
                 ]);
 
@@ -164,10 +166,6 @@ class BookingController extends Controller
 
                 return $booking;
             });
-
-            if (($trip->booking_mode ?? 'approval') !== 'instant') {
-                $this->notifyDriver($trip, $booking);
-            }
 
             return $this->apiResponse(true, 'Réservation créée.', [
                 'booking_uuid' => $booking->uuid,

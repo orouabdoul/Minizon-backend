@@ -267,6 +267,11 @@ class PaymentController extends Controller
                 if ($booking) {
                     $booking->update(['payment_status' => 'escrow_locked']);
 
+                    if ($booking->status === 'pending'
+                        && $booking->trip?->booking_mode === 'instant') {
+                        $booking->update(['status' => 'accepted']);
+                    }
+
                     // Créer l'enregistrement d'escrow (si pas déjà existant)
                     TripValidation::firstOrCreate(
                         ['booking_id' => $booking->id],
@@ -407,6 +412,11 @@ class PaymentController extends Controller
                     $booking = $payment->booking;
                     if ($booking) {
                         $booking->update(['payment_status' => 'escrow_locked']);
+
+                        if ($booking->status === 'pending'
+                            && $booking->trip?->booking_mode === 'instant') {
+                            $booking->update(['status' => 'accepted']);
+                        }
 
                         TripValidation::firstOrCreate(
                             ['booking_id' => $booking->id],

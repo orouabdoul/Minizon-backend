@@ -149,7 +149,7 @@ class PassengerConfirmationController extends Controller
                 'available_seats' => (int) $trip->available_seats,
                 'max_per_booking' => 0, // 0 = pas de cap, Flutter utilise available_seats comme seule limite
                 'price_per_seat'  => (int) $trip->price_per_seat,
-                'booking_mode'    => $trip->booking_mode ?? 'approval',
+                'booking_mode'    => $trip->booking_mode ?? 'instant',
                 'distance_km'     => $distanceKm,
             ],
             'commission_rate' => self::COMMISSION_RATE,
