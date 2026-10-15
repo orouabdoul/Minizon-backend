@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Passenger;
 
-use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Dispute;
@@ -479,33 +478,17 @@ class PassengerReservationController extends Controller
             };
         }
 
-        // Pre-compute Photon-resolved pickup/dropoff coords (réutilisés dans return)
-        [$pLat, $pLng] = GeoHelper::bestCoords(
-            $booking->pickup_latitude,  $booking->pickup_longitude,
-            $booking->pickup_city  ?? $trip?->departure_city ?? '',
-            $booking->pickup_arrondissement ?? $trip?->departure_arrondissement ?? null,
-            $booking->pickup_neighborhood   ?? $trip?->departure_neighborhood   ?? null,
-        );
-        [$dLat, $dLng] = GeoHelper::bestCoords(
-            $booking->dropoff_latitude, $booking->dropoff_longitude,
-            $booking->dropoff_city ?? $trip?->arrival_city ?? '',
-            $booking->dropoff_arrondissement ?? $trip?->arrival_arrondissement ?? null,
-            $booking->dropoff_neighborhood   ?? $trip?->arrival_neighborhood   ?? null,
-        );
-
-        // Coords Photon-résolues du trajet (départ/arrivée) — fallback si pickup/dropoff absents
-        [$tripDepLat, $tripDepLng] = GeoHelper::bestCoords(
-            $trip?->departure_latitude, $trip?->departure_longitude,
-            $trip?->departure_city           ?? '',
-            $trip?->departure_arrondissement ?? null,
-            $trip?->departure_neighborhood   ?? null,
-        );
-        [$tripArrLat, $tripArrLng] = GeoHelper::bestCoords(
-            $trip?->arrival_latitude, $trip?->arrival_longitude,
-            $trip?->arrival_city           ?? '',
-            $trip?->arrival_arrondissement ?? null,
-            $trip?->arrival_neighborhood   ?? null,
-        );
+        // Coordonnées GPS brutes — pas d'appel Photon/ORS/OSRM pour la liste.
+        // Le géocodage précis (GeoHelper::bestCoords) est réservé à la vue détaillée
+        // et au live tracking, où un seul item est chargé à la fois.
+        $pLat      = $booking->pickup_latitude  ?: null;
+        $pLng      = $booking->pickup_longitude ?: null;
+        $dLat      = $booking->dropoff_latitude ?: null;
+        $dLng      = $booking->dropoff_longitude ?: null;
+        $tripDepLat = $trip?->departure_latitude ?: null;
+        $tripDepLng = $trip?->departure_longitude ?: null;
+        $tripArrLat = $trip?->arrival_latitude ?: null;
+        $tripArrLng = $trip?->arrival_longitude ?: null;
 
         return [
             // ── Identifiants ──────────────────────────────────────────────
@@ -573,13 +556,7 @@ class PassengerReservationController extends Controller
             'arrival_latitude'           => $dLat,
             'arrival_longitude'          => $dLng,
 
-            // ── Polyline route réelle : pickup passager → dropoff passager ────
-            'route_polyline'             => ($pLat && $dLat) ? GeoHelper::buildRoutePolyline([
-                ['lat' => $pLat, 'lng' => $pLng],
-                ['lat' => $dLat, 'lng' => $dLng],
-            ]) : [],
-
-            // ── Coords Photon (clés directes pour ActiveBookingModel Flutter) ──
+            // ── Coords GPS brutes (clés directes pour ActiveBookingModel Flutter) ──
             'pickup_latitude'            => $pLat,
             'pickup_longitude'           => $pLng,
             'dropoff_latitude'           => $dLat,
