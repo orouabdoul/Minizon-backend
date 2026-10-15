@@ -36,7 +36,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'callback_url'   => env('FEDAPAY_CALLBACK_URL', env('APP_URL') . '/api/payments/webhook/fedapay'),
+    'callback_url'   => env('FEDAPAY_CALLBACK_URL', env('APP_URL') . '/payment/return'),
 
     /*
     |--------------------------------------------------------------------------

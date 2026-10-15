@@ -33,25 +33,18 @@ class PassengerConfirmationController extends Controller
 
     private const PAYMENT_METHODS = [
         [
-            'provider'    => 'mtn',
-            'title'       => 'MTN Mobile Money',
-            'description' => 'Disponible 24h/24 — réseau MTN Bénin',
+            'provider'    => 'mobile_money',
+            'title'       => 'Mobile Money',
+            'description' => 'MTN, Moov, Celtiis — choisissez votre opérateur',
             'icon'        => 'phone_android',
-            'color'       => 0xFFFFCC00,
+            'color'       => 0xFF7C3AED,
         ],
         [
-            'provider'    => 'moov',
-            'title'       => 'Moov Money',
-            'description' => 'Paiement rapide — réseau Moov Africa',
-            'icon'        => 'phone_android',
-            'color'       => 0xFF0066CC,
-        ],
-        [
-            'provider'    => 'celtiis',
-            'title'       => 'Celtiis Money',
-            'description' => 'Mobile Money — réseau Celtiis Bénin',
-            'icon'        => 'phone_android',
-            'color'       => 0xFFCC0000,
+            'provider'    => 'card',
+            'title'       => 'Carte bancaire',
+            'description' => 'Visa, Mastercard — paiement sécurisé',
+            'icon'        => 'credit_card',
+            'color'       => 0xFF0F766E,
         ],
     ];
 
