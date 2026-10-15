@@ -181,7 +181,14 @@ class BookingController extends Controller
         } catch (\DomainException $e) {
             return $this->apiResponse(false, $e->getMessage(), [], 422);
         } catch (\LogicException $e) {
-            return $this->apiResponse(false, $e->getMessage(), [], 409);
+            // Retourne l'UUID de la réservation existante pour que le Flutter puisse continuer le paiement
+            $existingBooking = Booking::where('trip_id', $trip->id)
+                ->where('passenger_id', $request->user()->id)
+                ->whereNotIn('status', ['rejected', 'cancelled'])
+                ->first();
+            return $this->apiResponse(false, $e->getMessage(), [
+                'booking_uuid' => $existingBooking?->uuid,
+            ], 409);
         } catch (\Throwable $e) {
             Log::error('bookingStore failed', [
                 'trip_uuid' => $uuid,
@@ -300,6 +307,16 @@ class BookingController extends Controller
 
         if ($booking->trip?->status === 'completed') {
             return $this->apiResponse(false, 'Impossible d\'annuler un trajet déjà terminé.', [], 422);
+        }
+
+        // Bloquer l'annulation directe si le paiement est en escrow — passer par le remboursement
+        if ($booking->payment_status === 'escrow_locked') {
+            return $this->apiResponse(
+                false,
+                'Le paiement a déjà été effectué pour cette réservation. Utilisez la demande de remboursement.',
+                [],
+                422
+            );
         }
 
         DB::transaction(function () use ($booking) {
