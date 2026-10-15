@@ -115,7 +115,7 @@ class PaymentController extends Controller
                 'description'  => "Réservation Minizon — {$trip->departure_city} → {$trip->arrival_city}",
                 'amount'       => $grossAmount,
                 'currency'     => ['iso' => 'XOF'],
-                'callback_url' => config('fedapay.callback_url'),
+                'callback_url' => url('/payment/return'),
                 'customer'     => $customer,
             ]);
         } catch (\Throwable $e) {

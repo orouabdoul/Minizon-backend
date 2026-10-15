@@ -32,14 +32,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | URL de callback après paiement (pour les paiements par lien)
-    |--------------------------------------------------------------------------
-    */
-
-    'callback_url'   => env('FEDAPAY_CALLBACK_URL', env('APP_URL') . '/payment/return'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Commission MINIZON (pourcentage prélevé sur chaque transaction)
     |--------------------------------------------------------------------------
     */
