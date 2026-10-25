@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Driver;
 
+use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Review;
 use App\Models\Trip;
 use App\Notifications\BookingStatusChanged;
+use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
@@ -85,7 +89,7 @@ class DriverBookingsController extends Controller
         $tripIds = Trip::where('user_id', $driver->id)
             ->pluck('id');
 
-        $bookings = Booking::with(['passenger.profile', 'trip'])
+        $bookings = Booking::with(['passenger.profile', 'trip', 'conversation'])
             ->whereIn('trip_id', $tripIds)
             ->whereIn('status', ['pending', 'accepted'])
             ->orderBy('created_at', 'desc')
@@ -94,12 +98,38 @@ class DriverBookingsController extends Controller
                 $profile = $b->passenger?->profile;
                 $name = trim(($profile?->first_name ?? '').' '.($profile?->last_name ?? '')) ?: 'Passager';
 
+                $passengerId   = $b->passenger_id;
+                $avgRating     = Review::where('reviewee_id', $passengerId)
+                    ->where('status', 'visible')
+                    ->avg('rating');
+                $tripsCount    = Booking::where('passenger_id', $passengerId)
+                    ->whereIn('status', ['accepted', 'completed'])
+                    ->count();
+
+                // Prix proraté : recalcul on-the-fly si les distances sont disponibles.
+                // Corrige les anciennes réservations où calculated_price était stocké
+                // au tarif plein (car trip.distance_km était inconnu à la création).
+                $tripKm    = (float) ($b->trip?->distance_km ?? 0);
+                $passKm    = (float) ($b->passenger_distance_km ?? 0);
+                $tarif     = (int) ($b->trip?->price_per_seat ?? 0);
+                $unitPrice = ($tripKm > 0 && $passKm > 0 && $tarif > 0)
+                    ? GeoHelper::calculatePassengerPrice($passKm, $tripKm, $tarif)
+                    : (int) ($b->calculated_price ?? $tarif);
+                $sub       = $unitPrice * (int) $b->seats_booked;
+                $fee       = (int) ($b->service_fee ?? (int) round($sub * 0.05));
+                $total     = $b->total_price ?? ($sub + $fee);
+
                 return [
                     'uuid' => $b->uuid,
                     'status' => $b->status,
                     'seats_booked' => $b->seats_booked,
                     'passenger_name' => $name,
                     'passenger_phone' => $b->passenger?->phone ?? null,
+                    'passenger_rating' => $avgRating ? round((float) $avgRating, 1) : 0.0,
+                    'passenger_trips_count' => $tripsCount,
+                    'passenger_is_verified' => (bool) ($b->passenger?->is_verified ?? false),
+                    'created_at' => $b->created_at?->toIso8601String(),
+                    'conversation_uuid' => $b->conversation?->uuid,
                     'trip_uuid' => $b->trip?->uuid,
                     'origin' => $b->trip?->departure_city,
                     'destination' => $b->trip?->arrival_city,
@@ -119,10 +149,10 @@ class DriverBookingsController extends Controller
                     'dropoff_latitude' => $b->dropoff_latitude,
                     'dropoff_longitude' => $b->dropoff_longitude,
                     'passenger_distance_km' => $b->passenger_distance_km,
-                    'calculated_price' => $b->calculated_price,
-                    'price_subtotal' => $b->calculated_price * $b->seats_booked,
-                    'service_fee' => $b->service_fee,
-                    'total_price' => $b->total_price,
+                    'calculated_price' => $unitPrice,
+                    'price_subtotal'   => $sub,
+                    'service_fee'      => $fee,
+                    'total_price'      => $total,
                     'payment_status' => $b->payment_status,
                     'is_paid' => $b->payment_status === 'escrow_locked',
                 ];
@@ -233,6 +263,102 @@ class DriverBookingsController extends Controller
         $this->notifyPassenger($booking, 'rejected');
 
         return $this->apiResponse(true, 'Réservation refusée.');
+    }
+
+    // =========================================================================
+    //  POST /api/driver/bookings/{uuid}/review  — noter un passager
+    // =========================================================================
+
+    #[OA\Post(
+        path: '/api/driver/bookings/{uuid}/review',
+        operationId: 'driverRatePassenger',
+        summary: 'Conducteur note un passager après le trajet',
+        description: 'Crée un avis du conducteur sur le passager. Idempotent : un seul avis par booking. Le trajet doit être `completed`.',
+        tags: ['🚗 Driver — Réservations'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'uuid', in: 'path', required: true,
+                schema: new OA\Schema(type: 'string', format: 'uuid'),
+                description: 'UUID de la réservation (booking)'),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['rating'],
+                properties: [
+                    new OA\Property(property: 'rating',  type: 'integer', minimum: 1, maximum: 5, example: 4),
+                    new OA\Property(property: 'comment', type: 'string',  maxLength: 300, nullable: true, example: 'Passager ponctuel et respectueux.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Avis enregistré (idempotent — déjà existant)'),
+            new OA\Response(response: 201, description: 'Avis créé'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+            new OA\Response(response: 404, description: 'Réservation introuvable'),
+            new OA\Response(response: 409, description: 'Le trajet n\'est pas encore terminé'),
+        ]
+    )]
+    public function ratePassenger(Request $request, string $uuid): JsonResponse
+    {
+        $driver  = $request->user();
+        $booking = Booking::with(['trip', 'passenger'])->where('uuid', $uuid)->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        $trip = $booking->trip;
+
+        if (! $trip || $trip->user_id !== $driver->id) {
+            return $this->apiResponse(false, 'Action non autorisée.', [], 403);
+        }
+
+        if ($trip->status !== 'completed') {
+            return $this->apiResponse(false, 'Le trajet doit être terminé pour noter un passager.', [], 409);
+        }
+
+        $validated = $request->validate([
+            'rating'  => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        // Idempotence : un seul avis du conducteur sur ce passager pour ce trajet
+        $existing = Review::where('trip_id', $trip->id)
+            ->where('reviewer_id', $driver->id)
+            ->where('reviewee_id', $booking->passenger_id)
+            ->first();
+
+        if ($existing) {
+            return $this->apiResponse(true, 'Avis déjà enregistré.', ['already_exists' => true]);
+        }
+
+        Review::create([
+            'trip_id'     => $trip->id,
+            'reviewer_id' => $driver->id,
+            'reviewee_id' => $booking->passenger_id,
+            'rating'      => $validated['rating'],
+            'comment'     => $validated['comment'] ?? null,
+            'status'      => 'visible',
+        ]);
+
+        // Notifier le passager (non bloquant)
+        try {
+            $fcmToken   = $booking->passenger?->fcm_token;
+            $driverName = $driver->profile?->first_name ?? 'Votre conducteur';
+            if ($fcmToken) {
+                app(FcmService::class)->send(
+                    $fcmToken,
+                    '⭐ ' . $driverName . ' vous a noté',
+                    'Consultez votre profil pour voir votre note.',
+                    ['type' => 'driver_review_new', 'trip_uuid' => $trip->uuid]
+                );
+            }
+        } catch (\Throwable) {
+            // non-bloquant
+        }
+
+        return $this->apiResponse(true, 'Avis enregistré.', [], 201);
     }
 
     // -------------------------------------------------------------------------

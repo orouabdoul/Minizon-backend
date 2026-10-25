@@ -19,3 +19,11 @@ Route::middleware(['auth:sanctum', 'approved'])->group(function () {
     Route::post('bookings/{uuid}/reject', [DriverBookingsController::class, 'reject'])->name('bookings.reject');
 
 });
+
+Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(function () {
+
+    // Conducteur note un passager après la fin du trajet
+    Route::post('bookings/{uuid}/review', [DriverBookingsController::class, 'ratePassenger'])
+        ->name('driver.bookings.review');
+
+});

@@ -257,6 +257,7 @@ class PassengerBookingController extends Controller
                     'total_price'            => $totalPrice,
                     'status'                 => 'pending',
                     'payment_status'         => 'unpaid',
+                    'boarding_code'          => str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT),
                 ]);
 
                 $trip->decrement('available_seats', $seatsRequested);

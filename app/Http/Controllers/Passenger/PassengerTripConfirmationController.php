@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
+use App\Models\BoardingEvent;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\SupportTicket;
+use App\Notifications\BoardingRefusedNotification;
 use App\Notifications\PassengerBoarded;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -370,6 +372,11 @@ class PassengerTripConfirmationController extends Controller
     )]
     public function pickupConfirm(Request $request, string $uuid): JsonResponse
     {
+        $validated = $request->validate([
+            'passenger_lat' => ['nullable', 'numeric'],
+            'passenger_lng' => ['nullable', 'numeric'],
+        ]);
+
         $passenger = $request->user();
 
         $booking = Booking::with(['trip.user', 'passenger.profile'])
@@ -389,11 +396,31 @@ class PassengerTripConfirmationController extends Controller
             return $this->apiResponse(false, 'Le trajet n\'est pas encore démarré.', [], 403);
         }
 
+        $passengerLat = isset($validated['passenger_lat']) ? (float) $validated['passenger_lat'] : null;
+        $passengerLng = isset($validated['passenger_lng']) ? (float) $validated['passenger_lng'] : null;
+
         // Idempotent — pas de doublon
         $alreadyConfirmed = $booking->picked_up_at !== null;
 
         if (! $alreadyConfirmed) {
-            $booking->update(['picked_up_at' => now()]);
+            $eventType = ($passengerLat && $passengerLng) ? 'confirmed_app' : 'confirmed_no_gps';
+
+            $booking->update([
+                'picked_up_at'               => now(),
+                'boarding_method'            => 'app',
+                'passenger_lat_at_boarding'  => $passengerLat,
+                'passenger_lng_at_boarding'  => $passengerLng,
+            ]);
+
+            BoardingEvent::log(
+                bookingUuid:  $booking->uuid,
+                tripUuid:     $booking->trip?->uuid ?? '',
+                eventType:    $eventType,
+                driverId:     $booking->trip?->user_id,
+                passengerId:  $passenger->id,
+                passengerLat: $passengerLat,
+                passengerLng: $passengerLng,
+            );
 
             // Notifier le conducteur
             try {
@@ -405,6 +432,74 @@ class PassengerTripConfirmationController extends Controller
             'picked_up_at'     => $booking->fresh()->picked_up_at?->toIso8601String(),
             'already_confirmed'=> $alreadyConfirmed,
         ]);
+    }
+
+    // =========================================================================
+    //  POST /api/passenger/bookings/{uuid}/boarding-refuse
+    //  Passager refuse l'embarquement → ticket support + alerte conducteur
+    // =========================================================================
+
+    public function boardingRefuse(Request $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validate([
+            'passenger_lat' => ['nullable', 'numeric'],
+            'passenger_lng' => ['nullable', 'numeric'],
+        ]);
+
+        $passenger = $request->user();
+
+        $booking = Booking::with(['trip.user', 'passenger.profile'])
+            ->where('uuid', $uuid)
+            ->where('passenger_id', $passenger->id)
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+
+        // Idempotent
+        if ($booking->boarding_refused_at !== null) {
+            return $this->apiResponse(true, 'Refus déjà enregistré.', []);
+        }
+
+        $passengerLat = isset($validated['passenger_lat']) ? (float) $validated['passenger_lat'] : null;
+        $passengerLng = isset($validated['passenger_lng']) ? (float) $validated['passenger_lng'] : null;
+
+        $booking->update([
+            'boarding_refused_at'        => now(),
+            'passenger_lat_at_boarding'  => $passengerLat,
+            'passenger_lng_at_boarding'  => $passengerLng,
+        ]);
+
+        BoardingEvent::log(
+            bookingUuid:  $booking->uuid,
+            tripUuid:     $booking->trip?->uuid ?? '',
+            eventType:    'refused',
+            driverId:     $booking->trip?->user_id,
+            passengerId:  $passenger->id,
+            passengerLat: $passengerLat,
+            passengerLng: $passengerLng,
+        );
+
+        // Ticket support
+        try {
+            $trip = $booking->trip;
+            SupportTicket::create([
+                'user_id'     => $passenger->id,
+                'subject'     => '[Refus embarquement] ' . ($trip->departure_city ?? '?') . ' → ' . ($trip->arrival_city ?? '?'),
+                'description' => "Le passager #{$passenger->id} a refusé l'embarquement pour la réservation {$booking->uuid}.",
+                'priority'    => 'high',
+                'channel'     => 'app',
+                'status'      => 'new',
+            ]);
+        } catch (\Throwable) {}
+
+        // Alerter le conducteur
+        try {
+            $booking->trip->user?->notify(new BoardingRefusedNotification($booking));
+        } catch (\Throwable) {}
+
+        return $this->apiResponse(true, 'Refus enregistré. Le support a été alerté.', []);
     }
 
     // =========================================================================

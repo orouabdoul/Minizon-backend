@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Driver;
 use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BoardingEvent;
 use App\Models\Trip;
+use App\Notifications\BoardingRequestNotification;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -252,6 +254,153 @@ class DriverInteractiveMapController extends Controller
             'next_stop_index'   => $doneCount,
             'all_picked_up'     => $doneCount >= $totalCount,
             'notification_sent' => $notificationSent,
+        ]);
+    }
+
+    // =========================================================================
+    //  POST /api/driver/trips/{uuid}/stops/{bookingUuid}/boarding-request
+    //  Conducteur déclenche la demande d'embarquement → FCM au passager
+    // =========================================================================
+
+    public function boardingRequest(Request $request, string $uuid, string $bookingUuid): JsonResponse
+    {
+        $trip = Trip::where('uuid', $uuid)->first();
+
+        if (! $trip || $trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Trajet introuvable ou accès refusé.', [], 403);
+        }
+        if ($trip->status !== 'active') {
+            return $this->apiResponse(false, 'Le trajet n\'est pas en cours.', [], 403);
+        }
+
+        $booking = Booking::where('uuid', $bookingUuid)
+            ->where('trip_id', $trip->id)
+            ->where('status', 'accepted')
+            ->with(['passenger.profile', 'trip'])
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+        if ($booking->picked_up_at !== null) {
+            return $this->apiResponse(false, 'Ce passager a déjà été pris en charge.', [], 403);
+        }
+
+        $driverLat = $request->input('driver_lat') ? (float) $request->input('driver_lat') : null;
+        $driverLng = $request->input('driver_lng') ? (float) $request->input('driver_lng') : null;
+
+        $expiresAt = now()->addMinutes(2)->toIso8601String();
+
+        // Notifier le passager
+        $notified = false;
+        try {
+            $booking->passenger?->notify(
+                new BoardingRequestNotification($booking, $driverLat, $driverLng, $expiresAt)
+            );
+            $notified = true;
+        } catch (\Throwable) {}
+
+        BoardingEvent::log(
+            bookingUuid:  $booking->uuid,
+            tripUuid:     $trip->uuid,
+            eventType:    'request_sent',
+            driverId:     $request->user()->id,
+            passengerId:  $booking->passenger_id,
+            driverLat:    $driverLat,
+            driverLng:    $driverLng,
+        );
+
+        return $this->apiResponse(true, 'Demande d\'embarquement envoyée.', [
+            'expires_at'   => $expiresAt,
+            'notified'     => $notified,
+            'booking_uuid' => $booking->uuid,
+        ]);
+    }
+
+    // =========================================================================
+    //  POST /api/driver/trips/{uuid}/stops/{bookingUuid}/verify-code
+    //  Conducteur saisit le code 4 chiffres du passager (fallback hors réseau)
+    // =========================================================================
+
+    public function verifyCode(Request $request, string $uuid, string $bookingUuid): JsonResponse
+    {
+        $validated = $request->validate([
+            'code'       => ['required', 'string', 'size:4', 'regex:/^\d{4}$/'],
+            'driver_lat' => ['nullable', 'numeric'],
+            'driver_lng' => ['nullable', 'numeric'],
+        ]);
+
+        $trip = Trip::where('uuid', $uuid)->first();
+
+        if (! $trip || $trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Trajet introuvable ou accès refusé.', [], 403);
+        }
+        if ($trip->status !== 'active') {
+            return $this->apiResponse(false, 'Le trajet n\'est pas en cours.', [], 403);
+        }
+
+        $booking = Booking::where('uuid', $bookingUuid)
+            ->where('trip_id', $trip->id)
+            ->where('status', 'accepted')
+            ->with('passenger')
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+        if ($booking->picked_up_at !== null) {
+            return $this->apiResponse(false, 'Ce passager a déjà été pris en charge.', [], 403);
+        }
+
+        if ((string) $booking->boarding_code !== $validated['code']) {
+            return $this->apiResponse(false, 'Code incorrect.', [], 422);
+        }
+
+        $driverLat = isset($validated['driver_lat']) ? (float) $validated['driver_lat'] : null;
+        $driverLng = isset($validated['driver_lng']) ? (float) $validated['driver_lng'] : null;
+
+        $booking->update([
+            'picked_up_at'          => now(),
+            'boarding_method'       => 'code',
+            'driver_lat_at_boarding'=> $driverLat,
+            'driver_lng_at_boarding'=> $driverLng,
+        ]);
+
+        BoardingEvent::log(
+            bookingUuid:  $booking->uuid,
+            tripUuid:     $trip->uuid,
+            eventType:    'code_verified',
+            driverId:     $request->user()->id,
+            passengerId:  $booking->passenger_id,
+            driverLat:    $driverLat,
+            driverLng:    $driverLng,
+        );
+
+        // Notification FCM au passager
+        $fcmToken = $booking->passenger?->fcm_token;
+        if ($fcmToken) {
+            $driverName = $request->user()->profile?->fullName() ?? $request->user()->phone;
+            app(FcmService::class)->send(
+                $fcmToken,
+                '✅ Vous êtes à bord !',
+                'Le conducteur ' . $driverName . ' vous a pris en charge (code). Bon voyage !',
+                [
+                    'type'         => 'passenger_picked_up',
+                    'trip_uuid'    => $trip->uuid,
+                    'booking_uuid' => $booking->uuid,
+                    'method'       => 'code',
+                ]
+            );
+        }
+
+        $doneCount  = $trip->bookings()->where('status', 'accepted')->whereNotNull('picked_up_at')->count();
+        $totalCount = $trip->bookings()->where('status', 'accepted')->count();
+
+        return $this->apiResponse(true, 'Code vérifié. Passager pris en charge.', [
+            'stop_id'         => $booking->uuid,
+            'picked_up_at'    => $booking->picked_up_at->toIso8601String(),
+            'next_stop_index' => $doneCount,
+            'all_picked_up'   => $doneCount >= $totalCount,
         ]);
     }
 
