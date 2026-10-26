@@ -101,10 +101,12 @@ class DriverEndTripController extends Controller
             return $this->apiResponse(false, 'Ce trajet n\'a pas encore démarré (statut : ' . $trip->status . ').', [], 403);
         }
 
-        // ── Finances ──────────────────────────────────────────────────────────
+        // ── Finances — somme des prix réels de chaque passager ───────────────
         $passengersCount = (int) $trip->bookings->sum('seats_booked');
         $commissionRate  = $trip->commission_rate ?? 10;
-        $grossRevenue    = $trip->price_per_seat * $passengersCount;
+        $grossRevenue    = (int) $trip->bookings->sum(
+            fn ($b) => ($b->calculated_price ?? $trip->price_per_seat) * $b->seats_booked
+        );
         $commission      = (int) round($grossRevenue * $commissionRate / 100);
         $netRevenue      = $grossRevenue - $commission;
 

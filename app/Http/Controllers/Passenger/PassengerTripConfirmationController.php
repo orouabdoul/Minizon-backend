@@ -392,8 +392,9 @@ class PassengerTripConfirmationController extends Controller
             return $this->apiResponse(false, 'Réservation non acceptée par le conducteur.', [], 403);
         }
 
-        if ($booking->trip?->status !== 'active') {
-            return $this->apiResponse(false, 'Le trajet n\'est pas encore démarré.', [], 403);
+        $tripStatus = $booking->trip?->status;
+        if (! in_array($tripStatus, ['pending', 'active'])) {
+            return $this->apiResponse(false, 'Le trajet n\'est pas disponible (statut : ' . $tripStatus . ').', [], 403);
         }
 
         $passengerLat = isset($validated['passenger_lat']) ? (float) $validated['passenger_lat'] : null;
@@ -411,6 +412,11 @@ class PassengerTripConfirmationController extends Controller
                 'passenger_lat_at_boarding'  => $passengerLat,
                 'passenger_lng_at_boarding'  => $passengerLng,
             ]);
+
+            // Auto-démarrage du trajet au premier embarquement (plus de bouton global)
+            if ($tripStatus === 'pending') {
+                $booking->trip->update(['status' => 'active', 'started_at' => now()]);
+            }
 
             BoardingEvent::log(
                 bookingUuid:  $booking->uuid,

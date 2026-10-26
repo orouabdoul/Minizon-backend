@@ -48,11 +48,17 @@ class Booking extends Model
         'passenger_lat_at_boarding',
         'passenger_lng_at_boarding',
         'boarding_refused_at',
+        'dropped_off_at',
+        'no_show_at',
+        'driver_absent_reported_at',
     ];
 
     protected $casts = [
         'seats_booked'               => 'integer',
         'picked_up_at'               => 'datetime',
+        'dropped_off_at'             => 'datetime',
+        'no_show_at'                 => 'datetime',
+        'driver_absent_reported_at'  => 'datetime',
         'passenger_confirmed_at'     => 'datetime',
         'boarding_refused_at'        => 'datetime',
         'driver_lat_at_boarding'     => 'float',

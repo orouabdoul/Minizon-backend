@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Passenger\PassengerDriverAbsentController;
 use App\Http\Controllers\Passenger\PassengerTripConfirmationController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,5 +39,9 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     // Soumission de l'avis conducteur (RatingCard + QuickTagsCard + ReviewField → submitReview)
     Route::post('bookings/{uuid}/review', [PassengerTripConfirmationController::class, 'review'])
         ->name('passenger.trip_confirmation.review');
+
+    // Passager signale conducteur absent (15min après départ prévu)
+    Route::post('bookings/{uuid}/report-driver-absent', [PassengerDriverAbsentController::class, 'reportDriverAbsent'])
+        ->name('passenger.report_driver_absent');
 
 });

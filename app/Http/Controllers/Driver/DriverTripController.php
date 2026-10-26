@@ -388,16 +388,20 @@ class DriverTripController extends Controller
                 $b->dropoff_neighborhood   ?? $trip->arrival_neighborhood   ?? null,
             );
             return [
-                'name'   => $fullName,
-                'lat'    => $pLat,
-                'lng'    => $pLng,
-                'dlat'   => $dLat,
-                'dlng'   => $dLng,
-                'seats'  => $b->seats_booked,
-                'phone'  => $b->passenger?->phone ?? '',
-                'fname'  => $profile?->first_name ?? '',
-                'lname'  => $profile?->last_name ?? '',
-                'avatar' => $profile?->avatar,
+                'name'          => $fullName,
+                'uuid'          => $b->uuid,
+                'lat'           => $pLat,
+                'lng'           => $pLng,
+                'dlat'          => $dLat,
+                'dlng'          => $dLng,
+                'seats'         => $b->seats_booked,
+                'phone'         => $b->passenger?->phone ?? '',
+                'fname'         => $profile?->first_name ?? '',
+                'lname'         => $profile?->last_name ?? '',
+                'avatar'        => $profile?->avatar,
+                'picked_up_at'  => $b->picked_up_at?->toIso8601String(),
+                'dropped_off_at'=> $b->dropped_off_at?->toIso8601String(),
+                'no_show_at'    => $b->no_show_at?->toIso8601String(),
             ];
         })->values();
 
@@ -413,8 +417,13 @@ class DriverTripController extends Controller
 
         // Format modèle de suivi (ActiveDriverTripModel / ActivePassengerModel)
         $bookings = $passengersData->map(fn ($d) => [
+            'uuid'              => $d['uuid'],
             'status'            => 'confirmed',
             'seats'             => $d['seats'],
+            'seats_booked'      => $d['seats'],
+            'picked_up_at'      => $d['picked_up_at'],
+            'dropped_off_at'    => $d['dropped_off_at'],
+            'no_show_at'        => $d['no_show_at'],
             'pickup_latitude'   => $d['lat'],
             'pickup_longitude'  => $d['lng'],
             'dropoff_latitude'  => $d['dlat'],

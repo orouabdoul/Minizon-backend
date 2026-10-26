@@ -144,10 +144,15 @@ class DriverTripDetailController extends Controller
         $accepted = $trip->bookings->where('status', 'accepted');
         $bookedSeats = (int) $accepted->sum('seats_booked');
 
-        // ── Finances ──────────────────────────────────────────────────────────
-        $totalRevenue     = $trip->price_per_seat * $bookedSeats;
-        $commissionAmount = $trip->platformCommission($bookedSeats);
-        $netRevenue       = $trip->driverEarnings($bookedSeats);
+        // ── Finances — basées sur les prix réels de chaque passager ──────────
+        // Chaque passager paye un prix proraté selon sa distance (calculated_price).
+        // Utiliser price_per_seat serait faux pour les trajets partiels.
+        $totalRevenue     = (int) $accepted->sum(
+            fn ($b) => ($b->calculated_price ?? $trip->price_per_seat) * $b->seats_booked
+        );
+        $commissionRate   = $trip->commission_rate ?? 10;
+        $commissionAmount = (int) round($totalRevenue * $commissionRate / 100);
+        $netRevenue       = $totalRevenue - $commissionAmount;
 
         // ── Coordonnées précises via commune+arrondissement+quartier ─────────
         [$depLat, $depLng] = GeoHelper::bestCoords(
@@ -516,18 +521,26 @@ class DriverTripDetailController extends Controller
             default                     => 'pending',
         };
 
+        $unitPrice = (int) ($booking->calculated_price ?? $booking->trip?->price_per_seat ?? 0);
+
         return [
-            'booking_uuid'   => $booking->uuid,
-            'name'           => $fullName,
-            'avatar_initial' => $initials,
-            'is_verified'    => (bool) ($profile?->kyc_status === 'approved' || $passenger?->is_verified),
-            'rating'         => $avgRating ? round($avgRating, 1) : null,
-            'trips_count'    => $tripsCount,
-            'payment_status' => $paymentStatus,
-            'phone'          => $passenger?->phone,
-            'seats_booked'   => $booking->seats_booked,
-            'booking_status' => $booking->status,
-            'booked_at'      => $booking->created_at,
+            'booking_uuid'          => $booking->uuid,
+            'name'                  => $fullName,
+            'avatar_initial'        => $initials,
+            'is_verified'           => (bool) ($profile?->kyc_status === 'approved' || $passenger?->is_verified),
+            'rating'                => $avgRating ? round($avgRating, 1) : null,
+            'trips_count'           => $tripsCount,
+            'payment_status'        => $paymentStatus,
+            'phone'                 => $passenger?->phone,
+            'seats_booked'          => $booking->seats_booked,
+            'booking_status'        => $booking->status,
+            'booked_at'             => $booking->created_at,
+            // Prix réel payé par ce passager (proraté selon distance)
+            'calculated_price'      => $unitPrice,
+            'total_price'           => (int) ($booking->total_price ?? $unitPrice * $booking->seats_booked),
+            'passenger_distance_km' => $booking->passenger_distance_km,
+            'pickup_city'           => $booking->pickup_city,
+            'dropoff_city'          => $booking->dropoff_city,
         ];
     }
 

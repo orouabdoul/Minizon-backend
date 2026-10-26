@@ -323,10 +323,12 @@ class TripController extends Controller
             'completed_at' => now(),
         ]);
 
-        // Démarrer le compte de 24h depuis la fin du trajet (pas depuis le paiement)
-        TripValidation::whereHas('booking', fn ($q) => $q->where('trip_id', $trip->id))
+        // Pour les passagers pas encore déposés individuellement, déclencher le timer 1h
+        TripValidation::whereHas('booking', function ($q) use ($trip) {
+                $q->where('trip_id', $trip->id)->whereNull('dropped_off_at');
+            })
             ->where('status', 'waiting')
-            ->update(['auto_release_at' => now()->addHours(24)]);
+            ->update(['auto_release_at' => now()->addHour()]);
 
         // Notifier les passagers et le conducteur
         try {
