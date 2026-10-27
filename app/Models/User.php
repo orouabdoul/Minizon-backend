@@ -25,6 +25,9 @@ class User extends Authenticatable
         'is_blocked',
         'blocked_until',
         'penalty_points',
+        'warning_count',
+        'visibility_score',
+        'suspended_until',
         'fcm_token',
         'is_online',
         'availability_mode',
@@ -48,8 +51,11 @@ class User extends Authenticatable
         'notifications_enabled' => 'boolean',
         'phone_verified_at'     => 'datetime',
         'otp_expires_at'    => 'datetime',
-        'blocked_until'     => 'datetime',
-        'penalty_points'    => 'integer',
+        'blocked_until'    => 'datetime',
+        'suspended_until'  => 'datetime',
+        'penalty_points'   => 'integer',
+        'warning_count'    => 'integer',
+        'visibility_score' => 'integer',
     ];
 
     // -----------------------------------------------------------------------
@@ -167,7 +173,12 @@ class User extends Authenticatable
 
     public function isActive(): bool
     {
-        return ! $this->is_blocked;
+        return ! $this->is_blocked && ! $this->isAutoSuspended();
+    }
+
+    public function isAutoSuspended(): bool
+    {
+        return $this->suspended_until !== null && $this->suspended_until->isFuture();
     }
 
     public function averageRating(): ?float

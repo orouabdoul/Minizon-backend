@@ -293,24 +293,25 @@ class DriverProfileController extends Controller
                 'url'      => $profile?->id_card_front ? asset('storage/' . $profile->id_card_front) : null,
             ],
             [
-                'key'      => 'driving_license',
-                'title'    => 'Permis de conduire',
-                'subtitle' => ! empty($profile?->driving_license_number)
+                'key'         => 'driving_license',
+                'title'       => 'Permis de conduire',
+                'subtitle'    => ! empty($profile?->driving_license_number)
                     ? ($kycApproved ? 'Vérifié' : 'Soumis')
                     : (! empty($profile?->driving_license_photo) ? 'Photo ajoutée' : 'Non soumis'),
-                'has_file' => ! empty($profile?->driving_license_photo),
-                'url'      => $profile?->driving_license_photo ? asset('storage/' . $profile->driving_license_photo) : null,
+                'has_file'    => ! empty($profile?->driving_license_photo),
+                'url'         => $profile?->driving_license_photo ? asset('storage/' . $profile->driving_license_photo) : null,
+                'expiry_date' => $profile?->license_expiry_date?->toDateString(),
             ],
         ];
 
         if ($vehicle) {
             $vehicleStatus = $vehicleApproved ? 'Approuvé' : ($vehicle->isPending() ? 'En attente' : 'Rejeté');
 
-            $documents[] = ['key' => 'vehicle_photo',      'title' => 'Photo du véhicule',   'subtitle' => $vehicle->vehicle_photo      ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->vehicle_photo),      'url' => $vehicle->vehicle_photo      ? asset('storage/' . $vehicle->vehicle_photo)      : null];
-            $documents[] = ['key' => 'registration',       'title' => 'Carte grise',          'subtitle' => $vehicle->registration_doc   ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->registration_doc),   'url' => $vehicle->registration_doc   ? asset('storage/' . $vehicle->registration_doc)   : null];
-            $documents[] = ['key' => 'insurance',          'title' => 'Assurance',            'subtitle' => $vehicle->insurance_doc      ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->insurance_doc),      'url' => $vehicle->insurance_doc      ? asset('storage/' . $vehicle->insurance_doc)      : null];
-            $documents[] = ['key' => 'tvm',                'title' => 'TVM',                  'subtitle' => $vehicle->tvm_doc            ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->tvm_doc),            'url' => $vehicle->tvm_doc            ? asset('storage/' . $vehicle->tvm_doc)            : null];
-            $documents[] = ['key' => 'technical_control',  'title' => 'Visite technique',     'subtitle' => $vehicle->technical_control_doc ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->technical_control_doc), 'url' => $vehicle->technical_control_doc ? asset('storage/' . $vehicle->technical_control_doc) : null];
+            $documents[] = ['key' => 'vehicle_photo',      'title' => 'Photo du véhicule', 'subtitle' => $vehicle->vehicle_photo         ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->vehicle_photo),         'url' => $vehicle->vehicle_photo         ? asset('storage/' . $vehicle->vehicle_photo)         : null, 'expiry_date' => null];
+            $documents[] = ['key' => 'registration',       'title' => 'Carte grise',       'subtitle' => $vehicle->registration_doc      ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->registration_doc),      'url' => $vehicle->registration_doc      ? asset('storage/' . $vehicle->registration_doc)      : null, 'expiry_date' => null];
+            $documents[] = ['key' => 'insurance',          'title' => 'Assurance',         'subtitle' => $vehicle->insurance_doc         ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->insurance_doc),         'url' => $vehicle->insurance_doc         ? asset('storage/' . $vehicle->insurance_doc)         : null, 'expiry_date' => $vehicle->insurance_expiry_date?->toDateString()];
+            $documents[] = ['key' => 'tvm',                'title' => 'TVM',               'subtitle' => $vehicle->tvm_doc               ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->tvm_doc),               'url' => $vehicle->tvm_doc               ? asset('storage/' . $vehicle->tvm_doc)               : null, 'expiry_date' => null];
+            $documents[] = ['key' => 'technical_control',  'title' => 'Visite technique',  'subtitle' => $vehicle->technical_control_doc ? $vehicleStatus : 'Non ajoutée', 'has_file' => ! empty($vehicle->technical_control_doc), 'url' => $vehicle->technical_control_doc ? asset('storage/' . $vehicle->technical_control_doc) : null, 'expiry_date' => $vehicle->technical_inspection_expiry_date?->toDateString()];
         }
 
         $emergencyContacts = $user->emergencyContacts()
@@ -436,16 +437,22 @@ class DriverProfileController extends Controller
         }
 
         $request->validate([
-            'document_type' => 'required|string|in:driving_license',
-            'file'          => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:5120',
+            'document_type'       => 'required|string|in:driving_license',
+            'file'                => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:5120',
+            'license_expiry_date' => 'nullable|date|after:today',
         ]);
 
         $path = $request->file('file')->store('driver/documents/licenses', 'public');
 
-        $profile->update(['driving_license_photo' => $path]);
+        $update = ['driving_license_photo' => $path];
+        if ($request->filled('license_expiry_date')) {
+            $update['license_expiry_date'] = $request->input('license_expiry_date');
+        }
+        $profile->update($update);
 
         return $this->apiResponse(true, 'Document mis à jour.', [
-            'url' => asset('storage/' . $path),
+            'url'          => asset('storage/' . $path),
+            'expiry_date'  => $profile->license_expiry_date?->toDateString(),
         ]);
     }
 

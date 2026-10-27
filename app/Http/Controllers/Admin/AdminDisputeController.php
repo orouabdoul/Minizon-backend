@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Dispute;
 use App\Models\TripValidation;
 use App\Notifications\DisputeResolvedForUser;
@@ -640,12 +641,70 @@ class AdminDisputeController extends Controller
             return $this->apiResponse(false, 'Ce litige est déjà résolu.', [], 422);
         }
 
-        DB::transaction(function () use ($dispute, $request) {
-            $payment    = $dispute->booking?->payment;
+        $payment = $dispute->booking?->payment;
+
+        // Vérifier que le paiement est encore remboursable
+        if ($payment && ! in_array($payment->status, ['locked', 'pending'], true)) {
+            return $this->apiResponse(
+                false,
+                'Ce paiement ne peut pas être remboursé (statut actuel : ' . $payment->status . ').',
+                [],
+                422
+            );
+        }
+
+        // ── Appel FedaPay AVANT la mise à jour DB ─────────────────────────────
+        if ($payment?->provider_reference) {
+            $baseUrl = config('fedapay.environment') === 'live'
+                ? 'https://api.fedapay.com/v1'
+                : 'https://sandbox-api.fedapay.com/v1';
+
+            try {
+                $fedaResponse = Http::withToken(config('fedapay.secret_key'))
+                    ->post("{$baseUrl}/transactions/{$payment->provider_reference}/refund");
+
+                if (! $fedaResponse->successful()) {
+                    $errorMsg = $fedaResponse->json('message') ?? $fedaResponse->json('error') ?? $fedaResponse->body();
+                    Log::error('AdminDispute: FedaPay refund échoué', [
+                        'dispute_id'  => $id,
+                        'fedapay_id'  => $payment->provider_reference,
+                        'http_status' => $fedaResponse->status(),
+                        'response'    => $fedaResponse->body(),
+                    ]);
+                    return $this->apiResponse(
+                        false,
+                        'FedaPay a refusé le remboursement : ' . $errorMsg,
+                        ['fedapay_status' => $fedaResponse->status()],
+                        502
+                    );
+                }
+
+                Log::info('AdminDispute: FedaPay refund réussi', [
+                    'dispute_id' => $id,
+                    'fedapay_id' => $payment->provider_reference,
+                    'response'   => $fedaResponse->json(),
+                ]);
+
+            } catch (\Throwable $e) {
+                Log::error('AdminDispute: FedaPay refund exception', [
+                    'dispute_id' => $id,
+                    'error'      => $e->getMessage(),
+                ]);
+                return $this->apiResponse(
+                    false,
+                    'Erreur lors de l\'appel FedaPay : ' . $e->getMessage(),
+                    [],
+                    502
+                );
+            }
+        }
+
+        // ── Mise à jour DB (FedaPay confirmé ou pas de référence) ─────────────
+        DB::transaction(function () use ($dispute, $request, $payment) {
             $validation = TripValidation::where('booking_id', $dispute->booking_id)->first();
 
             $payment?->update(['status' => 'refunded']);
-            $validation?->update(['status' => 'disputed']);
+            $validation?->update(['status' => 'cancelled']);
             $dispute->booking?->update(['payment_status' => 'refunded']);
 
             $dispute->update([
@@ -654,44 +713,25 @@ class AdminDisputeController extends Controller
                 'assigned_admin_id'    => $request->user()->id,
                 'resolved_at'          => now(),
             ]);
+
+            AuditLog::record(
+                action:      'dispute.refund',
+                userId:      $request->user()->id,
+                ip:          $request->ip(),
+                actionType:  'remboursement',
+                severity:    'avertissement',
+                description: "Litige #{$dispute->id} résolu — passager remboursé"
+                             . ($payment ? ' (' . number_format($payment->gross_amount, 0, ',', ' ') . ' FCFA)' : ''),
+                targetType:  'dispute',
+                targetName:  (string) $dispute->id,
+                userAgent:   $request->userAgent(),
+            );
         });
-
-        // ── Appel FedaPay pour le vrai remboursement Mobile Money ─────────────
-        $payment = $dispute->fresh('booking.payment')->booking?->payment;
-        if ($payment?->provider_reference) {
-            try {
-                $apiKey  = config('fedapay.secret_key');
-                $env     = config('fedapay.environment');
-                $baseUrl = $env === 'live'
-                    ? 'https://api.fedapay.com/v1'
-                    : 'https://sandbox-api.fedapay.com/v1';
-
-                $response = Http::withToken($apiKey)
-                    ->post("{$baseUrl}/transactions/{$payment->provider_reference}/refund");
-
-                Log::info('AdminDispute: FedaPay refund appelé', [
-                    'dispute_id'   => $id,
-                    'fedapay_id'   => $payment->provider_reference,
-                    'http_status'  => $response->status(),
-                    'response'     => $response->json(),
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('AdminDispute: FedaPay refund API échouée — remboursement manuel requis', [
-                    'dispute_id' => $id,
-                    'error'      => $e->getMessage(),
-                ]);
-            }
-        }
 
         $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);
 
-        // Notifier le passager (reporter)
-        $freshDispute->reporter->notify(new DisputeStatusChanged($freshDispute));
-        try {
-            $freshDispute->reporter->notify(new DisputeResolvedForUser($freshDispute, 'refunded', 'passenger'));
-        } catch (\Throwable) {}
-
-        // Notifier le conducteur
+        try { $freshDispute->reporter->notify(new DisputeStatusChanged($freshDispute)); } catch (\Throwable) {}
+        try { $freshDispute->reporter->notify(new DisputeResolvedForUser($freshDispute, 'refunded', 'passenger')); } catch (\Throwable) {}
         try {
             $driver = $freshDispute->booking?->trip?->user;
             $driver?->notify(new DisputeResolvedForUser($freshDispute, 'refunded', 'driver'));
@@ -770,6 +810,19 @@ class AdminDisputeController extends Controller
                 'assigned_admin_id'    => $request->user()->id,
                 'resolved_at'          => now(),
             ]);
+
+            AuditLog::record(
+                action:      'dispute.pay_driver',
+                userId:      $request->user()->id,
+                ip:          $request->ip(),
+                actionType:  'remboursement',
+                severity:    'avertissement',
+                description: "Litige #{$dispute->id} résolu — fonds libérés au conducteur"
+                             . ($payment ? ' (' . number_format($payment->net_amount, 0, ',', ' ') . ' FCFA)' : ''),
+                targetType:  'dispute',
+                targetName:  (string) $dispute->id,
+                userAgent:   $request->userAgent(),
+            );
         });
 
         $freshDispute = $dispute->fresh(['booking.trip.user', 'reporter']);

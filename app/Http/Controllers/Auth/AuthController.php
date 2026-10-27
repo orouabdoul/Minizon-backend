@@ -138,7 +138,9 @@ class AuthController extends Controller
             // Cache indisponible — l'OTP reste valide via la réponse; verify-otp échouera si cache toujours down
         }
 
-        // TODO : envoyer le SMS via votre provider (ex. Twilio, Orange SMS API)
+        // MODE TEST : l'OTP est retourné en clair dans la réponse API pour faciliter les tests.
+        // En production, retirer otp_code de la réponse et envoyer le SMS via
+        // un provider (ex. Orange SMS API, Twilio).
 
         return $this->apiResponse(true, 'Code OTP généré avec succès.', [
             'phone'               => $phone,

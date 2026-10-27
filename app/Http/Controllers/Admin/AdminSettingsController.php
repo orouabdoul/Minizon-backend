@@ -233,6 +233,19 @@ class AdminSettingsController extends Controller
             PlatformSetting::set($map[$field], $value);
         }
 
+        $changedKeys = implode(', ', array_map(fn ($f) => $map[$f], array_keys($data)));
+        AuditLog::record(
+            action:      'settings.general.update',
+            userId:      $request->user()->id,
+            ip:          $request->ip(),
+            actionType:  'modif_parametre',
+            severity:    'info',
+            description: "Paramètres généraux mis à jour : {$changedKeys}",
+            targetType:  'settings',
+            targetName:  'general',
+            userAgent:   $request->userAgent(),
+        );
+
         return $this->apiResponse(true, 'Paramètres mis à jour.');
     }
 
@@ -365,6 +378,21 @@ class AdminSettingsController extends Controller
         }
 
         $commission->update($updates);
+
+        $detail = [];
+        if (isset($updates['rate_percent'])) $detail[] = "taux → {$updates['rate_percent']}%";
+        if (isset($updates['status']))       $detail[] = "statut → {$updates['status']}";
+        AuditLog::record(
+            action:      'settings.commission.update',
+            userId:      $request->user()->id,
+            ip:          $request->ip(),
+            actionType:  'modif_parametre',
+            severity:    'avertissement',
+            description: "Commission « {$commission->label} » modifiée : " . implode(', ', $detail),
+            targetType:  'commission',
+            targetName:  $commission->uuid,
+            userAgent:   $request->userAgent(),
+        );
 
         return $this->apiResponse(true, 'Commission mise à jour.');
     }

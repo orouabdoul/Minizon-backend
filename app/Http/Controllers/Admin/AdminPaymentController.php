@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Payment;
 use App\Models\TripValidation;
 use FedaPay\FedaPay;
@@ -829,7 +830,7 @@ class AdminPaymentController extends Controller
         }
 
         // ── Mettre à jour la base locale ──────────────────────────────────────
-        DB::transaction(function () use ($payment) {
+        DB::transaction(function () use ($payment, $request) {
             $payment->update(['status' => 'refunded']);
 
             if ($payment->booking) {
@@ -839,6 +840,19 @@ class AdminPaymentController extends Controller
                     ->whereIn('status', ['waiting', 'disputed'])
                     ->update(['status' => 'cancelled']);
             }
+
+            AuditLog::record(
+                action:      'payment.refund',
+                userId:      $request->user()->id,
+                ip:          $request->ip(),
+                actionType:  'remboursement',
+                severity:    'avertissement',
+                description: 'Paiement ' . $payment->uuid . ' remboursé manuellement'
+                             . ' (' . number_format($payment->gross_amount, 0, ',', ' ') . ' FCFA)',
+                targetType:  'payment',
+                targetName:  $payment->uuid,
+                userAgent:   $request->userAgent(),
+            );
         });
 
         $payment->refresh()->load([
@@ -893,7 +907,7 @@ class AdminPaymentController extends Controller
             );
         }
 
-        DB::transaction(function () use ($payment) {
+        DB::transaction(function () use ($payment, $request) {
             $payment->update(['status' => 'success']);
 
             if ($payment->booking) {
@@ -901,8 +915,21 @@ class AdminPaymentController extends Controller
 
                 TripValidation::where('booking_id', $payment->booking_id)
                     ->whereIn('status', ['waiting', 'disputed'])
-                    ->update(['status' => 'released']);
+                    ->update(['status' => 'released', 'released_at' => now()]);
             }
+
+            AuditLog::record(
+                action:      'payment.release',
+                userId:      $request->user()->id,
+                ip:          $request->ip(),
+                actionType:  'remboursement',
+                severity:    'info',
+                description: 'Fonds libérés manuellement — paiement ' . $payment->uuid
+                             . ' (' . number_format($payment->net_amount, 0, ',', ' ') . ' FCFA net conducteur)',
+                targetType:  'payment',
+                targetName:  $payment->uuid,
+                userAgent:   $request->userAgent(),
+            );
         });
 
         $payment->refresh()->load([

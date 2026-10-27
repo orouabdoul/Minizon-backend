@@ -24,6 +24,9 @@ class Vehicle extends Model
         'insurance_doc',
         'tvm_doc',
         'technical_control_doc',
+        // Dates d'expiration
+        'insurance_expiry_date',
+        'technical_inspection_expiry_date',
         // Statut & vérification
         'is_approved',
         'verification_status',
@@ -33,10 +36,12 @@ class Vehicle extends Model
     ];
 
     protected $casts = [
-        'is_approved'     => 'boolean',
-        'available_seats' => 'integer',
-        'year'            => 'integer',
-        'verified_at'     => 'datetime',
+        'is_approved'                      => 'boolean',
+        'available_seats'                  => 'integer',
+        'year'                             => 'integer',
+        'verified_at'                      => 'datetime',
+        'insurance_expiry_date'            => 'date',
+        'technical_inspection_expiry_date' => 'date',
     ];
 
     // -----------------------------------------------------------------------

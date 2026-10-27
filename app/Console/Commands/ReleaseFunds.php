@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AuditLog;
 use App\Models\Review;
 use App\Models\TripValidation;
 use Illuminate\Console\Command;
@@ -58,15 +59,34 @@ class ReleaseFunds extends Command
             }
 
             // ── Libération automatique ────────────────────────────────────────
-            $validation->update(['status' => 'released']);
+            $validation->update(['status' => 'released', 'released_at' => now()]);
             $booking?->update(['payment_status' => 'released_to_driver']);
             $booking?->payment?->update(['status' => 'success']);
 
+            $amount = $booking?->payment?->net_amount;
             $this->line("  ✅ Fonds libérés — Booking #{$validation->booking_id}");
             Log::info('ReleaseFunds: fonds libérés', [
                 'booking_id' => $validation->booking_id,
-                'amount'     => $booking?->payment?->net_amount,
+                'amount'     => $amount,
             ]);
+
+            try {
+                AuditLog::record(
+                    action:      'payment.auto_release',
+                    userId:      0,
+                    ip:          'system',
+                    actionType:  'remboursement',
+                    severity:    'info',
+                    description: 'Libération automatique escrow — Booking #' . $validation->booking_id
+                                 . ($amount ? ' (' . number_format($amount, 0, ',', ' ') . ' FCFA)' : ''),
+                    targetType:  'booking',
+                    targetName:  (string) $validation->booking_id,
+                    userAgent:   'artisan:minizon:release-funds',
+                );
+            } catch (\Throwable $e) {
+                Log::warning('ReleaseFunds: AuditLog échoué', ['error' => $e->getMessage()]);
+            }
+
             $released++;
         }
 

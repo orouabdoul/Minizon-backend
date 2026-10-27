@@ -17,3 +17,9 @@ Schedule::command('minizon:send-departure-reminders')->everyFiveMinutes();
 
 // Purge des comptes sans profil complété après 20 min — toutes les minutes
 Schedule::command('minizon:purge-incomplete-users')->everyMinute();
+
+// Alertes expiration documents conducteur/véhicule — chaque matin à 8h
+Schedule::command('minizon:check-document-expiry')->dailyAt('08:00');
+
+// Lever les suspensions auto expirées — chaque matin à 8h01
+Schedule::command('minizon:lift-expired-suspensions')->dailyAt('08:01');

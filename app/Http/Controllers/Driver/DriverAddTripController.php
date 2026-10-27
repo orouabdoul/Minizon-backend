@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Driver;
 use App\Helpers\GeoHelper;
 use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
+use App\Models\Commission;
 use App\Models\Trip;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -149,8 +150,16 @@ class DriverAddTripController extends Controller
         ],
     ];
 
-    // Taux de commission plateforme par défaut (%)
+    // Taux de commission plateforme par défaut si non configuré en DB (%)
     private const DEFAULT_COMMISSION = 10;
+
+    private function platformCommissionRate(): float
+    {
+        $row = Commission::where('type', 'covoiturage_standard')
+            ->where('status', 'active')
+            ->first();
+        return $row ? (float) $row->rate_percent : self::DEFAULT_COMMISSION;
+    }
 
     // =========================================================================
     //  GET /api/driver/trip-form
@@ -257,7 +266,7 @@ class DriverAddTripController extends Controller
                 'year'               => $v->year,
             ]);
 
-        $commission = self::DEFAULT_COMMISSION;
+        $commission = $this->platformCommissionRate();
         $example    = 5000;
 
         return $this->apiResponse(true, 'Données du formulaire.', [
@@ -457,6 +466,18 @@ class DriverAddTripController extends Controller
 
         if ($vehicle->verification_status !== 'approved') {
             return $this->apiResponse(false, 'Votre véhicule doit être approuvé par l\'administration avant de publier un trajet.', [], 403);
+        }
+
+        // ── Vérifier l'expiration des documents ───────────────────────────
+        $profile = $request->user()->profile;
+        if ($profile?->license_expiry_date && $profile->license_expiry_date->isPast()) {
+            return $this->apiResponse(false, 'Votre permis de conduire a expiré. Veuillez le renouveler avant de publier un trajet.', [], 403);
+        }
+        if ($vehicle->insurance_expiry_date && $vehicle->insurance_expiry_date->isPast()) {
+            return $this->apiResponse(false, 'L\'assurance de votre véhicule a expiré. Veuillez la renouveler avant de publier un trajet.', [], 403);
+        }
+        if ($vehicle->technical_inspection_expiry_date && $vehicle->technical_inspection_expiry_date->isPast()) {
+            return $this->apiResponse(false, 'La visite technique de votre véhicule a expiré. Veuillez la renouveler avant de publier un trajet.', [], 403);
         }
 
         // ── Parser date + heure ────────────────────────────────────────────────

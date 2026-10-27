@@ -96,7 +96,11 @@ MD,
         if ($request->filled('date')) {
             $query->whereDate('departure_time', $request->input('date'));
         } elseif ($request->filled('month')) {
-            [$y, $m] = explode('-', $request->input('month'));
+            $monthParam = $request->input('month');
+            if (! preg_match('/^\d{4}-\d{2}$/', $monthParam)) {
+                return $this->apiResponse(false, 'Le paramètre month doit être au format YYYY-MM.', [], 422);
+            }
+            [$y, $m] = explode('-', $monthParam);
             $query->whereYear('departure_time', $y)->whereMonth('departure_time', $m);
         } elseif ($request->filled('year')) {
             $query->whereYear('departure_time', (int) $request->input('year'));
@@ -390,7 +394,11 @@ MD,
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->input('date'));
         } elseif ($request->filled('month')) {
-            [$y, $m] = explode('-', $request->input('month'));
+            $monthParam = $request->input('month');
+            if (! preg_match('/^\d{4}-\d{2}$/', $monthParam)) {
+                return $this->apiResponse(false, 'Le paramètre month doit être au format YYYY-MM.', [], 422);
+            }
+            [$y, $m] = explode('-', $monthParam);
             $query->whereYear('created_at', $y)->whereMonth('created_at', $m);
         } elseif ($request->filled('year')) {
             $query->whereYear('created_at', (int) $request->input('year'));

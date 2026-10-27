@@ -121,9 +121,11 @@ class DriverVehiclesController extends Controller
             'available_seats'       => ['required', 'integer', 'min:1', 'max:9'],
             'vehicle_photo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'registration_doc'      => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'insurance_doc'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'tvm_doc'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'technical_control_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_doc'                    => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'tvm_doc'                          => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'technical_control_doc'            => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_expiry_date'            => ['nullable', 'date', 'after:today'],
+            'technical_inspection_expiry_date' => ['nullable', 'date', 'after:today'],
         ]);
 
         $vehicleTypeId = null;
@@ -144,9 +146,11 @@ class DriverVehiclesController extends Controller
             'registration_doc'     => $request->hasFile('registration_doc')      ? $request->file('registration_doc')->store('vehicles/docs', 'public')      : null,
             'insurance_doc'        => $request->hasFile('insurance_doc')         ? $request->file('insurance_doc')->store('vehicles/docs', 'public')         : null,
             'tvm_doc'              => $request->hasFile('tvm_doc')               ? $request->file('tvm_doc')->store('vehicles/docs', 'public')               : null,
-            'technical_control_doc'=> $request->hasFile('technical_control_doc') ? $request->file('technical_control_doc')->store('vehicles/docs', 'public') : null,
-            'verification_status'  => 'pending',
-            'is_approved'          => false,
+            'technical_control_doc'            => $request->hasFile('technical_control_doc') ? $request->file('technical_control_doc')->store('vehicles/docs', 'public') : null,
+            'insurance_expiry_date'            => $validated['insurance_expiry_date'] ?? null,
+            'technical_inspection_expiry_date' => $validated['technical_inspection_expiry_date'] ?? null,
+            'verification_status'              => 'pending',
+            'is_approved'                      => false,
         ]);
 
         // Notifier les admins du nouveau véhicule à valider
@@ -230,9 +234,11 @@ class DriverVehiclesController extends Controller
             'available_seats'       => ['sometimes', 'integer', 'min:1', 'max:9'],
             'vehicle_photo'         => ['sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'registration_doc'      => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'insurance_doc'         => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'tvm_doc'               => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
-            'technical_control_doc' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_doc'                    => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'tvm_doc'                          => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'technical_control_doc'            => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'insurance_expiry_date'            => ['sometimes', 'nullable', 'date', 'after:today'],
+            'technical_inspection_expiry_date' => ['sometimes', 'nullable', 'date', 'after:today'],
         ]);
 
         $updateData = array_filter([
@@ -256,6 +262,13 @@ class DriverVehiclesController extends Controller
                 $folder = $field === 'vehicle_photo' ? 'vehicles' : 'vehicles/docs';
                 $updateData[$field] = $request->file($field)->store($folder, 'public');
             }
+        }
+
+        if ($request->has('insurance_expiry_date')) {
+            $updateData['insurance_expiry_date'] = $validated['insurance_expiry_date'];
+        }
+        if ($request->has('technical_inspection_expiry_date')) {
+            $updateData['technical_inspection_expiry_date'] = $validated['technical_inspection_expiry_date'];
         }
 
         $updateData['verification_status'] = 'pending';

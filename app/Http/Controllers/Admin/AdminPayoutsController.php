@@ -110,9 +110,17 @@ class AdminPayoutsController extends Controller
             $q->where('status', $request->input('status'));
         }
 
-        $payouts = $q->get()->map(fn (DriverPayout $p) => $this->formatPayout($p));
+        $perPage   = min((int) $request->input('per_page', 25), 100);
+        $paginated = $q->paginate($perPage);
+        $payouts   = $paginated->map(fn (DriverPayout $p) => $this->formatPayout($p))->values();
 
-        return $this->apiResponse(true, 'Virements.', ['payouts' => $payouts]);
+        return $this->apiResponse(true, 'Virements.', [
+            'payouts'      => $payouts,
+            'total'        => $paginated->total(),
+            'per_page'     => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+        ]);
     }
 
     // =========================================================================
@@ -141,6 +149,7 @@ class AdminPayoutsController extends Controller
     )]
     public function generate(Request $request): JsonResponse
     {
+        $request->validate(['period' => ['nullable', 'in:month,week']]);
         $period = $request->input('period', 'month');
         $from   = $period === 'week' ? now()->startOfWeek() : now()->startOfMonth();
 

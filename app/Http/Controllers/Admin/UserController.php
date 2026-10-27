@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\EmergencyContact;
 use App\Models\Profile;
 use App\Models\Role;
@@ -530,12 +531,27 @@ class UserController extends Controller
             return $this->apiResponse(false, 'Utilisateur introuvable.', [], 404);
         }
 
+        $userName  = trim(($user->profile?->first_name ?? '') . ' ' . ($user->profile?->last_name ?? '')) ?: $user->phone;
+        $userPhone = $user->phone;
+
         DB::beginTransaction();
         try {
             Vehicle::where('user_id', $user->id)->delete();
             Profile::where('user_id', $user->id)->delete();
             $user->tokens()->delete();
             $user->delete();
+
+            AuditLog::record(
+                action:      'user.delete',
+                userId:      $request->user()->id,
+                ip:          $request->ip(),
+                actionType:  'suppression',
+                severity:    'critique',
+                description: "Utilisateur « {$userName} » ({$userPhone}) supprimé définitivement",
+                targetType:  'user',
+                targetName:  $userPhone,
+                userAgent:   $request->userAgent(),
+            );
 
             DB::commit();
 
@@ -679,6 +695,19 @@ class UserController extends Controller
 
         try { $user->notify(new AccountStatusChanged(true)); } catch (\Throwable) {}
 
+        $userName = trim(($user->profile?->first_name ?? '') . ' ' . ($user->profile?->last_name ?? '')) ?: $user->phone;
+        AuditLog::record(
+            action:      'user.suspend',
+            userId:      $request->user()->id,
+            ip:          $request->ip(),
+            actionType:  'modif_utilisateur',
+            severity:    'avertissement',
+            description: "Utilisateur « {$userName} » suspendu par l'administrateur",
+            targetType:  'user',
+            targetName:  $user->phone,
+            userAgent:   $request->userAgent(),
+        );
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'Utilisateur suspendu.', $this->format($user));
@@ -722,8 +751,110 @@ class UserController extends Controller
 
         try { $user->notify(new AccountStatusChanged(false)); } catch (\Throwable) {}
 
+        $userName = trim(($user->profile?->first_name ?? '') . ' ' . ($user->profile?->last_name ?? '')) ?: $user->phone;
+        AuditLog::record(
+            action:      'user.unsuspend',
+            userId:      $request->user()->id,
+            ip:          $request->ip(),
+            actionType:  'modif_utilisateur',
+            severity:    'info',
+            description: "Suspension levée pour l'utilisateur « {$userName} »",
+            targetType:  'user',
+            targetName:  $user->phone,
+            userAgent:   $request->userAgent(),
+        );
+
         $user->refresh()->load(['role', 'profile']);
 
         return $this->apiResponse(true, 'Suspension levée.', $this->format($user));
+    }
+
+    // =========================================================================
+    //  BULK ACTION  POST /api/admin/users/bulk-action
+    // =========================================================================
+
+    public function bulkAction(Request $request): JsonResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
+        $data = $request->validate([
+            'action' => ['required', 'in:suspend,unsuspend,delete'],
+            'uuids'  => ['required', 'array', 'min:1', 'max:50'],
+            'uuids.*'=> ['required', 'string', 'uuid'],
+        ]);
+
+        $users = User::whereIn('uuid', $data['uuids'])->with('profile')->get();
+
+        if ($users->isEmpty()) {
+            return $this->apiResponse(false, 'Aucun utilisateur trouvé.', [], 404);
+        }
+
+        $affected = 0;
+
+        DB::transaction(function () use ($data, $users, $request, &$affected) {
+            foreach ($users as $user) {
+                $userName = trim(($user->profile?->first_name ?? '') . ' ' . ($user->profile?->last_name ?? '')) ?: $user->phone;
+
+                match ($data['action']) {
+                    'suspend' => (function () use ($user, $userName, $request) {
+                        if (! $user->is_blocked) {
+                            $user->update(['is_blocked' => true, 'blocked_until' => now()->addYears(10)]);
+                            try { $user->notify(new AccountStatusChanged(true)); } catch (\Throwable) {}
+                            AuditLog::record(
+                                action:      'user.bulk_suspend',
+                                userId:      $request->user()->id,
+                                ip:          $request->ip(),
+                                actionType:  'modif_utilisateur',
+                                severity:    'avertissement',
+                                description: "Suspension en masse : utilisateur « {$userName} »",
+                                targetType:  'user',
+                                targetName:  $user->phone,
+                                userAgent:   $request->userAgent(),
+                            );
+                        }
+                    })(),
+                    'unsuspend' => (function () use ($user, $userName, $request) {
+                        if ($user->is_blocked) {
+                            $user->update(['is_blocked' => false, 'blocked_until' => null]);
+                            try { $user->notify(new AccountStatusChanged(false)); } catch (\Throwable) {}
+                            AuditLog::record(
+                                action:      'user.bulk_unsuspend',
+                                userId:      $request->user()->id,
+                                ip:          $request->ip(),
+                                actionType:  'modif_utilisateur',
+                                severity:    'info',
+                                description: "Réactivation en masse : utilisateur « {$userName} »",
+                                targetType:  'user',
+                                targetName:  $user->phone,
+                                userAgent:   $request->userAgent(),
+                            );
+                        }
+                    })(),
+                    'delete' => (function () use ($user, $userName, $request) {
+                        $userPhone = $user->phone;
+                        $user->profile?->delete();
+                        $user->tokens()->delete();
+                        $user->delete();
+                        AuditLog::record(
+                            action:      'user.bulk_delete',
+                            userId:      $request->user()->id,
+                            ip:          $request->ip(),
+                            actionType:  'suppression',
+                            severity:    'critique',
+                            description: "Suppression en masse : utilisateur « {$userName} » ({$userPhone})",
+                            targetType:  'user',
+                            targetName:  $userPhone,
+                            userAgent:   $request->userAgent(),
+                        );
+                    })(),
+                };
+
+                $affected++;
+            }
+        });
+
+        return $this->apiResponse(true, "{$affected} utilisateur(s) traité(s) avec succès.", ['affected' => $affected]);
     }
 }

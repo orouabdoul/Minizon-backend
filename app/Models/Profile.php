@@ -32,11 +32,13 @@ class Profile extends Model
         // Conducteur
         'driving_license_number',
         'driving_license_photo',
+        'license_expiry_date',
     ];
 
     protected $casts = [
-        'approved_at'        => 'datetime',
-        'kyc_matching_score' => 'float',
+        'approved_at'         => 'datetime',
+        'kyc_matching_score'  => 'float',
+        'license_expiry_date' => 'date',
     ];
 
     // -----------------------------------------------------------------------

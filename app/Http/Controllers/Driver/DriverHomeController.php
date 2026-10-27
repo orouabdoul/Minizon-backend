@@ -223,6 +223,13 @@ class DriverHomeController extends Controller
             'level'            => $this->computeLevel($tripsCompleted, $avgRating, $passengersTransported),
             'is_online'        => (bool) $user->is_online,
             'availability_mode'=> $user->availability_mode ?? 'normal',
+            'sanction'         => [
+                'warning_count'    => (int) ($user->warning_count ?? 0),
+                'visibility_score' => (int) ($user->visibility_score ?? 100),
+                'is_suspended'     => $user->isAutoSuspended() || $user->is_blocked,
+                'suspended_until'  => $user->suspended_until?->toIso8601String()
+                                      ?? ($user->is_blocked ? $user->blocked_until?->toIso8601String() : null),
+            ],
         ]);
     }
 

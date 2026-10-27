@@ -94,3 +94,5 @@ require __DIR__ . '/api/admin-notifications.php';
 require __DIR__ . '/api/admin-settings.php';
 require __DIR__ . '/api/admin-vehicles.php';
 require __DIR__ . '/api/admin-reports.php';
+require __DIR__ . '/api/admin-sanctions.php';
+require __DIR__ . '/api/driver-status.php';

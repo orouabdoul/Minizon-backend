@@ -250,9 +250,9 @@ class PassengerRefundController extends Controller
             'status'      => 'pending',
         ]);
 
-        // Geler le paiement si une TripValidation existe
+        // Geler le paiement si une TripValidation existe (sauf si déjà terminée)
         TripValidation::where('booking_id', $booking->id)
-            ->whereNotIn('status', ['disputed', 'resolved_driver', 'resolved_passenger'])
+            ->whereNotIn('status', ['disputed', 'released', 'cancelled'])
             ->update(['status' => 'disputed']);
 
         // Notifier les admins via admin_notifications (dashboard back-office)
@@ -357,16 +357,14 @@ class PassengerRefundController extends Controller
 
     // Mapping statuts DB Dispute → clés enum Dart RefundHistoryStatus
     private const STATUS_TO_FLUTTER = [
-        'pending'            => 'pending',
-        'investigating'      => 'under_review',
-        'approved'           => 'approved',
-        'resolved_passenger' => 'refunded',
-        'resolved_driver'    => 'rejected',
-        'closed'             => 'rejected',
+        'pending'                  => 'pending',
+        'investigating'            => 'under_review',
+        'resolved_refunded'        => 'refunded',
+        'resolved_paid_to_driver'  => 'rejected',
     ];
 
     // Statuts considérés comme "traités" pour renseigner processed_date
-    private const RESOLVED_STATUSES = ['approved', 'resolved_passenger', 'resolved_driver', 'closed'];
+    private const RESOLVED_STATUSES = ['resolved_refunded', 'resolved_paid_to_driver'];
 
     private function formatRefund(Dispute $dispute): array
     {

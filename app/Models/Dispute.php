@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 
 class Dispute extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'uuid',
         'booking_id',
         'reporter_id',
         'reason_type',
@@ -24,6 +26,16 @@ class Dispute extends Model
     protected $casts = [
         'resolved_at' => 'datetime',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+        static::creating(function (self $model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     // -----------------------------------------------------------------------
     // RELATIONS
