@@ -395,13 +395,27 @@
     </div>
     <div class="panel-actions">
         @if($wd->status === 'pending')
-        <button class="btn-panel btn-panel-success" wire:click="askConfirm('approve', {{ $wd->id }}, 'Approuver retrait', 'Approuver ce retrait de {{ number_format($wd->amount) }} FCFA ?', 'primary')">✓ Approuver</button>
-        <button class="btn-panel btn-panel-danger" wire:click="askConfirm('reject', {{ $wd->id }}, 'Rejeter retrait', 'Rejeter cette demande de retrait ?', 'danger')">✕ Rejeter</button>
+            @if($showRejectForm)
+            <div style="width:100%;padding:12px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;margin-bottom:8px">
+                <div style="font-size:12px;font-weight:600;color:#DC2626;margin-bottom:6px">Motif du refus (optionnel)</div>
+                <textarea wire:model="rejectReason" rows="2" placeholder="Ex : numéro incorrect, solde insuffisant…"
+                          style="width:100%;border:1.5px solid #FECACA;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:none;box-sizing:border-box"></textarea>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn-panel btn-panel-danger" style="flex:1" wire:click="reject({{ $wd->id }})">Confirmer le rejet</button>
+                    <button class="btn-panel btn-panel-secondary" wire:click="closeRejectForm">Annuler</button>
+                </div>
+            </div>
+            @else
+            <button class="btn-panel btn-panel-success" wire:click="askConfirm('approve', {{ $wd->id }}, 'Approuver retrait', 'Approuver ce retrait de {{ number_format($wd->amount) }} FCFA ?', 'primary')">✓ Approuver</button>
+            <button class="btn-panel btn-panel-danger" wire:click="openRejectForm">✕ Rejeter</button>
+            @endif
         @endif
-        @if(in_array($wd->status, ['approved','pending']))
+        @if(in_array($wd->status, ['approved','pending']) && !$showRejectForm)
         <button class="btn-panel btn-panel-warn" wire:click="askConfirm('markFailed', {{ $wd->id }}, 'Marquer échoué', 'Marquer ce virement comme échoué ?', 'warning')">⚠ Échoué</button>
         @endif
+        @if(!$showRejectForm)
         <button class="btn-panel btn-panel-secondary" wire:click="closeView">Fermer</button>
+        @endif
     </div>
 </div>
 @endif

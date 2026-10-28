@@ -307,10 +307,27 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
             </div>
         </div>
         <div class="panel-footer">
-            <button style="width:100%;padding:10px;background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;color:#374151;cursor:pointer"
+            @if($p->status === 'en_attente')
+            <button style="flex:1;padding:10px;background:#1A5FB4;border:none;border-radius:8px;font-size:13px;font-weight:600;color:#fff;cursor:pointer"
+                    wire:click="askConfirm('process', {{ $p->id }}, 'Déclencher virement', 'Déclencher ce virement de {{ number_format($p->net_amount) }} FCFA vers {{ $dNm3 }} ?', 'primary')">
+                💸 Déclencher
+            </button>
+            @elseif($p->status === 'en_traitement')
+            <button style="flex:1;padding:10px;background:#10B981;border:none;border-radius:8px;font-size:13px;font-weight:600;color:#fff;cursor:pointer"
+                    wire:click="askConfirm('markPaid', {{ $p->id }}, 'Confirmer payé', 'Confirmer que le virement de {{ number_format($p->net_amount) }} FCFA a bien été effectué ?', 'primary')">
+                ✅ Confirmer payé
+            </button>
+            @elseif($p->status === 'échoué')
+            <button style="flex:1;padding:10px;background:#F59E0B;border:none;border-radius:8px;font-size:13px;font-weight:600;color:#fff;cursor:pointer"
+                    wire:click="askConfirm('retry', {{ $p->id }}, 'Réessayer', 'Remettre ce virement en attente pour réessai ?', 'warning')">
+                🔄 Réessayer
+            </button>
+            @endif
+            <button style="padding:10px 16px;background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;color:#374151;cursor:pointer"
                     wire:click="closeView">Fermer</button>
         </div>
     </div>
 @endif
 
+@include('admin.partials.confirm-modal')
 </div>

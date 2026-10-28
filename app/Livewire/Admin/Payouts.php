@@ -2,13 +2,17 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\AuditLog;
 use App\Models\DriverPayout;
+use App\Notifications\PayoutPaid;
+use App\Traits\WithConfirmModal;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Payouts extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search       = '';
     public string $statusFilter = '';
@@ -26,6 +30,67 @@ class Payouts extends Component
 
     public function view(int $id): void    { $this->selectedId = $id; }
     public function closeView(): void      { $this->selectedId = null; }
+
+    public function process(int $id): void
+    {
+        $p = DriverPayout::findOrFail($id);
+        if ($p->status !== 'en_attente') { return; }
+
+        $p->update([
+            'status'       => 'en_traitement',
+            'admin_id'     => auth()->id(),
+            'processed_at' => now(),
+        ]);
+
+        AuditLog::record(
+            action:      'payout.process',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'info',
+            description: "Virement {$p->reference} déclenché — " . number_format($p->net_amount) . ' FCFA',
+            targetType:  'payout',
+            targetName:  $p->reference,
+        );
+    }
+
+    public function markPaid(int $id): void
+    {
+        $p = DriverPayout::with('driver')->findOrFail($id);
+        if ($p->status !== 'en_traitement') { return; }
+
+        $p->update(['status' => 'payé', 'paid_at' => now()]);
+
+        try { if ($p->driver) $p->driver->notify(new PayoutPaid($p)); }
+        catch (\Throwable $e) { Log::warning('Payouts.markPaid: notif échouée', ['err' => $e->getMessage()]); }
+
+        AuditLog::record(
+            action:      'payout.paid',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'info',
+            description: "Virement {$p->reference} confirmé payé — " . number_format($p->net_amount) . ' FCFA',
+            targetType:  'payout',
+            targetName:  $p->reference,
+        );
+    }
+
+    public function retry(int $id): void
+    {
+        $p = DriverPayout::findOrFail($id);
+        if ($p->status !== 'échoué') { return; }
+
+        $p->update(['status' => 'en_attente', 'failed_reason' => null, 'processed_at' => null]);
+
+        AuditLog::record(
+            action:      'payout.retry',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'info',
+            description: "Virement {$p->reference} remis en attente",
+            targetType:  'payout',
+            targetName:  $p->reference,
+        );
+    }
 
     public function resetFilters(): void
     {

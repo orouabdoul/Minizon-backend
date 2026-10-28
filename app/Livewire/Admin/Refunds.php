@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Withdrawal;
+use App\Models\AuditLog;
 use App\Models\Booking;
+use App\Models\Withdrawal;
+use App\Notifications\WithdrawalProcessed;
 use App\Traits\WithConfirmModal;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +21,8 @@ class Refunds extends Component
     public string $dateFrom      = '';
     public string $dateTo        = '';
     public ?int   $selectedId    = null;
+    public string $rejectReason  = '';
+    public bool   $showRejectForm = false;
 
     public function updatingSearch(): void       { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
@@ -26,25 +30,91 @@ class Refunds extends Component
     public function updatingDateFrom(): void     { $this->resetPage(); }
     public function updatingDateTo(): void       { $this->resetPage(); }
 
-    public function view(int $id): void  { $this->selectedId = $id; }
-    public function closeView(): void    { $this->selectedId = null; }
+    public function view(int $id): void
+    {
+        $this->selectedId    = $id;
+        $this->rejectReason  = '';
+        $this->showRejectForm = false;
+    }
+
+    public function closeView(): void
+    {
+        $this->selectedId    = null;
+        $this->showRejectForm = false;
+        $this->rejectReason  = '';
+    }
+
+    public function openRejectForm(): void  { $this->showRejectForm = true; }
+    public function closeRejectForm(): void { $this->showRejectForm = false; $this->rejectReason = ''; }
 
     public function approve(int $id): void
     {
-        Withdrawal::findOrFail($id)->update([
-            'status'       => 'approved',
-            'processed_at' => now(),
-        ]);
+        $w = Withdrawal::with('user')->findOrFail($id);
+
+        if (! $w->isPending()) { return; }
+
+        $w->update(['status' => 'approved', 'processed_at' => now()]);
+
+        try { $w->user?->notify(new WithdrawalProcessed($w)); }
+        catch (\Throwable $e) { Log::warning('Refunds.approve: notif échouée', ['err' => $e->getMessage()]); }
+
+        AuditLog::record(
+            action:      'withdrawal.approved',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'info',
+            description: "Retrait {$w->reference} approuvé — " . number_format($w->amount) . ' FCFA',
+            targetType:  'withdrawal',
+            targetName:  $w->reference,
+        );
     }
 
     public function reject(int $id): void
     {
-        Withdrawal::findOrFail($id)->update(['status' => 'rejected']);
+        $w = Withdrawal::with('user')->findOrFail($id);
+
+        if (! $w->isPending()) { $this->showRejectForm = false; return; }
+
+        $w->update([
+            'status'        => 'rejected',
+            'failed_reason' => $this->rejectReason ?: null,
+            'processed_at'  => now(),
+        ]);
+
+        $this->showRejectForm = false;
+        $this->rejectReason   = '';
+
+        try { $w->user?->notify(new WithdrawalProcessed($w)); }
+        catch (\Throwable $e) { Log::warning('Refunds.reject: notif échouée', ['err' => $e->getMessage()]); }
+
+        AuditLog::record(
+            action:      'withdrawal.rejected',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'warning',
+            description: "Retrait {$w->reference} refusé — " . number_format($w->amount) . ' FCFA',
+            targetType:  'withdrawal',
+            targetName:  $w->reference,
+        );
     }
 
     public function markFailed(int $id): void
     {
-        Withdrawal::findOrFail($id)->update(['status' => 'failed']);
+        $w = Withdrawal::findOrFail($id);
+
+        if (! in_array($w->status, ['pending', 'approved'])) { return; }
+
+        $w->update(['status' => 'failed', 'processed_at' => $w->processed_at ?? now()]);
+
+        AuditLog::record(
+            action:      'withdrawal.failed',
+            userId:      auth()->id(),
+            actionType:  'remboursement',
+            severity:    'warning',
+            description: "Retrait {$w->reference} marqué échoué — " . number_format($w->amount) . ' FCFA',
+            targetType:  'withdrawal',
+            targetName:  $w->reference,
+        );
     }
 
     public function render()
