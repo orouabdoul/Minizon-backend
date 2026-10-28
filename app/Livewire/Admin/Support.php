@@ -3,12 +3,13 @@
 namespace App\Livewire\Admin;
 
 use App\Models\SupportTicket;
+use App\Traits\WithConfirmModal;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Support extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search          = '';
     public string $statusFilter    = '';
@@ -29,6 +30,9 @@ class Support extends Component
     {
         $this->selectedTicketId = null;
     }
+
+    public function resolveTicket(int $id): void { $this->updateStatus($id, 'resolved'); }
+    public function closeTicket(int $id): void   { $this->updateStatus($id, 'closed'); }
 
     public function updateStatus(int $id, string $status): void
     {

@@ -3,12 +3,13 @@
 namespace App\Livewire\Admin;
 
 use App\Models\AdminNotification;
+use App\Traits\WithConfirmModal;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Notifications extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $typeFilter     = '';
     public string $priorityFilter = '';

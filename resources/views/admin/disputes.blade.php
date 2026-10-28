@@ -1,10 +1,9 @@
 @php
 $statusLabels = [
-    'pending'             => ['label' => 'En attente',   'color' => '#F59E0B', 'bg' => '#FEF3C7'],
-    'investigating'       => ['label' => 'En cours',     'color' => '#1A5FB4', 'bg' => '#EFF6FF'],
-    'resolved_reporter'   => ['label' => 'Résolu (req.)', 'color' => '#10B981', 'bg' => '#D1FAE5'],
-    'resolved_respondent' => ['label' => 'Résolu (déf.)', 'color' => '#6366F1', 'bg' => '#EDE9FE'],
-    'closed'              => ['label' => 'Fermé',        'color' => '#6B7280', 'bg' => '#F3F4F6'],
+    'pending'                  => ['label' => 'En attente',    'color' => '#F59E0B', 'bg' => '#FEF3C7'],
+    'investigating'            => ['label' => 'En cours',      'color' => '#1A5FB4', 'bg' => '#EFF6FF'],
+    'resolved_refunded'        => ['label' => 'Remboursé',     'color' => '#10B981', 'bg' => '#D1FAE5'],
+    'resolved_paid_to_driver'  => ['label' => 'Résolu (cond.)', 'color' => '#6366F1', 'bg' => '#EDE9FE'],
 ];
 $reasonLabels = [
     'no_show'             => 'No-show conducteur',
@@ -154,7 +153,7 @@ $reasonLabels = [
                 <div class="stat-label">En cours</div>
             </div>
         </div>
-        <div class="stat-card" wire:click="$set('statusFilter','resolved_reporter')">
+        <div class="stat-card" wire:click="$set('statusFilter','resolved_refunded')">
             <div class="stat-icon" style="background:#D1FAE5">✅</div>
             <div>
                 <div class="stat-value" style="color:#10B981">{{ $stats['resolved'] }}</div>
@@ -171,9 +170,8 @@ $reasonLabels = [
             <option value="">Tous statuts</option>
             <option value="pending">En attente</option>
             <option value="investigating">En cours</option>
-            <option value="resolved_reporter">Résolu (requérant)</option>
-            <option value="resolved_respondent">Résolu (défendeur)</option>
-            <option value="closed">Fermé</option>
+            <option value="resolved_refunded">Remboursé</option>
+            <option value="resolved_paid_to_driver">Résolu (conducteur)</option>
         </select>
         @if($reasons->isNotEmpty())
         <select class="filter-select" wire:model.live="reasonFilter">
@@ -256,8 +254,7 @@ $reasonLabels = [
                             <button class="btn-action" title="Voir" wire:click="viewDispute({{ $d->id }})">👁</button>
                             @if($d->status === 'pending')
                             <button class="btn-action" title="Prendre en charge"
-                                    wire:click="setStatus({{ $d->id }}, 'investigating')"
-                                    wire:confirm="Prendre en charge ce litige ?">🔍</button>
+                                    wire:click="askConfirm('takeCharge', {{ $d->id }}, 'Prise en charge', 'Voulez-vous prendre en charge ce litige ? Son statut passera à En cours.', 'primary')">🔍</button>
                             @endif
                         </div>
                     </td>
@@ -273,7 +270,9 @@ $reasonLabels = [
 
 </div>
 
-{{-- ── Panel ─────────────────────────────── --}}
+{{-- ── Modal de confirmation ─────────────────────────────── --}}
+@include('admin.partials.confirm-modal')
+
 @if($selectedDispute)
 @php
     $sd     = $selectedDispute;
@@ -395,27 +394,35 @@ $reasonLabels = [
         <div style="font-size:11px;color:#9CA3AF;text-align:center;margin-bottom:2px">Décision finale</div>
         <div class="resolve-grid">
             <button class="btn-resolve" style="background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7"
-                    wire:click="setStatus({{ $sd->id }}, 'resolved_reporter')"
-                    wire:confirm="Résoudre en faveur du requérant ?">
+                    wire:click="askConfirm('resolveForReporter', {{ $sd->id }}, 'Rembourser le passager', 'Les fonds seront retournés au passager via FedaPay. Cette action est irréversible.', 'danger')">
                 ✅ Faveur requérant
             </button>
             <button class="btn-resolve" style="background:#EDE9FE;color:#4C1D95;border:1.5px solid #C4B5FD"
-                    wire:click="setStatus({{ $sd->id }}, 'resolved_respondent')"
-                    wire:confirm="Résoudre en faveur du défendeur ?">
+                    wire:click="askConfirm('resolveForRespondent', {{ $sd->id }}, 'Libérer les fonds au conducteur', 'Les fonds en escrow seront libérés au conducteur. Le litige sera clôturé.', 'warning')">
                 ✅ Faveur défendeur
             </button>
         </div>
         <button class="btn-resolve" style="background:#F3F4F6;color:#374151;border:1.5px solid #D1D5DB;width:100%"
-                wire:click="setStatus({{ $sd->id }}, 'closed')"
-                wire:confirm="Fermer ce litige sans décision ?">
+                wire:click="askConfirm('closeDispute', {{ $sd->id }}, 'Fermer sans décision', 'Le litige sera fermé sans remboursement. Les fonds resteront au conducteur.', 'warning')">
             🔒 Fermer sans décision
         </button>
         @if($sd->status === 'pending')
         <button class="btn-resolve" style="background:#EFF6FF;color:#1A5FB4;border:1.5px solid #BFDBFE;width:100%"
-                wire:click="setStatus({{ $sd->id }}, 'investigating')">
+                wire:click="askConfirm('takeCharge', {{ $sd->id }}, 'Prise en charge', 'Vous allez prendre en charge ce litige. Son statut passera à En cours.', 'primary')">
             🔍 Prendre en charge
         </button>
         @endif
+        @endif
+
+        @if(session('success'))
+        <div style="padding:10px 14px;background:#D1FAE5;color:#065F46;border-radius:8px;font-size:12px;font-weight:600">
+            ✅ {{ session('success') }}
+        </div>
+        @endif
+        @if(session('error'))
+        <div style="padding:10px 14px;background:#FEE2E2;color:#991B1B;border-radius:8px;font-size:12px;font-weight:600">
+            ❌ {{ session('error') }}
+        </div>
         @endif
         <button style="width:100%;padding:10px;background:#1A5FB4;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer"
                 wire:click="closeView">Fermer</button>

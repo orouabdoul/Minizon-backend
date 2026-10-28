@@ -254,10 +254,8 @@
                     <div class="action-group">
                         <button class="btn-action" title="Détail" wire:click="view({{ $w->id }})">👁</button>
                         @if($w->status === 'pending')
-                        <button class="btn-action success" title="Approuver" wire:click="approve({{ $w->id }})"
-                                wire:confirm="Approuver ce retrait de {{ number_format($w->amount) }} FCFA ?">✓</button>
-                        <button class="btn-action danger" title="Rejeter" wire:click="reject({{ $w->id }})"
-                                wire:confirm="Rejeter cette demande ?">✕</button>
+                        <button class="btn-action success" title="Approuver" wire:click="askConfirm('approve', {{ $w->id }}, 'Approuver retrait', 'Approuver ce retrait de {{ number_format($w->amount) }} FCFA ?', 'primary')">✓</button>
+                        <button class="btn-action danger" title="Rejeter" wire:click="askConfirm('reject', {{ $w->id }}, 'Rejeter retrait', 'Rejeter cette demande de retrait ?', 'danger')">✕</button>
                         @endif
                     </div>
                 </td>
@@ -397,17 +395,15 @@
     </div>
     <div class="panel-actions">
         @if($wd->status === 'pending')
-        <button class="btn-panel btn-panel-success" wire:click="approve({{ $wd->id }})"
-                wire:confirm="Approuver ce retrait de {{ number_format($wd->amount) }} FCFA ?">✓ Approuver</button>
-        <button class="btn-panel btn-panel-danger" wire:click="reject({{ $wd->id }})"
-                wire:confirm="Rejeter cette demande ?">✕ Rejeter</button>
+        <button class="btn-panel btn-panel-success" wire:click="askConfirm('approve', {{ $wd->id }}, 'Approuver retrait', 'Approuver ce retrait de {{ number_format($wd->amount) }} FCFA ?', 'primary')">✓ Approuver</button>
+        <button class="btn-panel btn-panel-danger" wire:click="askConfirm('reject', {{ $wd->id }}, 'Rejeter retrait', 'Rejeter cette demande de retrait ?', 'danger')">✕ Rejeter</button>
         @endif
         @if(in_array($wd->status, ['approved','pending']))
-        <button class="btn-panel btn-panel-warn" wire:click="markFailed({{ $wd->id }})"
-                wire:confirm="Marquer ce virement comme échoué ?">⚠ Échoué</button>
+        <button class="btn-panel btn-panel-warn" wire:click="askConfirm('markFailed', {{ $wd->id }}, 'Marquer échoué', 'Marquer ce virement comme échoué ?', 'warning')">⚠ Échoué</button>
         @endif
         <button class="btn-panel btn-panel-secondary" wire:click="closeView">Fermer</button>
     </div>
 </div>
 @endif
+@include('admin.partials.confirm-modal')
 </div>

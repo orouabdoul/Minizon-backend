@@ -5,13 +5,14 @@ namespace App\Livewire\Admin;
 use App\Models\User;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Traits\WithConfirmModal;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
 
 class Passengers extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search      = '';
     public string $kycFilter   = '';

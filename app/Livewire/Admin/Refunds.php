@@ -4,13 +4,14 @@ namespace App\Livewire\Admin;
 
 use App\Models\Withdrawal;
 use App\Models\Booking;
+use App\Traits\WithConfirmModal;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Refunds extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search        = '';
     public string $statusFilter  = '';

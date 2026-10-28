@@ -3,13 +3,14 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use App\Traits\WithConfirmModal;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Drivers extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search        = '';
     public string $kycFilter     = '';

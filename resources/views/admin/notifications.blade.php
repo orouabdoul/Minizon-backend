@@ -68,7 +68,7 @@
             <p>Alertes et notifications système de MINIZON</p>
         </div>
         @if($stats['unread'] > 0)
-        <button class="btn-mark-all" wire:click="markAllRead" wire:confirm="Marquer toutes les notifications comme lues ?">
+        <button class="btn-mark-all" wire:click="askConfirm('markAllRead', null, 'Marquer comme lues', 'Marquer toutes les notifications comme lues ?', 'primary')">
             ✓ Tout marquer comme lu ({{ $stats['unread'] }})
         </button>
         @endif
@@ -191,8 +191,7 @@
                 @if($notif->status !== 'handled')
                 <button class="btn-sm" wire:click="markHandled({{ $notif->id }})">Traité</button>
                 @endif
-                <button class="btn-sm danger" wire:click="delete({{ $notif->id }})"
-                        wire:confirm="Supprimer cette notification ?">✕</button>
+                <button class="btn-sm danger" wire:click="askConfirm('delete', {{ $notif->id }}, 'Supprimer', 'Supprimer cette notification ?', 'danger')">✕</button>
             </div>
         </div>
         @endforeach
@@ -204,4 +203,5 @@
     @endif
 
 </div>
+@include('admin.partials.confirm-modal')
 </div>

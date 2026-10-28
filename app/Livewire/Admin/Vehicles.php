@@ -3,13 +3,14 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Vehicle;
+use App\Traits\WithConfirmModal;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Storage;
 
 class Vehicles extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search        = '';
     public string $statusFilter  = '';

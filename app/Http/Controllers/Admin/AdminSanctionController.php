@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\DriverSuspended;
 use App\Notifications\DriverWarningIssued;
-use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +18,6 @@ use Illuminate\Http\Request;
  */
 class AdminSanctionController extends Controller
 {
-    use ApiResponseTrait;
 
     private const VISIBILITY_PENALTIES = [1 => -10, 2 => -20];
     private const SUSPENSION_AT        = 3;

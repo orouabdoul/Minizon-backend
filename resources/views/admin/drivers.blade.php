@@ -298,42 +298,42 @@
                     <div class="action-btns" style="flex-direction:column;gap:4px;align-items:flex-start">
                         {{-- KYC conducteur --}}
                         @if($kyc === 'pending' || !$kyc)
-                        <button class="action-btn action-btn--approve" wire:click="approveKyc({{ $driver->id }})" wire:confirm="Approuver le KYC de {{ $name ?: $driver->phone }} ?" title="Approuver KYC">
+                        <button class="action-btn action-btn--approve" wire:click="askConfirm('approveKyc', {{ $driver->id }}, 'Approuver KYC', 'Approuver le KYC de ce conducteur ?', 'primary')" title="Approuver KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             KYC Approuver
                         </button>
-                        <button class="action-btn action-btn--reject" wire:click="rejectKyc({{ $driver->id }})" wire:confirm="Rejeter le KYC de {{ $name ?: $driver->phone }} ?" title="Rejeter KYC">
+                        <button class="action-btn action-btn--reject" wire:click="askConfirm('rejectKyc', {{ $driver->id }}, 'Rejeter KYC', 'Rejeter le KYC de ce conducteur ?', 'danger')" title="Rejeter KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             KYC Rejeter
                         </button>
                         @elseif($kyc === 'approved')
-                        <button class="action-btn action-btn--reject" wire:click="rejectKyc({{ $driver->id }})" wire:confirm="Révoquer l'approbation KYC ?" title="Révoquer KYC">
+                        <button class="action-btn action-btn--reject" wire:click="askConfirm('rejectKyc', {{ $driver->id }}, 'Révoquer KYC', 'Révoquer cette approbation KYC ?', 'warning')" title="Révoquer KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             KYC Révoquer
                         </button>
                         @elseif($kyc === 'rejected')
-                        <button class="action-btn action-btn--approve" wire:click="approveKyc({{ $driver->id }})" wire:confirm="Ré-approuver le KYC ?" title="Ré-approuver KYC">
+                        <button class="action-btn action-btn--approve" wire:click="askConfirm('approveKyc', {{ $driver->id }}, 'Ré-approuver KYC', 'Ré-approuver le KYC de ce conducteur ?', 'primary')" title="Ré-approuver KYC">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             KYC Ré-approuver
                         </button>
                         @endif
                         {{-- Véhicule --}}
                         @if($veh && ($vStatus === 'pending' || !$vStatus))
-                        <button class="action-btn action-btn--approve" wire:click="approveVehicle({{ $driver->id }})" wire:confirm="Approuver le véhicule de {{ $name ?: $driver->phone }} ?" title="Approuver véhicule">
+                        <button class="action-btn action-btn--approve" wire:click="askConfirm('approveVehicle', {{ $driver->id }}, 'Approuver véhicule', 'Approuver le véhicule de ce conducteur ?', 'primary')" title="Approuver véhicule">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             Véh. Approuver
                         </button>
-                        <button class="action-btn action-btn--reject" wire:click="rejectVehicle({{ $driver->id }})" wire:confirm="Rejeter le véhicule de {{ $name ?: $driver->phone }} ?" title="Rejeter véhicule">
+                        <button class="action-btn action-btn--reject" wire:click="askConfirm('rejectVehicle', {{ $driver->id }}, 'Rejeter véhicule', 'Rejeter le véhicule de ce conducteur ?', 'danger')" title="Rejeter véhicule">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             Véh. Rejeter
                         </button>
                         @elseif($veh && $vStatus === 'approved')
-                        <button class="action-btn action-btn--reject" wire:click="rejectVehicle({{ $driver->id }})" wire:confirm="Révoquer l'approbation du véhicule ?" title="Révoquer véhicule">
+                        <button class="action-btn action-btn--reject" wire:click="askConfirm('rejectVehicle', {{ $driver->id }}, 'Révoquer véhicule', 'Révoquer cette approbation de véhicule ?', 'warning')" title="Révoquer véhicule">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             Véh. Révoquer
                         </button>
                         @elseif($veh && $vStatus === 'rejected')
-                        <button class="action-btn action-btn--approve" wire:click="approveVehicle({{ $driver->id }})" wire:confirm="Approuver quand même le véhicule ?" title="Ré-approuver véhicule">
+                        <button class="action-btn action-btn--approve" wire:click="askConfirm('approveVehicle', {{ $driver->id }}, 'Ré-approuver véhicule', 'Approuver quand même ce véhicule ?', 'primary')" title="Ré-approuver véhicule">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             Véh. Ré-approuver
                         </button>
@@ -538,27 +538,27 @@
     {{-- Pied du panneau --}}
     <div style="padding:16px 24px;border-top:1px solid #F3F4F6;flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap">
         @if($kycD === 'pending' || !$kycD)
-        <button wire:click="approveKyc({{ $sd->id }})" wire:confirm="Approuver le KYC de {{ $nmD ?: $sd->phone }} ?"
+        <button wire:click="askConfirm('approveKyc', {{ $sd->id }}, 'Approuver KYC', 'Approuver le KYC de ce conducteur ?', 'primary')"
                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BBF7D0;color:#16A34A;background:#F0FDF4">
             ✔ Approuver KYC
         </button>
-        <button wire:click="rejectKyc({{ $sd->id }})" wire:confirm="Rejeter le KYC de {{ $nmD ?: $sd->phone }} ?"
+        <button wire:click="askConfirm('rejectKyc', {{ $sd->id }}, 'Rejeter KYC', 'Rejeter le KYC de ce conducteur ?', 'danger')"
                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2">
             ✕ Rejeter KYC
         </button>
         @elseif($kycD === 'approved')
-        <button wire:click="rejectKyc({{ $sd->id }})" wire:confirm="Révoquer l'approbation KYC ?"
+        <button wire:click="askConfirm('rejectKyc', {{ $sd->id }}, 'Révoquer KYC', 'Révoquer cette approbation KYC ?', 'warning')"
                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #FECACA;color:#DC2626;background:#FEF2F2">
             ✕ Révoquer KYC
         </button>
         @elseif($kycD === 'rejected')
-        <button wire:click="approveKyc({{ $sd->id }})" wire:confirm="Ré-approuver le KYC ?"
+        <button wire:click="askConfirm('approveKyc', {{ $sd->id }}, 'Ré-approuver KYC', 'Ré-approuver le KYC de ce conducteur ?', 'primary')"
                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BBF7D0;color:#16A34A;background:#F0FDF4">
             ✔ Ré-approuver KYC
         </button>
         @endif
         @if($vhd && ($vhd->verification_status === 'pending' || !$vhd->verification_status))
-        <button wire:click="approveVehicle({{ $sd->id }})" wire:confirm="Approuver le véhicule ?"
+        <button wire:click="askConfirm('approveVehicle', {{ $sd->id }}, 'Approuver véhicule', 'Approuver le véhicule de ce conducteur ?', 'primary')"
                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #BFDBFE;color:#1A5FB4;background:#EFF6FF">
             ✔ Approuver véhicule
         </button>
@@ -571,4 +571,5 @@
 </div>
 @endif
 
+@include('admin.partials.confirm-modal')
 </div>

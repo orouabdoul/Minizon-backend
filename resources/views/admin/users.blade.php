@@ -294,16 +294,16 @@
                         </button>
                         {{-- Bloquer / Débloquer --}}
                         @if($user->is_blocked)
-                        <button class="action-btn action-btn--success" wire:click="toggleBlock({{ $user->id }})" wire:confirm="Débloquer cet utilisateur ?" title="Débloquer">
+                        <button class="action-btn action-btn--success" wire:click="askConfirm('toggleBlock', {{ $user->id }}, 'Débloquer utilisateur', 'Débloquer cet utilisateur ?', 'primary')" title="Débloquer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
                         </button>
                         @else
-                        <button class="action-btn action-btn--warn" wire:click="toggleBlock({{ $user->id }})" wire:confirm="Bloquer cet utilisateur ?" title="Bloquer">
+                        <button class="action-btn action-btn--warn" wire:click="askConfirm('toggleBlock', {{ $user->id }}, 'Bloquer utilisateur', 'Bloquer cet utilisateur ?', 'warning')" title="Bloquer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         </button>
                         @endif
                         {{-- Supprimer --}}
-                        <button class="action-btn action-btn--danger" wire:click="deleteUser({{ $user->id }})" wire:confirm="Supprimer définitivement cet utilisateur et toutes ses données ?" title="Supprimer">
+                        <button class="action-btn action-btn--danger" wire:click="askConfirm('deleteUser', {{ $user->id }}, 'Supprimer utilisateur', 'Supprimer définitivement cet utilisateur et toutes ses données ?', 'danger')" title="Supprimer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         </button>
                     </div>
@@ -488,38 +488,38 @@
         <div class="panel-actions">
             {{-- KYC --}}
             @if($p?->kyc_status === 'pending' || !$p?->kyc_status)
-            <button class="panel-action-btn panel-action-btn--approve" wire:click="approveKyc({{ $u->id }})" wire:confirm="Approuver le KYC de {{ $uName ?: $u->phone }} ?">
+            <button class="panel-action-btn panel-action-btn--approve" wire:click="askConfirm('approveKyc', {{ $u->id }}, 'Approuver KYC', 'Approuver le KYC de cet utilisateur ?', 'primary')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 Approuver KYC
             </button>
-            <button class="panel-action-btn panel-action-btn--reject" wire:click="rejectKyc({{ $u->id }})" wire:confirm="Rejeter le KYC de {{ $uName ?: $u->phone }} ?">
+            <button class="panel-action-btn panel-action-btn--reject" wire:click="askConfirm('rejectKyc', {{ $u->id }}, 'Rejeter KYC', 'Rejeter le KYC de cet utilisateur ?', 'danger')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 Rejeter KYC
             </button>
             @elseif($p?->kyc_status === 'approved')
-            <button class="panel-action-btn panel-action-btn--reject" wire:click="rejectKyc({{ $u->id }})" wire:confirm="Révoquer l'approbation KYC ?">
+            <button class="panel-action-btn panel-action-btn--reject" wire:click="askConfirm('rejectKyc', {{ $u->id }}, 'Révoquer KYC', 'Révoquer cette approbation KYC ?', 'warning')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 Révoquer KYC
             </button>
             @elseif($p?->kyc_status === 'rejected')
-            <button class="panel-action-btn panel-action-btn--approve" wire:click="approveKyc({{ $u->id }})" wire:confirm="Ré-approuver le KYC ?">
+            <button class="panel-action-btn panel-action-btn--approve" wire:click="askConfirm('approveKyc', {{ $u->id }}, 'Ré-approuver KYC', 'Ré-approuver le KYC de cet utilisateur ?', 'primary')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 Ré-approuver KYC
             </button>
             @endif
             {{-- Bloquer / Débloquer --}}
             @if($u->is_blocked)
-            <button class="panel-action-btn panel-action-btn--unblock" wire:click="toggleBlock({{ $u->id }})" wire:confirm="Débloquer cet utilisateur ?">
+            <button class="panel-action-btn panel-action-btn--unblock" wire:click="askConfirm('toggleBlock', {{ $u->id }}, 'Débloquer utilisateur', 'Débloquer cet utilisateur ?', 'primary')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
                 Débloquer
             </button>
             @else
-            <button class="panel-action-btn panel-action-btn--block" wire:click="toggleBlock({{ $u->id }})" wire:confirm="Bloquer cet utilisateur ?">
+            <button class="panel-action-btn panel-action-btn--block" wire:click="askConfirm('toggleBlock', {{ $u->id }}, 'Bloquer utilisateur', 'Bloquer cet utilisateur ?', 'warning')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Bloquer
             </button>
             @endif
-            <button class="panel-action-btn panel-action-btn--delete" wire:click="deleteUser({{ $u->id }})" wire:confirm="Supprimer définitivement {{ $uName ?: $u->phone }} ?">
+            <button class="panel-action-btn panel-action-btn--delete" wire:click="askConfirm('deleteUser', {{ $u->id }}, 'Supprimer utilisateur', 'Supprimer définitivement cet utilisateur ?', 'danger')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                 Supprimer
             </button>
@@ -529,4 +529,5 @@
 </div>
 @endif
 
+@include('admin.partials.confirm-modal')
 </div>

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
-use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,8 +14,6 @@ use Illuminate\Http\Request;
  */
 class DriverStatusController extends Controller
 {
-    use ApiResponseTrait;
-
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();

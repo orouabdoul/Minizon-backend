@@ -382,7 +382,7 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
                               wire:model="rejectReason"></textarea>
                     <div style="display:flex;gap:8px;margin-top:10px">
                         <button style="flex:1;padding:9px;background:#EF4444;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer"
-                                wire:click="reject({{ $v->id }})" wire:confirm="Confirmer le rejet ?">
+                                wire:click="askConfirm('reject', {{ $v->id }}, 'Confirmer rejet', 'Confirmer le rejet de ce véhicule ?', 'danger')">
                             Confirmer le rejet
                         </button>
                         <button style="padding:9px 16px;background:#F3F4F6;border:none;border-radius:8px;font-size:13px;cursor:pointer"
@@ -397,7 +397,7 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
         {{-- Footer actions --}}
         <div class="panel-footer">
             @if(($v->verification_status ?? 'pending') !== 'approved')
-                <button class="btn-approve" wire:click="approve({{ $v->id }})" wire:confirm="Approuver ce véhicule ?">
+                <button class="btn-approve" wire:click="askConfirm('approve', {{ $v->id }}, 'Approuver véhicule', 'Approuver ce véhicule ?', 'primary')">
                     ✅ Approuver
                 </button>
             @endif
@@ -405,7 +405,7 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
                 <div class="panel-btn-row">
                     <button class="btn-reject" wire:click="openRejectForm">❌ Rejeter</button>
                     @if(($v->verification_status ?? 'pending') !== 'suspended')
-                        <button class="btn-suspend" wire:click="suspend({{ $v->id }})" wire:confirm="Suspendre ce véhicule ?">
+                        <button class="btn-suspend" wire:click="askConfirm('suspend', {{ $v->id }}, 'Suspendre véhicule', 'Suspendre ce véhicule ?', 'warning')">
                             ⛔ Suspendre
                         </button>
                     @endif
@@ -416,4 +416,5 @@ $colors = ['#1A5FB4','#FF7A45','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6'
     </div>
 @endif
 
+@include('admin.partials.confirm-modal')
 </div>

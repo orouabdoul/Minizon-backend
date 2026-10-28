@@ -3,12 +3,13 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Review;
+use App\Traits\WithConfirmModal;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Reviews extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search       = '';
     public string $ratingFilter = '';

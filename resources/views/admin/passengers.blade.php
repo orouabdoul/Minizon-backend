@@ -273,8 +273,7 @@ $kycLabels = [
                         <div class="action-group">
                             <button class="btn-action" wire:click="view({{ $pax->id }})" title="Voir le profil">👁</button>
                             <button class="btn-action {{ $pax->is_blocked ? 'btn-success' : 'btn-danger' }}"
-                                    wire:click="toggleBlock({{ $pax->id }})"
-                                    wire:confirm="{{ $pax->is_blocked ? 'Débloquer ce passager ?' : 'Bloquer ce passager ?' }}"
+                                    wire:click="askConfirm('toggleBlock', {{ $pax->id }}, 'Bloquer / Débloquer', 'Modifier le statut de blocage de ce passager ?', 'warning')"
                                     title="{{ $pax->is_blocked ? 'Débloquer' : 'Bloquer' }}">
                                 {{ $pax->is_blocked ? '🔓' : '🔒' }}
                             </button>
@@ -509,33 +508,33 @@ $kycLabels = [
     <div class="panel-footer">
         {{-- KYC --}}
         @if($pr2?->kyc_status === 'pending' || !$pr2?->kyc_status)
-        <button class="btn-kyc-approve" wire:click="approveKyc({{ $s->id }})" wire:confirm="Approuver le KYC de {{ $nm2 }} ?">
+        <button class="btn-kyc-approve" wire:click="askConfirm('approveKyc', {{ $s->id }}, 'Approuver KYC', 'Approuver le KYC de ce passager ?', 'primary')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Approuver KYC
         </button>
-        <button class="btn-kyc-reject" wire:click="rejectKyc({{ $s->id }})" wire:confirm="Rejeter le KYC de {{ $nm2 }} ?">
+        <button class="btn-kyc-reject" wire:click="askConfirm('rejectKyc', {{ $s->id }}, 'Rejeter KYC', 'Rejeter le KYC de ce passager ?', 'danger')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Rejeter KYC
         </button>
         @elseif($pr2?->kyc_status === 'approved')
-        <button class="btn-kyc-reject" wire:click="rejectKyc({{ $s->id }})" wire:confirm="Révoquer l'approbation KYC ?">
+        <button class="btn-kyc-reject" wire:click="askConfirm('rejectKyc', {{ $s->id }}, 'Révoquer KYC', 'Révoquer cette approbation KYC ?', 'warning')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Révoquer KYC
         </button>
         @elseif($pr2?->kyc_status === 'rejected')
-        <button class="btn-kyc-approve" wire:click="approveKyc({{ $s->id }})" wire:confirm="Ré-approuver le KYC ?">
+        <button class="btn-kyc-approve" wire:click="askConfirm('approveKyc', {{ $s->id }}, 'Ré-approuver KYC', 'Ré-approuver le KYC de ce passager ?', 'primary')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Ré-approuver KYC
         </button>
         @endif
         {{-- Bloquer --}}
         <button class="btn-block {{ $s->is_blocked ? 'unblock' : 'block' }}"
-                wire:click="toggleBlock({{ $s->id }})"
-                wire:confirm="{{ $s->is_blocked ? 'Débloquer ce passager ?' : 'Bloquer ce passager ?' }}">
+                wire:click="askConfirm('toggleBlock', {{ $s->id }}, 'Bloquer / Débloquer', 'Modifier le statut de blocage de ce passager ?', 'warning')">
             {{ $s->is_blocked ? '🔓 Débloquer' : '🔒 Bloquer' }}
         </button>
         <button class="btn-close-panel" wire:click="closeView">Fermer</button>
     </div>
 </div>
 @endif
+@include('admin.partials.confirm-modal')
 </div>

@@ -357,14 +357,12 @@
                             <button class="btn-action" title="Voir le détail"
                                     wire:click="viewTrip({{ $trip->id }})">👁</button>
                             <button class="btn-action warn" title="{{ $trip->is_flagged ? 'Retirer le signalement' : 'Signaler' }}"
-                                    wire:click="toggleFlag({{ $trip->id }})"
-                                    wire:confirm="{{ $trip->is_flagged ? 'Retirer le signalement de ce trajet ?' : 'Signaler ce trajet ?' }}">
+                                    wire:click="askConfirm('toggleFlag', {{ $trip->id }}, 'Signalement', 'Modifier le signalement de ce trajet ?', 'warning')">
                                 {{ $trip->is_flagged ? '🏳️' : '🚩' }}
                             </button>
                             @if(!in_array($trip->status, ['cancelled','completed']))
                             <button class="btn-action danger" title="Annuler le trajet"
-                                    wire:click="cancelTrip({{ $trip->id }})"
-                                    wire:confirm="Annuler définitivement ce trajet ? Les passagers seront affectés.">✕</button>
+                                    wire:click="askConfirm('cancelTrip', {{ $trip->id }}, 'Annuler trajet', 'Annuler ce trajet ? Les passagers seront affectés.', 'danger')">✕</button>
                             @endif
                         </div>
                     </td>
@@ -596,16 +594,16 @@
     {{-- Panel footer actions --}}
     <div class="panel-actions">
         @if($t->is_flagged)
-        <button class="btn-panel btn-panel-warn" wire:click="toggleFlag({{ $t->id }})" wire:confirm="Retirer le signalement ?">
+        <button class="btn-panel btn-panel-warn" wire:click="askConfirm('toggleFlag', {{ $t->id }}, 'Retirer signalement', 'Retirer le signalement de ce trajet ?', 'warning')">
             🏳️ Désignaler
         </button>
         @else
-        <button class="btn-panel btn-panel-warn" wire:click="toggleFlag({{ $t->id }})" wire:confirm="Signaler ce trajet ?">
+        <button class="btn-panel btn-panel-warn" wire:click="askConfirm('toggleFlag', {{ $t->id }}, 'Signaler trajet', 'Signaler ce trajet aux modérateurs ?', 'warning')">
             🚩 Signaler
         </button>
         @endif
         @if(!in_array($t->status, ['cancelled','completed']))
-        <button class="btn-panel btn-panel-danger" wire:click="cancelTrip({{ $t->id }})" wire:confirm="Annuler ce trajet définitivement ?">
+        <button class="btn-panel btn-panel-danger" wire:click="askConfirm('cancelTrip', {{ $t->id }}, 'Annuler trajet', 'Annuler ce trajet définitivement ?', 'danger')">
             Annuler le trajet
         </button>
         @endif
@@ -614,4 +612,5 @@
 </div>
 @endif
 @endif
+@include('admin.partials.confirm-modal')
 </div>

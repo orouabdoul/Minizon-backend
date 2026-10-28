@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use App\Traits\WithConfirmModal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -10,7 +11,7 @@ use Livewire\WithPagination;
 
 class Users extends Component
 {
-    use WithPagination;
+    use WithPagination, WithConfirmModal;
 
     public string $search     = '';
     public string $tab        = 'all';

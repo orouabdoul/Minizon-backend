@@ -264,8 +264,7 @@ function stars(int $rating): string {
                         <button class="btn-action warn" title="Masquer" wire:click="hide({{ $review->id }})">🙈</button>
                         @endif
                         <button class="btn-action danger" title="Supprimer"
-                                wire:click="delete({{ $review->id }})"
-                                wire:confirm="Supprimer définitivement cet avis ?">✕</button>
+                                wire:click="askConfirm('delete', {{ $review->id }}, 'Supprimer avis', 'Supprimer définitivement cet avis ?', 'danger')">✕</button>
                     </div>
                 </td>
             </tr>
@@ -392,10 +391,10 @@ function stars(int $rating): string {
         @if($rv->status !== 'hidden')
         <button class="btn-panel btn-panel-warn" wire:click="hide({{ $rv->id }})">🙈 Masquer</button>
         @endif
-        <button class="btn-panel btn-panel-danger" wire:click="delete({{ $rv->id }})"
-                wire:confirm="Supprimer définitivement cet avis ?">Supprimer</button>
+        <button class="btn-panel btn-panel-danger" wire:click="askConfirm('delete', {{ $rv->id }}, 'Supprimer avis', 'Supprimer définitivement cet avis ?', 'danger')">Supprimer</button>
         <button class="btn-panel btn-panel-secondary" wire:click="closeView">Fermer</button>
     </div>
 </div>
 @endif
+@include('admin.partials.confirm-modal')
 </div>

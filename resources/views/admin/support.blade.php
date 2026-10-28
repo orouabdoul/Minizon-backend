@@ -272,8 +272,7 @@ $channelLabels = [
                             @endif
                             @if(!in_array($tk->status, ['resolved','closed']))
                             <button class="btn-action success" title="Marquer résolu"
-                                    wire:click="updateStatus({{ $tk->id }}, 'resolved')"
-                                    wire:confirm="Marquer ce ticket comme résolu ?">✓</button>
+                                    wire:click="askConfirm('resolveTicket', {{ $tk->id }}, 'Résoudre ticket', 'Marquer ce ticket comme résolu ?', 'primary')">✓</button>
                             @endif
                         </div>
                     </td>
@@ -358,15 +357,14 @@ $channelLabels = [
                     wire:click="updateStatus({{ $tk2->id }}, 'in_progress')">⚙️ Prendre en charge</button>
             @endif
             <button class="btn-panel" style="background:#D1FAE5;color:#065F46;border:1.5px solid #6EE7B7"
-                    wire:click="updateStatus({{ $tk2->id }}, 'resolved')"
-                    wire:confirm="Marquer comme résolu ?">✅ Résoudre</button>
+                    wire:click="askConfirm('resolveTicket', {{ $tk2->id }}, 'Résoudre ticket', 'Marquer comme résolu ?', 'primary')">✅ Résoudre</button>
             <button class="btn-panel" style="background:#F3F4F6;color:#374151;border:1.5px solid #D1D5DB"
-                    wire:click="updateStatus({{ $tk2->id }}, 'closed')"
-                    wire:confirm="Fermer ce ticket ?">🔒 Fermer</button>
+                    wire:click="askConfirm('closeTicket', {{ $tk2->id }}, 'Fermer ticket', 'Fermer ce ticket ?', 'warning')">🔒 Fermer</button>
         @endif
         <button class="btn-panel" style="background:#1A5FB4;color:#fff;border:none"
                 wire:click="closeView">Fermer</button>
     </div>
 </div>
 @endif
+@include('admin.partials.confirm-modal')
 </div>
