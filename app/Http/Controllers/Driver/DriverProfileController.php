@@ -438,7 +438,7 @@ class DriverProfileController extends Controller
 
         $request->validate([
             'document_type'       => 'required|string|in:driving_license',
-            'file'                => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:5120',
+            'file'                => 'required|file|mimes:jpeg,jpg,png,pdf,webp|max:1024',
             'license_expiry_date' => 'nullable|date|after:today',
         ]);
 

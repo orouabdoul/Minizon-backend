@@ -741,8 +741,8 @@ class AuthController extends Controller
 
         if ($isAdmin) {
             $rules['phone']         = ['required', 'string', 'unique:users,phone,' . $user->id];
-            $rules['id_card_front'] = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
-            $rules['id_card_back']  = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
+            $rules['id_card_front'] = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'];
+            $rules['id_card_back']  = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'];
         }
 
         if ($vehicle) {

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Withdrawal\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
@@ -22,4 +23,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Journal d'audit de sécurité
     Route::get('admin/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
+
+    // Gestion des retraits conducteurs
+    Route::get('admin/withdrawals',                              [WithdrawalController::class, 'adminIndex'])->name('admin.withdrawals.index');
+    Route::get('admin/withdrawals/balance',                      [WithdrawalController::class, 'balance'])->name('admin.withdrawals.balance');
+    Route::post('admin/withdrawals/{id}/process',                [WithdrawalController::class, 'process'])->name('admin.withdrawals.process');
+    Route::post('admin/withdrawals/{id}/reject',                 [WithdrawalController::class, 'reject'])->name('admin.withdrawals.reject');
 });

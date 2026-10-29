@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
+use App\Models\AuditLog;
 use App\Models\Payment;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalProcessed;
 use App\Notifications\WithdrawalRequested;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 /**
@@ -238,32 +241,134 @@ MD,
 
         $withdrawal = Withdrawal::create($withdrawalData);
 
-        try {
-            $user->notify(new WithdrawalRequested($withdrawal));
-        } catch (\Throwable $e) {
-            Log::warning('DriverWithdrawController: notif retrait échouée', ['error' => $e->getMessage()]);
+        // Pour MoMo : tentative de virement automatique via FedaPay Payout API
+        if ($isMomo) {
+            $this->attemptAutoPayout($withdrawal, $user);
+            $withdrawal->refresh();
         }
 
-        // Notifier les admins de la nouvelle demande de retrait
-        $profile    = $user->profile;
-        $driverName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
-        $formatted  = number_format($amount, 0, '.', ' ');
+        // Notifications si la demande est encore en attente (banque ou auto-payout non exécuté)
+        if ($withdrawal->isPending()) {
+            try {
+                $user->notify(new WithdrawalRequested($withdrawal));
+            } catch (\Throwable $e) {
+                Log::warning('DriverWithdrawController: notif WithdrawalRequested échouée', ['error' => $e->getMessage()]);
+            }
 
-        AdminNotification::notifyAdmins(
-            type:        'payment',
-            priority:    'high',
-            title:       'Nouvelle demande de retrait',
-            description: "{$driverName} demande un retrait de {$formatted} FCFA via {$validated['provider']}.",
-            refType:     'withdrawal',
-            refId:       $withdrawal->reference ?? (string) $withdrawal->id,
-            userId:      $user->id,
-        );
+            $profile    = $user->profile;
+            $driverName = $profile ? trim("{$profile->first_name} {$profile->last_name}") : $user->phone;
+            $formatted  = number_format($amount, 0, '.', ' ');
 
-        return $this->apiResponse(true, 'Retrait initié. Traitement sous 24h.', [
+            AdminNotification::notifyAdmins(
+                type:        'payment',
+                priority:    'high',
+                title:       'Nouvelle demande de retrait',
+                description: "{$driverName} demande un retrait de {$formatted} FCFA via {$validated['provider']}.",
+                refType:     'withdrawal',
+                refId:       $withdrawal->reference ?? (string) $withdrawal->id,
+                userId:      $user->id,
+            );
+        }
+
+        $message = match ($withdrawal->status) {
+            'approved' => 'Virement effectué. Les fonds arrivent sur votre Mobile Money.',
+            'failed'   => 'Le virement automatique a échoué. L\'équipe a été notifiée et traitera votre demande manuellement.',
+            default    => 'Retrait initié. Traitement sous 24h.',
+        };
+
+        return $this->apiResponse(true, $message, [
             'reference' => $withdrawal->reference,
             'amount'    => $amount,
             'provider'  => $validated['provider'],
-            'status'    => 'pending',
+            'status'    => $withdrawal->status,
         ]);
+    }
+
+    // =========================================================================
+    //  AUTO-PAYOUT MOMO VIA FEDAPAY PAYOUT API
+    // =========================================================================
+
+    private function attemptAutoPayout(Withdrawal $withdrawal, $user): void
+    {
+        $modeMap = ['mtn' => 'mtn_open', 'moov' => 'moov', 'celtiis' => 'sbin'];
+        $mode    = $modeMap[$withdrawal->provider] ?? null;
+        if (! $mode) { return; }
+
+        $profile   = $user->load('profile')->profile;
+        $firstName = $profile?->first_name ?? 'Conducteur';
+        $lastName  = $profile?->last_name  ?? '';
+        $email     = $profile?->email ?? ('driver' . $user->id . '@minizon.app');
+
+        try {
+            \FedaPay\FedaPay::setApiKey(config('fedapay.secret_key'));
+            \FedaPay\FedaPay::setEnvironment(config('fedapay.environment'));
+
+            $payout = \FedaPay\Payout::create([
+                'amount'   => $withdrawal->amount,
+                'currency' => ['iso' => 'XOF'],
+                'mode'     => $mode,
+                'customer' => [
+                    'firstname' => $firstName,
+                    'lastname'  => $lastName,
+                    'email'     => $email,
+                ],
+            ]);
+
+            $payout->sendNow([
+                'phone_number' => [
+                    'number'  => $withdrawal->phone_number,
+                    'country' => 'bj',
+                ],
+            ]);
+
+            $withdrawal->update(['status' => 'approved', 'processed_at' => now()]);
+
+            try {
+                $user->notify(new WithdrawalProcessed($withdrawal));
+            } catch (\Throwable $e) {
+                Log::warning('DriverWithdrawController.attemptAutoPayout: notif approved échouée', ['err' => $e->getMessage()]);
+            }
+
+            AuditLog::record(
+                action:      'withdrawal.auto_paid',
+                actionType:  'remboursement',
+                severity:    'info',
+                description: 'Retrait auto ' . $withdrawal->reference . ' — ' . number_format($withdrawal->amount) . ' FCFA via ' . $withdrawal->provider,
+                targetType:  'withdrawal',
+                targetName:  $withdrawal->reference,
+            );
+
+        } catch (\Throwable $e) {
+            Log::error('DriverWithdrawController.attemptAutoPayout: FedaPay Payout échoué', [
+                'withdrawal_id' => $withdrawal->id,
+                'err'           => $e->getMessage(),
+            ]);
+
+            $withdrawal->update([
+                'status'        => 'failed',
+                'failed_reason' => 'Paiement automatique échoué : ' . Str::limit($e->getMessage(), 200),
+                'processed_at'  => now(),
+            ]);
+
+            try {
+                $user->notify(new WithdrawalProcessed($withdrawal));
+            } catch (\Throwable $notifErr) {
+                Log::warning('DriverWithdrawController.attemptAutoPayout: notif failed échouée', ['err' => $notifErr->getMessage()]);
+            }
+
+            $driverName = $profile?->first_name
+                ? trim("{$profile->first_name} {$profile->last_name}")
+                : $user->phone;
+
+            AdminNotification::notifyAdmins(
+                type:        'payment',
+                priority:    'high',
+                title:       'Retrait automatique échoué',
+                description: "Retrait {$withdrawal->reference} de {$driverName} ({$withdrawal->provider}) échoué — traitement manuel requis.",
+                refType:     'withdrawal',
+                refId:       $withdrawal->reference,
+                userId:      $user->id,
+            );
+        }
     }
 }
