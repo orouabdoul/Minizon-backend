@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Passenger;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Profile;
 use App\Models\Trip;
 use App\Models\User;
@@ -292,15 +293,16 @@ class PassengerHomeController extends Controller
 
     private function heroMetrics(User $user): array
     {
-        $completedBookings = Booking::where('passenger_id', $user->id)
+        $completedBookingIds = Booking::where('passenger_id', $user->id)
             ->where('status', 'accepted')
             ->whereHas('trip', fn ($q) => $q->where('status', 'completed'))
-            ->whereHas('payment', fn ($q) => $q->whereIn('status', ['success', 'locked']))
-            ->with('payment')
-            ->get();
+            ->pluck('id');
 
-        $tripsCompleted = $completedBookings->count();
-        $totalSpent     = (int) $completedBookings->sum(fn ($b) => $b->payment?->gross_amount ?? 0);
+        $tripsCompleted = $completedBookingIds->count();
+
+        $totalSpent = (int) Payment::whereIn('booking_id', $completedBookingIds)
+            ->whereIn('status', ['success', 'locked'])
+            ->sum('gross_amount');
 
         // CO2 estimé : ~120g/km économisé vs voiture seule, trajet moyen 25 km
         $co2Kg = round($tripsCompleted * 120 * 25 / 1000, 1);
