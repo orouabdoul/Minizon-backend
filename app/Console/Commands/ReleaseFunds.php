@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\AuditLog;
+use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Review;
 use App\Models\TripValidation;
 use Illuminate\Console\Command;
@@ -91,6 +93,66 @@ class ReleaseFunds extends Command
         }
 
         $this->info("{$released} libéré(s). {$blocked} bloqué(s) par litige actif.");
+
+        // ── Passe 2 : paiements locked sans TripValidation (anciens trajets) ──────
+        // Couvre les trajets terminés avant la création automatique de TripValidation
+        // dans endTrip(). Condition : trip completed +2h, aucun litige actif.
+        $orphanPayments = Payment::with(['booking.dispute', 'booking.trip'])
+            ->where('status', 'locked')
+            ->whereHas('booking', fn ($q) => $q->where('status', 'accepted'))
+            ->whereHas('booking.trip', fn ($q) => $q
+                ->where('status', 'completed')
+                ->where('completed_at', '<=', now()->subHours(2))
+            )
+            ->whereDoesntHave('booking.tripValidation', fn ($q) => $q->whereIn('status', ['released', 'disputed']))
+            ->get();
+
+        $orphanReleased = 0;
+
+        foreach ($orphanPayments as $payment) {
+            $booking = $payment->booking;
+
+            if ($booking?->dispute && ! $booking->dispute->isResolved()) {
+                continue;
+            }
+
+            try {
+                $payment->update(['status' => 'success']);
+                $booking?->update(['payment_status' => 'released_to_driver']);
+
+                // Marquer TripValidation comme released si elle existe
+                $booking?->tripValidation?->update(['status' => 'released', 'released_at' => now()]);
+
+                Log::info('ReleaseFunds passe2: fonds libérés (orphan)', [
+                    'booking_id' => $booking?->id,
+                    'amount'     => $payment->net_amount,
+                ]);
+
+                AuditLog::record(
+                    action:      'payment.auto_release',
+                    userId:      0,
+                    ip:          'system',
+                    actionType:  'remboursement',
+                    severity:    'info',
+                    description: 'Libération auto (orphan) — Booking #' . ($booking?->id ?? '?')
+                                 . ($payment->net_amount ? ' (' . number_format($payment->net_amount, 0, ',', ' ') . ' FCFA)' : ''),
+                    targetType:  'payment',
+                    targetName:  $payment->transaction_reference ?? (string) $payment->id,
+                    userAgent:   'artisan:minizon:release-funds',
+                );
+
+                $orphanReleased++;
+            } catch (\Throwable $e) {
+                Log::error('ReleaseFunds passe2: erreur', [
+                    'payment_id' => $payment->id,
+                    'err'        => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($orphanReleased > 0) {
+            $this->info("{$orphanReleased} libéré(s) (anciens trajets sans TripValidation).");
+        }
     }
 
     private function notifyAdmin(TripValidation $validation, Review $review): void
