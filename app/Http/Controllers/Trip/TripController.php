@@ -324,13 +324,22 @@ class TripController extends Controller
             'completed_at' => now(),
         ]);
 
-        // Fenêtre de 2h pour tous les paiements encore en attente
-        $releaseAt = now()->addHours(2);
-        TripValidation::whereHas('booking', function ($q) use ($trip) {
-                $q->where('trip_id', $trip->id)->where('status', 'accepted');
-            })
-            ->where('status', 'waiting')
-            ->update(['auto_release_at' => $releaseAt]);
+        // Fenêtre de 2h : mettre à jour ou créer TripValidation pour chaque réservation acceptée
+        $releaseAt       = now()->addHours(2);
+        $acceptedBookings = Booking::where('trip_id', $trip->id)
+            ->where('status', 'accepted')
+            ->get();
+
+        foreach ($acceptedBookings as $booking) {
+            TripValidation::updateOrCreate(
+                ['booking_id' => $booking->id],
+                [
+                    'trip_id'         => $trip->id,
+                    'status'          => 'waiting',
+                    'auto_release_at' => $releaseAt,
+                ]
+            );
+        }
 
         // Montant total en attente (paiements verrouillés)
         $pendingAmount = (int) Payment::whereHas('booking', function ($q) use ($trip) {
