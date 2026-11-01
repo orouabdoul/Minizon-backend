@@ -293,8 +293,9 @@ class PassengerHomeController extends Controller
     private function heroMetrics(User $user): array
     {
         $completedBookings = Booking::where('passenger_id', $user->id)
-            ->whereIn('status', ['accepted'])
-            ->whereHas('payment', fn ($q) => $q->where('status', 'success'))
+            ->where('status', 'accepted')
+            ->whereHas('trip', fn ($q) => $q->where('status', 'completed'))
+            ->whereHas('payment', fn ($q) => $q->whereIn('status', ['success', 'locked']))
             ->with('payment')
             ->get();
 

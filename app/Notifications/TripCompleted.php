@@ -32,7 +32,7 @@ class TripCompleted extends Notification
         $bookingUuid = null;
         if ($this->recipientRole === 'passenger') {
             $bookingUuid = \App\Models\Booking::where('trip_id', $this->trip->id)
-                ->where('user_id', $notifiable->id)
+                ->where('passenger_id', $notifiable->id)
                 ->where('status', 'accepted')
                 ->value('uuid');
         }
