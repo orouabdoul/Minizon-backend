@@ -142,20 +142,25 @@ class DriverHomeController extends Controller
     {
         $user = $request->user();
 
+        $tz = 'Africa/Porto-Novo';
+        $now = \Carbon\Carbon::now($tz);
+
         $completedTripIds = Trip::where('user_id', $user->id)
             ->where('status', 'completed')
             ->pluck('id');
 
-        // ── Gains ─────────────────────────────────────────────────────────────
+        // ── Gains — inclut locked (en attente de libération) + success ─────────
+        // locked = course terminée, paiement bloqué 2h avant libération auto
+        // On affiche dès la fin du trajet, pas seulement après libération.
         $paymentsBase = Payment::whereHas(
             'booking',
             fn ($q) => $q->whereIn('trip_id', $completedTripIds)
-        )->where('status', 'success');
+        )->whereIn('status', ['success', 'locked']);
 
-        $todayEarnings   = (clone $paymentsBase)->whereDate('created_at', today())->sum('net_amount');
-        $weekEarnings    = (clone $paymentsBase)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->sum('net_amount');
-        $monthEarnings   = (clone $paymentsBase)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('net_amount');
-        $totalEarnings   = (clone $paymentsBase)->sum('net_amount');
+        $todayEarnings   = (clone $paymentsBase)->whereDate('created_at', $now->toDateString())->sum('net_amount');
+        $weekEarnings    = (clone $paymentsBase)->whereBetween('created_at', [$now->copy()->startOfWeek()->setTimezone('UTC'), $now->copy()->endOfWeek()->setTimezone('UTC')])->sum('net_amount');
+        $monthEarnings   = (clone $paymentsBase)->whereBetween('created_at', [$now->copy()->startOfMonth()->setTimezone('UTC'), $now->copy()->endOfMonth()->setTimezone('UTC')])->sum('net_amount');
+        $totalEarnings   = Payment::whereHas('booking', fn ($q) => $q->whereIn('trip_id', $completedTripIds))->where('status', 'success')->sum('net_amount');
         $totalCommission = (clone $paymentsBase)->sum('commission_amount');
 
         $pendingCount = Booking::whereHas('trip', fn ($q) => $q->where('user_id', $user->id))
