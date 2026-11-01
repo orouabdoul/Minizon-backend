@@ -410,6 +410,80 @@ class DriverInteractiveMapController extends Controller
     }
 
     // =========================================================================
+    //  POST /api/driver/trips/{uuid}/stops/{bookingUuid}/confirm-boarding-manual
+    //  Conducteur confirme manuellement l'embarquement (téléphone mort / sans réseau)
+    // =========================================================================
+
+    public function confirmBoardingManual(Request $request, string $uuid, string $bookingUuid): JsonResponse
+    {
+        $trip = Trip::where('uuid', $uuid)->first();
+        if (! $trip || $trip->user_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Trajet introuvable ou accès refusé.', [], 403);
+        }
+        if (! in_array($trip->status, ['pending', 'active'])) {
+            return $this->apiResponse(false, 'Le trajet n\'est pas disponible.', [], 403);
+        }
+
+        $booking = Booking::where('uuid', $bookingUuid)
+            ->where('trip_id', $trip->id)
+            ->where('status', 'accepted')
+            ->with('passenger')
+            ->first();
+
+        if (! $booking) {
+            return $this->apiResponse(false, 'Réservation introuvable.', [], 404);
+        }
+        if ($booking->picked_up_at !== null) {
+            return $this->apiResponse(false, 'Ce passager a déjà été pris en charge.', [], 403);
+        }
+
+        $booking->update([
+            'picked_up_at'    => now(),
+            'boarding_method' => 'manual',
+        ]);
+
+        // Auto-démarrage du trajet au premier embarquement manuel
+        if ($trip->status === 'pending') {
+            $trip->update(['status' => 'active', 'started_at' => now()]);
+        }
+
+        BoardingEvent::log(
+            bookingUuid: $booking->uuid,
+            tripUuid:    $trip->uuid,
+            eventType:   'manual_confirmed',
+            driverId:    $request->user()->id,
+            passengerId: $booking->passenger_id,
+        );
+
+        // Notification FCM au passager
+        $fcmToken = $booking->passenger?->fcm_token;
+        if ($fcmToken) {
+            $driverName = $request->user()->profile?->fullName() ?? $request->user()->phone;
+            app(FcmService::class)->send(
+                $fcmToken,
+                '✅ Vous êtes à bord !',
+                'Le conducteur ' . $driverName . ' vous a pris en charge (confirmation manuelle). Bon voyage !',
+                [
+                    'type'         => 'passenger_picked_up',
+                    'trip_uuid'    => $trip->uuid,
+                    'booking_uuid' => $booking->uuid,
+                    'method'       => 'manual',
+                ]
+            );
+        }
+
+        $doneCount  = $trip->bookings()->where('status', 'accepted')->whereNotNull('picked_up_at')->count();
+        $totalCount = $trip->bookings()->where('status', 'accepted')->count();
+
+        return $this->apiResponse(true, 'Embarquement manuel confirmé.', [
+            'stop_id'         => $booking->uuid,
+            'picked_up_at'    => $booking->picked_up_at->toIso8601String(),
+            'next_stop_index' => $doneCount,
+            'all_picked_up'   => $doneCount >= $totalCount,
+        ]);
+    }
+
+    // =========================================================================
     //  POST /api/driver/trips/{uuid}/recalculate
     // =========================================================================
 

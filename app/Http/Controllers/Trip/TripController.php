@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Trip;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Trip;
 use App\Models\TripLocation;
 use App\Models\TripValidation;
@@ -323,12 +324,20 @@ class TripController extends Controller
             'completed_at' => now(),
         ]);
 
-        // Pour les passagers pas encore déposés individuellement, déclencher le timer 1h
+        // Fenêtre de 2h pour tous les paiements encore en attente
+        $releaseAt = now()->addHours(2);
         TripValidation::whereHas('booking', function ($q) use ($trip) {
-                $q->where('trip_id', $trip->id)->whereNull('dropped_off_at');
+                $q->where('trip_id', $trip->id)->where('status', 'accepted');
             })
             ->where('status', 'waiting')
-            ->update(['auto_release_at' => now()->addHour()]);
+            ->update(['auto_release_at' => $releaseAt]);
+
+        // Montant total en attente (paiements verrouillés)
+        $pendingAmount = (int) Payment::whereHas('booking', function ($q) use ($trip) {
+                $q->where('trip_id', $trip->id)->where('status', 'accepted');
+            })
+            ->where('status', 'locked')
+            ->sum('net_amount');
 
         // Notifier les passagers et le conducteur
         try {
@@ -343,16 +352,18 @@ class TripController extends Controller
                 $passenger->notify(new TripCompleted($trip, 'passenger'));
             }
 
-            // Notifier le conducteur pour la libération des fonds sous 24h
+            // Notifier le conducteur pour la libération des fonds sous 2h
             $trip->user?->notify(new TripCompleted($trip, 'driver'));
         } catch (\Throwable $e) {
             Log::warning('TripController endTrip: notif échouée', ['error' => $e->getMessage()]);
         }
 
         return $this->apiResponse(true, 'Trajet terminé.', [
-            'uuid'         => $trip->uuid,
-            'status'       => 'completed',
-            'completed_at' => $trip->completed_at?->toIso8601String(),
+            'uuid'           => $trip->uuid,
+            'status'         => 'completed',
+            'completed_at'   => $trip->completed_at?->toIso8601String(),
+            'pending_amount' => $pendingAmount,
+            'release_at'     => $releaseAt->toIso8601String(),
         ]);
     }
 

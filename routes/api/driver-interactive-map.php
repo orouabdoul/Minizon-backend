@@ -27,6 +27,10 @@ Route::middleware(['auth:sanctum', 'approved'])->prefix('driver')->group(functio
     Route::post('trips/{uuid}/stops/{bookingUuid}/verify-code', [DriverInteractiveMapController::class, 'verifyCode'])
         ->name('driver.map.verify_code');
 
+    // Confirmation manuelle embarquement (téléphone mort / sans réseau)
+    Route::post('trips/{uuid}/stops/{bookingUuid}/confirm-boarding-manual', [DriverInteractiveMapController::class, 'confirmBoardingManual'])
+        ->name('driver.map.boarding_manual');
+
     // Déposer un passager → déclenche le timer de libération des fonds (1h)
     Route::post('trips/{uuid}/stops/{bookingUuid}/dropoff', [DriverDropoffController::class, 'dropoff'])
         ->name('driver.map.dropoff');
