@@ -28,19 +28,32 @@ class TripCompleted extends Notification
             $body  = "Trajet {$this->trip->departure_city} → {$this->trip->arrival_city} terminé. N'oubliez pas de noter votre conducteur.";
         }
 
+        // Pour le passager : retrouver l'UUID de sa réservation pour la navigation côté app
+        $bookingUuid = null;
+        if ($this->recipientRole === 'passenger') {
+            $bookingUuid = \App\Models\Booking::where('trip_id', $this->trip->id)
+                ->where('user_id', $notifiable->id)
+                ->where('status', 'accepted')
+                ->value('uuid');
+        }
+
         if ($notifiable->fcm_token) {
+            $fcmPayload = [
+                'type'      => 'trip_completed',
+                'trip_uuid' => $this->trip->uuid,
+            ];
+            if ($bookingUuid) {
+                $fcmPayload['booking_uuid'] = $bookingUuid;
+            }
             app(FcmService::class)->send(
                 $notifiable->fcm_token,
                 $title,
                 $body,
-                [
-                    'type'      => 'trip_completed',
-                    'trip_uuid' => $this->trip->uuid,
-                ]
+                $fcmPayload
             );
         }
 
-        return [
+        $dbPayload = [
             'type'      => 'trip_completed',
             'title'     => $title,
             'body'      => $body,
@@ -48,5 +61,10 @@ class TripCompleted extends Notification
             'from'      => $this->trip->departure_city,
             'to'        => $this->trip->arrival_city,
         ];
+        if ($bookingUuid) {
+            $dbPayload['booking_uuid'] = $bookingUuid;
+        }
+
+        return $dbPayload;
     }
 }
