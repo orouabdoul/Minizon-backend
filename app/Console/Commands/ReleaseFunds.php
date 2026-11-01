@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Review;
 use App\Models\TripValidation;
+use App\Notifications\EscrowReleased;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -65,6 +66,16 @@ class ReleaseFunds extends Command
             $booking?->update(['payment_status' => 'released_to_driver']);
             $booking?->payment?->update(['status' => 'success']);
 
+            // Notifier le conducteur que les fonds sont disponibles
+            try {
+                $driver = $booking?->trip?->user;
+                if ($driver && $booking?->payment) {
+                    $driver->notify(new EscrowReleased($booking->payment));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('ReleaseFunds: notif conducteur échouée', ['err' => $e->getMessage()]);
+            }
+
             $amount = $booking?->payment?->net_amount;
             $this->line("  ✅ Fonds libérés — Booking #{$validation->booking_id}");
             Log::info('ReleaseFunds: fonds libérés', [
@@ -122,6 +133,16 @@ class ReleaseFunds extends Command
 
                 // Marquer TripValidation comme released si elle existe
                 $booking?->tripValidation?->update(['status' => 'released', 'released_at' => now()]);
+
+                // Notifier le conducteur
+                try {
+                    $driver = $booking?->trip?->user;
+                    if ($driver) {
+                        $driver->notify(new EscrowReleased($payment));
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('ReleaseFunds passe2: notif conducteur échouée', ['err' => $e->getMessage()]);
+                }
 
                 Log::info('ReleaseFunds passe2: fonds libérés (orphan)', [
                     'booking_id' => $booking?->id,
