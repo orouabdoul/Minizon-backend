@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'scheduler_secret' => env('SCHEDULER_SECRET', ''),
+
 ];

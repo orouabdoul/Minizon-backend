@@ -7,6 +7,8 @@
  * ============================================================
  */
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 // Healthcheck
@@ -74,6 +76,16 @@ require __DIR__ . '/api/passenger-trip-history.php';
 // ── Admin — gestion des conducteurs & passagers ───────────────────────────
 require __DIR__ . '/api/drivers.php';
 require __DIR__ . '/api/passengers.php';
+
+// ── Scheduler interne — appelé par cron-job.org toutes les 5 min ──────────
+Route::post('internal/run-scheduler', function (Request $request) {
+    $secret = config('app.scheduler_secret');
+    if (empty($secret) || $request->header('X-Scheduler-Key') !== $secret) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+    }
+    Artisan::call('minizon:release-funds');
+    return response()->json(['success' => true, 'output' => trim(Artisan::output())]);
+});
 
 
 // Routes pour l'administration (protégées par auth:admin)
