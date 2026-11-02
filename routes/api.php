@@ -85,7 +85,7 @@ Route::post('internal/run-scheduler', function (Request $request) {
     }
     Artisan::call('minizon:release-funds');
     return response()->json(['success' => true, 'output' => trim(Artisan::output())]);
-});
+})->withoutMiddleware('throttle:api');
 
 
 // Routes pour l'administration (protégées par auth:admin)
