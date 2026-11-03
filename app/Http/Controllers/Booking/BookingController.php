@@ -198,10 +198,7 @@ class BookingController extends Controller
                 'trace' => substr($e->getTraceAsString(), 0, 2000),
             ]);
 
-            return $this->apiResponse(false, 'Une erreur est survenue lors de la création de la réservation. Veuillez réessayer.', [
-                'class' => get_class($e),
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->apiResponse(false, 'Une erreur est survenue lors de la création de la réservation. Veuillez réessayer.', [], 500);
         }
     }
 
@@ -367,6 +364,10 @@ class BookingController extends Controller
 
     public function adminIndex(Request $request): JsonResponse
     {
+        if (! $request->user()->isAdmin()) {
+            return $this->apiResponse(false, 'Action réservée aux administrateurs.', [], 403);
+        }
+
         $query = Booking::with(['trip', 'passenger.profile'])->orderByDesc('created_at');
 
         if ($request->filled('status')) {

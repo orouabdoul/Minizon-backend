@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'approved'    => EnsureAccountApproved::class,
             'not_blocked' => EnsureNotBlocked::class,
+            'admin'       => \App\Http\Middleware\EnsureAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -825,6 +825,12 @@ class AuthController extends Controller
     )]
     public function delete(string $uuid): JsonResponse
     {
+        $currentUser = auth()->user();
+
+        if ($currentUser->uuid !== $uuid && ! $currentUser->isAdmin()) {
+            return $this->apiResponse(false, 'Action non autorisée.', [], 403);
+        }
+
         $user = User::where('uuid', $uuid)->first();
 
         if (! $user) {

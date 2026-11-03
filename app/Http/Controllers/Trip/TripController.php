@@ -538,8 +538,7 @@ class TripController extends Controller
             'arrival_latitude'    => $trip->arrival_latitude    ? (float) $trip->arrival_latitude    : null,
             'arrival_longitude'   => $trip->arrival_longitude   ? (float) $trip->arrival_longitude   : null,
             'driver' => [
-                'name'  => $driverName,
-                'phone' => $trip->user?->phone ?? '',
+                'name' => $driverName,
             ],
         ]);
     }

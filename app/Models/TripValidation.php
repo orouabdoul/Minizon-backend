@@ -15,6 +15,7 @@ class TripValidation extends Model
         'passenger_confirmed',
         'passenger_confirmed_at',
         'auto_release_at',
+        'released_at',
         'status',
     ];
 
@@ -22,6 +23,7 @@ class TripValidation extends Model
         'passenger_confirmed'    => 'boolean',
         'passenger_confirmed_at' => 'datetime',
         'auto_release_at'        => 'datetime',
+        'released_at'            => 'datetime',
     ];
 
     // -----------------------------------------------------------------------

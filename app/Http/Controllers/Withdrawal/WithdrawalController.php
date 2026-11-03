@@ -74,6 +74,12 @@ class WithdrawalController extends Controller
         $validated = $request->validate($rules);
         $amount    = $validated['amount'];
 
+        // Bloquer si une demande est déjà en attente
+        $hasPending = Withdrawal::where('user_id', $user->id)->where('status', 'pending')->exists();
+        if ($hasPending) {
+            return $this->apiResponse(false, 'Une demande de retrait est déjà en cours de traitement.', null, 422);
+        }
+
         // Vérification solde
         $totalRevenue   = (int) Payment::whereHas('booking.trip', fn ($q) => $q->where('user_id', $user->id))
             ->where('status', 'success')->sum('net_amount');
