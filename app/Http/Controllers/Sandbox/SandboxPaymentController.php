@@ -44,7 +44,7 @@ class SandboxPaymentController extends Controller
                     [
                         'trip_id'             => $booking->trip_id,
                         'passenger_confirmed' => false,
-                        'auto_release_at'     => now()->addHours(24),
+                        'auto_release_at'     => now()->addHours(2),
                         'status'              => 'waiting',
                     ]
                 );

@@ -15,7 +15,7 @@ class Settings extends Component
 
     // ── Paiement ──────────────────────────────────────────────────
     public string $payment_timeout_minutes = '15';
-    public string $escrow_release_hours    = '24';
+    public string $escrow_release_hours    = '2';
     public bool   $payment_enabled         = true;
 
     // ── Plateforme ────────────────────────────────────────────────
@@ -44,7 +44,7 @@ class Settings extends Component
             'max_commission'           => '0',
             'commission_type'          => 'percentage',
             'payment_timeout_minutes'  => '15',
-            'escrow_release_hours'     => '24',
+            'escrow_release_hours'     => '2',
             'payment_enabled'          => '1',
             'platform_name'            => 'MINIZON',
             'support_phone'            => '',

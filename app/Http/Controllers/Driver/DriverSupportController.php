@@ -146,7 +146,7 @@ class DriverSupportController extends Controller
             'items'     => [
                 [
                     'question' => 'Quand vais-je recevoir mon paiement ?',
-                    'answer'   => 'Les paiements sont disponibles dans votre portefeuille MINIZON immédiatement après confirmation par le passager (ou 24h après la course). Le virement vers votre compte se fait sous 1-3 jours ouvrés.',
+                    'answer'   => 'Les paiements sont disponibles dans votre portefeuille MINIZON immédiatement après confirmation par le passager (ou 2h après la course). Le virement vers votre compte se fait sous 1-3 jours ouvrés.',
                 ],
                 [
                     'question' => "Mon paiement n'est pas arrivé. Que faire ?",

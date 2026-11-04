@@ -289,7 +289,7 @@ class DriverInteractiveMapController extends Controller
         $driverLat = $request->input('driver_lat') ? (float) $request->input('driver_lat') : null;
         $driverLng = $request->input('driver_lng') ? (float) $request->input('driver_lng') : null;
 
-        $expiresAt = now()->addMinutes(2)->toIso8601String();
+        $expiresAt = now()->addSeconds(60)->toIso8601String();
 
         // Notifier le passager
         $notified = false;
@@ -582,6 +582,10 @@ class DriverInteractiveMapController extends Controller
             'optimized'          => true,
             'stops'              => $stops,
             'route_polyline'     => $polyline,
+            'departure_latlng'   => ($depLatR && $depLngR)
+                ? ['lat' => $depLatR, 'lng' => $depLngR] : null,
+            'arrival_latlng'     => ($arrLatR && $arrLngR)
+                ? ['lat' => $arrLatR, 'lng' => $arrLngR] : null,
             'route_distance'     => $routeDistance,
             'route_eta'          => $routeEta,
             'route_fuel'         => $routeFuel,

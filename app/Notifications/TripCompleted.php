@@ -22,7 +22,7 @@ class TripCompleted extends Notification
     {
         if ($this->recipientRole === 'driver') {
             $title = '✅ Trajet terminé — Validation en cours';
-            $body  = "Trajet {$this->trip->departure_city} → {$this->trip->arrival_city} terminé. Les fonds seront libérés sous 24h si aucun litige n'est ouvert.";
+            $body  = "Trajet {$this->trip->departure_city} → {$this->trip->arrival_city} terminé. Les fonds seront libérés sous 2h si aucun litige n'est ouvert.";
         } else {
             $title = '🏁 Vous êtes arrivé(e) !';
             $body  = "Trajet {$this->trip->departure_city} → {$this->trip->arrival_city} terminé. N'oubliez pas de noter votre conducteur.";

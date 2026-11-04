@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 class ReleaseFunds extends Command
 {
     protected $signature   = 'minizon:release-funds';
-    protected $description = 'Libère automatiquement les fonds en escrow après 24h sans litige ni avis critique.';
+    protected $description = 'Libère automatiquement les fonds en escrow après 2h sans litige ni avis critique.';
 
     public function handle(): void
     {

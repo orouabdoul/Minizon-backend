@@ -25,7 +25,7 @@ class DriverEndTripController extends Controller
         path: '/api/driver/trips/{uuid}/end-summary',
         operationId: 'driverTripEndSummary',
         summary: 'Résumé de fin de trajet',
-        description: "Retourne en un seul appel tout ce dont la page \"Trajet terminé\" a besoin : résumé financier (brut / commission / net), durée réelle, confirmations passagers en temps réel et date de disponibilité des fonds (+24h). Utilisable avant (statut `active`) et après (statut `completed`) la confirmation.\n\nLe bouton **\"Confirmer la fin du trajet\"** doit appeler **POST /api/trips/{uuid}/end**.",
+        description: "Retourne en un seul appel tout ce dont la page \"Trajet terminé\" a besoin : résumé financier (brut / commission / net), durée réelle, confirmations passagers en temps réel et date de disponibilité des fonds (+2h). Utilisable avant (statut `active`) et après (statut `completed`) la confirmation.\n\nLe bouton **\"Confirmer la fin du trajet\"** doit appeler **POST /api/trips/{uuid}/end**.",
         tags: ['🚗 Driver — End Trip'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -156,7 +156,7 @@ class DriverEndTripController extends Controller
             ->sortBy('auto_release_at')
             ->first();
 
-        $availableAt   = $firstValidation?->auto_release_at ?? now()->addHours(24);
+        $availableAt   = $firstValidation?->auto_release_at ?? now()->addHours(2);
         $availableDate = 'le ' . $availableAt->setTimezone('Africa/Porto-Novo')->format('d/m/Y');
 
         return $this->apiResponse(true, 'Résumé du trajet.', [
