@@ -311,9 +311,10 @@ class DriverInteractiveMapController extends Controller
         );
 
         return $this->apiResponse(true, 'Demande d\'embarquement envoyée.', [
-            'expires_at'   => $expiresAt,
-            'notified'     => $notified,
-            'booking_uuid' => $booking->uuid,
+            'expires_at'    => $expiresAt,
+            'notified'      => $notified,
+            'booking_uuid'  => $booking->uuid,
+            'boarding_code' => $booking->boarding_code,
         ]);
     }
 

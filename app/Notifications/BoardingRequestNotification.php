@@ -41,13 +41,14 @@ class BoardingRequestNotification extends Notification
                 $title,
                 $body,
                 array_filter([
-                    'type'         => 'boarding_request',
-                    'booking_uuid' => $this->booking->uuid,
-                    'trip_uuid'    => $trip?->uuid,
-                    'driver_lat'   => $this->driverLat !== null ? (string) $this->driverLat : null,
-                    'driver_lng'   => $this->driverLng !== null ? (string) $this->driverLng : null,
-                    'expires_at'   => $this->expiresAt,
-                    'sound'        => 'boarding_sound',
+                    'type'          => 'boarding_request',
+                    'booking_uuid'  => $this->booking->uuid,
+                    'trip_uuid'     => $trip?->uuid,
+                    'boarding_code' => (string) ($this->booking->boarding_code ?? ''),
+                    'driver_lat'    => $this->driverLat !== null ? (string) $this->driverLat : null,
+                    'driver_lng'    => $this->driverLng !== null ? (string) $this->driverLng : null,
+                    'expires_at'    => $this->expiresAt,
+                    'sound'         => 'boarding_sound',
                 ])
             );
         }
