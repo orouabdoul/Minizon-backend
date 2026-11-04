@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Passenger\PassengerMapController;
 use App\Http\Controllers\Passenger\PassengerPaymentSuccessController;
 use App\Http\Controllers\Passenger\PassengerReservationController;
 use App\Http\Controllers\Passenger\PassengerWaitingApprovalController;
@@ -30,6 +31,10 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->prefix('passenger')->group(f
     // ── PaymentSuccessView — récapitulatif après paiement FedaPay ────────────
     Route::get('bookings/{uuid}/success', [PassengerPaymentSuccessController::class, 'show'])
         ->name('passenger.bookings.success');
+
+    // ── Carte suivi passager — coordonnées GeoHelper + polyline route ─────────
+    Route::get('trips/{tripUuid}/map', [PassengerMapController::class, 'mapData'])
+        ->name('passenger.trips.map');
 
 });
 
