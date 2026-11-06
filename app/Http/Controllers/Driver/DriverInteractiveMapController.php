@@ -269,8 +269,12 @@ class DriverInteractiveMapController extends Controller
         if (! $trip || $trip->user_id !== $request->user()->id) {
             return $this->apiResponse(false, 'Trajet introuvable ou accès refusé.', [], 403);
         }
-        if ($trip->status !== 'active') {
+        if (!in_array($trip->status, ['active', 'pending'])) {
             return $this->apiResponse(false, 'Le trajet n\'est pas en cours.', [], 403);
+        }
+        // Auto-démarrage au premier embarquement (cohérent avec verifyCode)
+        if ($trip->status === 'pending') {
+            $trip->update(['status' => 'active', 'started_at' => now()]);
         }
 
         $booking = Booking::where('uuid', $bookingUuid)
