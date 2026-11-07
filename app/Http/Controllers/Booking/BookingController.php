@@ -30,14 +30,14 @@ class BookingController extends Controller
             'pickup_city' => ['required', 'string', 'max:100'],
             'pickup_arrondissement' => ['nullable', 'string', 'max:150'],
             'pickup_neighborhood' => ['nullable', 'string', 'max:100'],
-            'pickup_address' => ['required', 'string', 'max:500'],
+            'pickup_address' => ['nullable', 'string', 'max:500'],
             'pickup_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'pickup_longitude' => ['nullable', 'numeric', 'between:-180,180'],
             // ── Dépôt ──
             'dropoff_city' => ['required', 'string', 'max:100'],
             'dropoff_arrondissement' => ['nullable', 'string', 'max:150'],
             'dropoff_neighborhood' => ['nullable', 'string', 'max:100'],
-            'dropoff_address' => ['required', 'string', 'max:500'],
+            'dropoff_address' => ['nullable', 'string', 'max:500'],
             'dropoff_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'dropoff_longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
@@ -141,14 +141,14 @@ class BookingController extends Controller
                     'pickup_city' => $validated['pickup_city'],
                     'pickup_arrondissement' => $validated['pickup_arrondissement'] ?? null,
                     'pickup_neighborhood' => $validated['pickup_neighborhood'] ?? null,
-                    'pickup_address' => $validated['pickup_address'],
+                    'pickup_address' => $validated['pickup_address'] ?? '',
                     'pickup_latitude' => $pickupLat ?? 0.0,
                     'pickup_longitude' => $pickupLng ?? 0.0,
                     // ── Dépôt (GPS résolu automatiquement) ──
                     'dropoff_city' => $validated['dropoff_city'],
                     'dropoff_arrondissement' => $validated['dropoff_arrondissement'] ?? null,
                     'dropoff_neighborhood' => $validated['dropoff_neighborhood'] ?? null,
-                    'dropoff_address' => $validated['dropoff_address'],
+                    'dropoff_address' => $validated['dropoff_address'] ?? '',
                     'dropoff_latitude' => $dropoffLat ?? 0.0,
                     'dropoff_longitude' => $dropoffLng ?? 0.0,
                     // ── Prix ──

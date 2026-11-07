@@ -102,6 +102,7 @@ class PassengerTripDetailController extends Controller
     )]
     public function show(Request $request, string $uuid): JsonResponse
     {
+        try {
         $trip = Trip::with(['user.profile', 'vehicle'])
             ->where('uuid', $uuid)
             ->first();
@@ -203,13 +204,11 @@ class PassengerTripDetailController extends Controller
         $recentReviews = $this->buildRecentReviews($trip->id, $tz);
 
         // ── Réservation existante pour ce passager ────────────────────────────
-        $existingBooking = $driver
-            ? Booking::with(['trip'])
-                ->where('trip_id', $trip->id)
-                ->where('passenger_id', $user->id)
-                ->whereNotIn('status', ['cancelled', 'rejected'])
-                ->first()
-            : null;
+        $existingBooking = Booking::with(['trip'])
+            ->where('trip_id', $trip->id)
+            ->where('passenger_id', $user->id)
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->first();
 
         $isExisting        = (bool) $existingBooking;
         $reservationUuid   = $existingBooking?->uuid;
@@ -225,6 +224,15 @@ class PassengerTripDetailController extends Controller
             'reservation_uuid'        => $reservationUuid,
             'reservation_status'      => $reservationStatus,
         ]);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('tripDetail failed', [
+                'trip_uuid' => $uuid,
+                'error'     => $e->getMessage(),
+                'trace'     => substr($e->getTraceAsString(), 0, 2000),
+            ]);
+            return $this->apiResponse(false, 'Erreur lors du chargement du trajet.', [], 500);
+        }
     }
 
     // =========================================================================
@@ -281,12 +289,16 @@ class PassengerTripDetailController extends Controller
             ? round(($accepted / $totalResponded) * 100) . '%'
             : '—';
 
-        // Temps de réponse moyen (approximé : updated_at - created_at pour les acceptées)
-        $avgResponseSec = Booking::whereIn('trip_id', $driverTripIds)
-            ->where('status', 'accepted')
-            ->whereNotNull('updated_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, created_at, updated_at)) as avg_sec')
-            ->value('avg_sec');
+        // Temps de réponse moyen (PHP-side pour compatibilité MySQL/PostgreSQL)
+        try {
+            $avgResponseSec = Booking::whereIn('trip_id', $driverTripIds)
+                ->where('status', 'accepted')
+                ->whereNotNull('updated_at')
+                ->get(['created_at', 'updated_at'])
+                ->avg(fn ($b) => max(0, $b->updated_at->diffInSeconds($b->created_at)));
+        } catch (\Throwable) {
+            $avgResponseSec = null;
+        }
         $responseTime = $avgResponseSec !== null
             ? ($avgResponseSec < 60
                 ? '~1 min'
